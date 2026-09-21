@@ -14,8 +14,8 @@ function maskPhone(phone: string): string {
 }
 
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } },
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -28,8 +28,10 @@ export async function GET(
   });
   const unlockedStates = Array.from(new Set(purchases.flatMap((p) => p.unlockedStates)));
 
+  const { id } = await params;
+
   const agent = await db.agent.findUnique({
-    where: { id: params.id, isDeliverable: true },
+    where: { id, isDeliverable: true },
     include: { agentActivities: { orderBy: { createdAt: "desc" }, take: 10 } },
   });
 
