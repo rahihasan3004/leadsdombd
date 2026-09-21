@@ -1,0 +1,7 @@
+function tick(t,u){if (window.tactilecsi){window.tactilecsi.load.tick(t,null,u);}
+if (window['wtf']&& window['wtf']['trace']&&
+window['wtf']['trace']['timeStamp']){window['wtf']['trace']['timeStamp']('application.' + t);}
+}
+var s;try {s = Date.now();tick('pnw',Math.round(performance.now()+ s));}catch (e){}
+
+tick('start',s);tick('p0');

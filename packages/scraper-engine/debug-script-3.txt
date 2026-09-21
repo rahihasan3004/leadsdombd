@@ -1,0 +1,1 @@
+window._ = window._ || {};window._._DumpException = function(e){throw globals.ErrorHandler.log(e);};window._DumpException = function(e){throw globals.ErrorHandler.log(e);};

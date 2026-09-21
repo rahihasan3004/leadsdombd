@@ -1,0 +1,5 @@
+{
+  "extends": "@fine-leads/config/typescript/base.json",
+  "include": ["src/**/*.ts", "prisma/**/*.ts"],
+  "exclude": ["node_modules"]
+}

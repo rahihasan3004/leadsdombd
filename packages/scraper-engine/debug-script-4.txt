@@ -1,0 +1,7 @@
+(function(){'use strict';/*
+
+ Copyright The Closure Library Authors.
+ SPDX-License-Identifier: Apache-2.0
+*/
+var a=this||self;function c(){var b=b===void 0?document:b;b.visibilityState==="hidden"?a.tick("bg0"):a.tick("bg1")}
+;document.addEventListener("visibilitychange",c,!1);typeof globals==="undefined"&&(a.globals={});globals.BackgroundTicks={stop:function(){document.removeEventListener("visibilitychange",c,!1)}};}).call(this);

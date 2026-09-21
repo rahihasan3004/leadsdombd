@@ -1,0 +1,1 @@
+export { GoogleMapsAdapter } from "./google-maps.adapter.js";
