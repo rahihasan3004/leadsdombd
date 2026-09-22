@@ -1,11 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@fine-leads/database";
-// ... other imports
+import { auth } from "@fine-leads/auth";
 
 export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  request: NextRequest,
+  props: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  // ... rest of your code
+  try {
+    const { id } = await props.params;
+    const session = await auth();
+
+    const agent = await db.agent.findUnique({
+      where: { id },
+      include: {
+        agentActivities: {
+          take: 10,
+          orderBy: { createdAt: "desc" },
+        },
+      },
+    });
+
+    if (!agent) {
+      return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+    }
+
+    // Check if the user has unlocked the state for this agent
+    let isUnlocked = false;
+    if (session?.user?.id && agent.state) {
+      const purchases = await db.leadPurchase.findMany({
+        where: {
+          userId: session.user.id,
+          status: "COMPLETED",
+        },
+        select: { unlockedStates: true },
+      });
+
+      const allUnlocked = purchases.flatMap((p: { unlockedStates: string[] }) => p.unlockedStates);
+      isUnlocked = allUnlocked.includes(agent.state.toUpperCase());
+    }
+
+    // Mask data if not unlocked
+    if (!isUnlocked && session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
+      return NextResponse.json({
+        ...agent,
+        email: agent.email ? `${agent.email.slice(0, 1)}***@${agent.email.split("@")[1] || "domain.com"}` : null,
+        phone: agent.phone ? `+1 (***) ***-${agent.phone.slice(-4)}` : null,
+        brokerageAddress: "Locked - Purchase State Pack to View",
+      });
+    }
+
+    return NextResponse.json(agent);
+  } catch (error) {
+    console.error("[AGENT_DETAIL_ERROR]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
