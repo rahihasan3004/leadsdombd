@@ -4,10 +4,10 @@ import { auth } from "@fine-leads/auth";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await props.params;
     const session = await auth();
 
     const agent = await db.agent.findUnique({
@@ -41,12 +41,12 @@ export async function GET(
       isUnlocked = allUnlocked.includes(agent.state.toUpperCase());
     }
 
+    // Safe role check
+    const userRole = (session?.user as any)?.role;
+    const isAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN";
+
     // Mask data if not unlocked and not admin
-    if (
-      !isUnlocked &&
-      session?.user?.role !== "ADMIN" &&
-      (session?.user as any)?.role !== "SUPER_ADMIN"
-    ) {
+    if (!isUnlocked && !isAdmin) {
       return NextResponse.json({
         ...agent,
         email: agent.email
