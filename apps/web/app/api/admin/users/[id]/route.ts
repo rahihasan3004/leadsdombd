@@ -42,7 +42,7 @@ export async function PATCH(
     const updated = await updateUser(
       id,
       { role, organizationId, walletBalanceAdjustment, balanceReason },
-      adminCheck.user?.id || "admin",
+       adminCheck.user.id || "admin",
     );
 
     return NextResponse.json({ user: updated });

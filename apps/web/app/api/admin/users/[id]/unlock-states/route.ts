@@ -22,7 +22,7 @@ export async function POST(
       );
     }
 
-    const purchase = await grantUnlockStates(id, states, adminCheck.user.id);
+    const purchase = await grantUnlockStates(id, states, adminCheck.user.id || "admin");
 
     return NextResponse.json({ purchase });
   } catch (err: unknown) {

@@ -22,7 +22,7 @@ export async function POST(
       );
     }
 
-    const result = await revokeUnlockStates(id, states, adminCheck.user.id);
+    const result = await revokeUnlockStates(id, states, adminCheck.user.id || "admin");
 
     return NextResponse.json({ result });
   } catch (err: unknown) {

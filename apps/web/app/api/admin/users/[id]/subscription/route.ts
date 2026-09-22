@@ -48,7 +48,7 @@ export async function PATCH(
     const subscription = await overrideSubscription(
       id,
       { tier: tier as SubscriptionTier, status: status as SubscriptionStatus },
-      adminCheck.user.id,
+      adminCheck.user.id || "admin",
     );
 
     return NextResponse.json({ subscription });
