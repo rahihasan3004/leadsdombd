@@ -1,56 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApi } from "@/lib/admin-guard";
-import { updateSubscription } from "@/lib/admin/subscriptions-service";
-import type { SubscriptionTier, SubscriptionStatus } from "@fine-leads/database";
-
-const VALID_TIERS: SubscriptionTier[] = ["FREE", "PRO", "ENTERPRISE"];
-const VALID_STATUSES: SubscriptionStatus[] = [
-  "ACTIVE",
-  "PAST_DUE",
-  "CANCELED",
-  "INCOMPLETE",
-  "INCOMPLETE_EXPIRED",
-  "TRIALING",
-  "UNPAID",
-  "PAUSED",
-];
+import { requireAdminApi } from "@/src/lib/admin-guard";
+import { updateSubscription } from "@/src/lib/admin/subscriptions-service";
+import { SubscriptionTier, SubscriptionStatus } from "@fine-leads/database";
 
 export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  req: NextRequest,
+  props: { params: Promise<{ id: string }> }
 ) {
   const adminCheck = await requireAdminApi();
   if (adminCheck instanceof NextResponse) return adminCheck;
+  if (!adminCheck.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  const { id } = await params;
+  const { id } = await props.params;
 
   try {
-    const body = await request.json();
-    const { tier, status } = body as {
-      tier?: string;
-      status?: string;
-    };
+    const body = await req.json();
+    const { tier, status } = body;
 
-    if (tier && !VALID_TIERS.includes(tier as SubscriptionTier)) {
-      return NextResponse.json(
-        { error: `tier must be one of: ${VALID_TIERS.join(", ")}` },
-        { status: 400 },
-      );
-    }
-
-    if (status && !VALID_STATUSES.includes(status as SubscriptionStatus)) {
-      return NextResponse.json(
-        { error: `status must be one of: ${VALID_STATUSES.join(", ")}` },
-        { status: 400 },
-      );
-    }
-
-    if (!tier && !status) {
-      return NextResponse.json(
-        { error: "At least one of tier or status must be provided" },
-        { status: 400 },
-      );
-    }
+    const adminId: string = adminCheck.user.id || "admin";
 
     const subscription = await updateSubscription(
       id,
@@ -58,13 +27,13 @@ export async function PATCH(
         ...(tier ? { tier: tier as SubscriptionTier } : {}),
         ...(status ? { status: status as SubscriptionStatus } : {}),
       },
-      adminCheck.user.id,
+      adminId
     );
 
     return NextResponse.json({ subscription });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Failed to update subscription";
-    console.error("[ADMIN_SUBSCRIPTION_PATCH_ERROR]:", err);
+    const message =
+      err instanceof Error ? err.message : "Failed to update subscription";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
