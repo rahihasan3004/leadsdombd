@@ -4,10 +4,10 @@ import { auth } from "@fine-leads/auth";
 
 export async function GET(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = await props.params;
+    const { id } = await params;
     const session = await auth();
 
     const agent = await db.agent.findUnique({
@@ -45,7 +45,7 @@ export async function GET(
     if (
       !isUnlocked &&
       session?.user?.role !== "ADMIN" &&
-      session?.user?.role !== "SUPER_ADMIN"
+      (session?.user as any)?.role !== "SUPER_ADMIN"
     ) {
       return NextResponse.json({
         ...agent,

@@ -60,7 +60,7 @@ export async function DELETE(
   const adminCheck = await requireAdminApi();
   if (adminCheck instanceof NextResponse) return adminCheck;
 
-  if (!isSuperAdmin(adminCheck.user.role)) {
+  if (!isSuperAdmin((adminCheck.user as any).role)) {
     return NextResponse.json({ error: "Only SUPER_ADMIN can delete users" }, { status: 403 });
   }
 
