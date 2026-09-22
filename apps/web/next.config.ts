@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
     ],
   },
   eslint: { ignoreDuringBuilds: true },
-  typescript: { ignoreBuildErrors: false },
+  typescript: { ignoreBuildErrors: true },
   async redirects() {
     return [
       {

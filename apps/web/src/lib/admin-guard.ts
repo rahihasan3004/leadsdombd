@@ -1,5 +1,6 @@
 import { auth } from "@fine-leads/auth";
 import { NextResponse } from "next/server";
+import { redirect } from "next/navigation";
 
 export interface AdminUser {
   id: string;
@@ -15,14 +16,14 @@ export async function requireAdmin() {
   const user = session?.user as AdminUser | undefined;
 
   if (!user) {
-    return null;
+    redirect("/login");
   }
 
   if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
-    return null;
+    redirect("/dashboard");
   }
 
-  return user;
+  return { user, session };
 }
 
 export async function requireAdminApi(): Promise<
