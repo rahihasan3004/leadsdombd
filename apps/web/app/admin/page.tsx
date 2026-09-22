@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { getAdminAnalytics } from "@/lib/admin/analytics-service";
 import {
   Card,

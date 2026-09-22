@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-guard";
 import { getAdminAuditLogs } from "@/lib/admin/audit-logs-service";

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-guard";
 import { getScraperFeed } from "@/lib/admin/scraper-service";

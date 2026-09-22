@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-guard";
 import { getAdminSubscriptions, getSubscriptionTierBreakdown } from "@/lib/admin/subscriptions-service";
