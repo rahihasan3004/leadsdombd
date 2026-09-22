@@ -42,7 +42,7 @@ export async function GET(
     }
 
     // Safe role check
-    const userRole = (session?.user as any)?.role;
+    const userRole = session?.user.role;
     const isAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN";
 
     // Mask data if not unlocked and not admin

@@ -9,7 +9,7 @@ export async function requireAdmin() {
     redirect("/login");
   }
 
-  const role = (session.user as any).role;
+  const role = session.user.role;
 
   if (role === "USER") {
     redirect("/dashboard");
@@ -32,7 +32,7 @@ export async function requireAdminApi() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const role = (session.user as any).role;
+  const role = session.user.role;
 
   if (role === "USER" || !isAdmin(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
