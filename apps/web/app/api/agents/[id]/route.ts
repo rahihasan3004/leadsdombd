@@ -35,15 +35,25 @@ export async function GET(
         select: { unlockedStates: true },
       });
 
-      const allUnlocked = purchases.flatMap((p: { unlockedStates: string[] }) => p.unlockedStates);
+      const allUnlocked = purchases.flatMap(
+        (p: { unlockedStates: string[] }) => p.unlockedStates
+      );
       isUnlocked = allUnlocked.includes(agent.state.toUpperCase());
     }
 
-    // Mask data if not unlocked
-    if (!isUnlocked && session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
+    // Mask data if not unlocked and not admin
+    if (
+      !isUnlocked &&
+      session?.user?.role !== "ADMIN" &&
+      session?.user?.role !== "SUPER_ADMIN"
+    ) {
       return NextResponse.json({
         ...agent,
-        email: agent.email ? `${agent.email.slice(0, 1)}***@${agent.email.split("@")[1] || "domain.com"}` : null,
+        email: agent.email
+          ? `${agent.email.slice(0, 1)}***@${
+              agent.email.split("@")[1] || "domain.com"
+            }`
+          : null,
         phone: agent.phone ? `+1 (***) ***-${agent.phone.slice(-4)}` : null,
         brokerageAddress: "Locked - Purchase State Pack to View",
       });
@@ -52,6 +62,9 @@ export async function GET(
     return NextResponse.json(agent);
   } catch (error) {
     console.error("[AGENT_DETAIL_ERROR]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
