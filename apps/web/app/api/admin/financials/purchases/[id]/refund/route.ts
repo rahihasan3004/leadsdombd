@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApi } from "@/src/lib/admin-guard";
-import { refundPurchase } from "@/src/lib/admin/financials-service";
+import { requireAdminApi } from "@/lib/admin-guard";
+import { refundPurchase } from "@/lib/admin/financials-service";
 
 export async function POST(
   req: NextRequest,

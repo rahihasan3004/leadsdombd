@@ -1,42 +1,46 @@
-import { auth, isAdmin } from "@fine-leads/auth";
-import { redirect } from "next/navigation";
+import { auth } from "@fine-leads/auth";
 import { NextResponse } from "next/server";
+
+export interface AdminUser {
+  id: string;
+  email?: string | null;
+  name?: string | null;
+  role: string;
+  walletBalance?: number;
+  organizationId?: string | null;
+}
 
 export async function requireAdmin() {
   const session = await auth();
+  const user = session?.user as AdminUser | undefined;
 
-  if (!session?.user) {
-    redirect("/login");
+  if (!user) {
+    return null;
   }
 
-  const role = session.user.role;
-
-  if (role === "USER") {
-    redirect("/dashboard");
+  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+    return null;
   }
 
-  if (!isAdmin(role)) {
-    redirect("/dashboard");
-  }
-
-  return {
-    user: session.user,
-    session,
-  };
+  return user;
 }
 
-export async function requireAdminApi() {
+export async function requireAdminApi(): Promise<
+  NextResponse | { user: AdminUser; session: any }
+> {
   const session = await auth();
+  const user = session?.user as AdminUser | undefined;
 
-  if (!session?.user) {
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const role = session.user.role;
-
-  if (role === "USER" || !isAdmin(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+    return NextResponse.json(
+      { error: "Forbidden: Admin access required" },
+      { status: 403 }
+    );
   }
 
-  return { user: session.user, session };
+  return { user, session };
 }

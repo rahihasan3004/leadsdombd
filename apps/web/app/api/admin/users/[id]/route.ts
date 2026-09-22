@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-guard";
-import { isSuperAdmin } from "@fine-leads/auth";
 import { updateUser, deleteUser, getUserDetail } from "@/lib/admin/users-service";
 
 export async function GET(
@@ -39,11 +38,11 @@ export async function PATCH(
       return NextResponse.json({ error: "walletBalanceAdjustment must be a number" }, { status: 400 });
     }
 
-    const updated = await updateUser(
-      id,
-      { role, organizationId, walletBalanceAdjustment, balanceReason },
-       adminCheck.user.id || "admin",
-    );
+     const updated = await updateUser(
+       id,
+       { role, organizationId, walletBalanceAdjustment, balanceReason },
+       (adminCheck.user as any).id || "admin",
+     );
 
     return NextResponse.json({ user: updated });
   } catch (err: unknown) {
@@ -60,8 +59,12 @@ export async function DELETE(
   const adminCheck = await requireAdminApi();
   if (adminCheck instanceof NextResponse) return adminCheck;
 
-  if (!isSuperAdmin(adminCheck.user.role)) {
-    return NextResponse.json({ error: "Only SUPER_ADMIN can delete users" }, { status: 403 });
+  const userRole = (adminCheck.user as any)?.role;
+  if (userRole !== "SUPER_ADMIN") {
+    return NextResponse.json(
+      { error: "Only SUPER_ADMIN can delete users" },
+      { status: 403 }
+    );
   }
 
   const { id } = await params;

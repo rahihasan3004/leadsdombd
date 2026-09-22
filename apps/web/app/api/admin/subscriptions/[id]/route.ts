@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApi } from "@/src/lib/admin-guard";
-import { updateSubscription } from "@/src/lib/admin/subscriptions-service";
+import { requireAdminApi } from "@/lib/admin-guard";
+import { updateSubscription } from "@/lib/admin/subscriptions-service";
 import { SubscriptionTier, SubscriptionStatus } from "@fine-leads/database";
 
 export async function PATCH(
