@@ -1,58 +1,44 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { db } from "@fine-leads/database";
+import { checkRateLimit, getClientIp } from "@fine-leads/utils";
 
-const failedAttemptsMap = new Map<string, { count: number; firstAttempt: number }>();
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 15 * 60 * 1000;
+const MAX_VERIFY_CODE_ATTEMPTS = 5;
+const VERIFY_CODE_WINDOW_MS = 15 * 60 * 1000;
+const MAX_OTP_ATTEMPTS = 5;
 
-function checkRateLimit(key: string): { allowed: boolean; remainingAttempts: number } {
-  const now = Date.now();
-  const record = failedAttemptsMap.get(key);
-
-  if (!record || now - record.firstAttempt > WINDOW_MS) {
-    failedAttemptsMap.set(key, { count: 0, firstAttempt: now });
-    return { allowed: true, remainingAttempts: MAX_ATTEMPTS };
-  }
-
-  if (record.count >= MAX_ATTEMPTS) {
-    return { allowed: false, remainingAttempts: 0 };
-  }
-
-  return { allowed: true, remainingAttempts: MAX_ATTEMPTS - record.count };
-}
-
-function recordFailedAttempt(key: string) {
-  const record = failedAttemptsMap.get(key);
-  if (record) {
-    record.count += 1;
-  }
-}
-
-function clearRateLimit(key: string) {
-  failedAttemptsMap.delete(key);
-}
+const verifyCodeSchema = z.object({
+  email: z.string().min(1, "Email is required").email("Invalid email address"),
+  code: z.string().min(1, "Verification code is required").max(6, "Verification code must be 6 digits"),
+});
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, code } = body as { email: string; code: string };
+    const parsed = verifyCodeSchema.safeParse(body);
 
-    if (!email || !code) {
-      return NextResponse.json({ error: "Email and code are required" }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues.map((i) => i.message).join(", ") },
+        { status: 400 }
+      );
     }
 
+    const { email, code } = parsed.data;
     const normalizedEmail = email.toLowerCase().trim();
     const enteredCode = code.trim();
 
-    const rateLimitKey = `verify:${normalizedEmail}`;
-    const { allowed, remainingAttempts } = checkRateLimit(rateLimitKey);
+    const clientIp = getClientIp(request);
+    const rateLimitKey = `verify-code:${normalizedEmail}`;
+    const { allowed, remaining, resetAt } = checkRateLimit(rateLimitKey, MAX_VERIFY_CODE_ATTEMPTS, VERIFY_CODE_WINDOW_MS);
 
     if (!allowed) {
+      const retryAfter = Math.ceil((resetAt - Date.now()) / 1000);
       return NextResponse.json(
         { error: "Too many failed attempts. Please request a new code or try again in 15 minutes." },
         {
           status: 429,
-          headers: { "Retry-After": "900" },
+          headers: { "Retry-After": String(retryAfter) },
         }
       );
     }
@@ -62,15 +48,40 @@ export async function POST(request: Request) {
         identifier: normalizedEmail,
         token: enteredCode,
         expires: { gt: new Date() },
+        OR: [
+          { lockedUntil: null },
+          { lockedUntil: { lt: new Date() } },
+        ],
       },
     });
 
     if (!verificationToken) {
-      recordFailedAttempt(rateLimitKey);
+      const staleToken = await db.verificationToken.findFirst({
+        where: {
+          identifier: normalizedEmail,
+          token: enteredCode,
+          OR: [
+            { expires: { lte: new Date() } },
+            { lockedUntil: { gte: new Date() } },
+          ],
+        },
+      });
+
+      if (staleToken) {
+        await db.verificationToken.update({
+          where: { id: staleToken.id },
+          data: {
+            failedAttempts: staleToken.failedAttempts + 1,
+            lockedUntil:
+              staleToken.failedAttempts + 1 >= MAX_OTP_ATTEMPTS
+                ? new Date(Date.now() + 24 * 60 * 60 * 1000)
+                : null,
+          },
+        });
+      }
+
       return NextResponse.json({ error: "Invalid or expired verification code." }, { status: 400 });
     }
-
-    clearRateLimit(rateLimitKey);
 
     await db.user.update({
       where: { email: normalizedEmail },

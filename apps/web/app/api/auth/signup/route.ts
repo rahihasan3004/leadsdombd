@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { db } from "@fine-leads/database";
-import { hashPassword } from "@fine-leads/auth";
+import { hashPassword, checkRateLimit, getClientIp } from "@fine-leads/utils";
 import crypto from "crypto";
+
+const MAX_SIGNUP_ATTEMPTS = 5;
+const SIGNUP_WINDOW_MS = 15 * 60 * 1000;
+
+const signupSchema = z.object({
+  firstName: z.string().min(1, "First name is required").max(50, "First name must be 50 characters or fewer"),
+  lastName: z.string().min(1, "Last name is required").max(50, "Last name must be 50 characters or fewer"),
+  email: z.string().min(1, "Email is required").email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters").max(128, "Password must be 128 characters or fewer"),
+});
 
 function generateSecureOTP(): string {
   return crypto.randomInt(100000, 999999).toString();
@@ -9,18 +20,32 @@ function generateSecureOTP(): string {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { firstName, lastName, email, password } = body as {
-      firstName: string;
-      lastName: string;
-      email: string;
-      password: string;
-    };
+    const clientIp = getClientIp(request);
+    const rateLimitKey = `signup:${clientIp}`;
+    const { allowed, remaining, resetAt } = checkRateLimit(rateLimitKey, MAX_SIGNUP_ATTEMPTS, SIGNUP_WINDOW_MS);
 
-    if (!firstName || !lastName || !email || !password || password.length < 8) {
-      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    if (!allowed) {
+      const retryAfter = Math.ceil((resetAt - Date.now()) / 1000);
+      return NextResponse.json(
+        { error: "Too many signup attempts. Please try again later." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(retryAfter) },
+        }
+      );
     }
 
+    const body = await request.json();
+    const parsed = signupSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues.map((i) => i.message).join(", ") },
+        { status: 400 }
+      );
+    }
+
+    const { firstName, lastName, email, password } = parsed.data;
     const normalizedEmail = email.toLowerCase().trim();
     const existingUser = await db.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {

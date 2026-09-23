@@ -195,11 +195,14 @@ export abstract class SourceAdapter {
     if (!/^https?:\/\//i.test(url)) {
       url = "https://" + url;
     }
-    const parsed = URL.parse(url);
-    if (!parsed) return "";
-    let result = `${parsed.protocol}//${parsed.hostname}${parsed.pathname}${parsed.search}`;
-    result = result.replace(/\/$/, "");
-    return result;
+    try {
+      const parsed = new URL(url);
+      let result = `${parsed.protocol}//${parsed.hostname}${parsed.pathname}${parsed.search}`;
+      result = result.replace(/\/$/, "");
+      return result;
+    } catch {
+      return "";
+    }
   }
 
   protected formatAddress(parts: {

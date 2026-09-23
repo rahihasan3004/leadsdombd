@@ -154,13 +154,6 @@ export function createProxyPoolFromEnv(env?: ScraperEnv): ProxyPool {
 // Proxy Agent (CONNECT tunnel)
 // ---------------------------------------------------------------------------
 
-function getProxyAgent(proxyUrl: string): http.Agent {
-  const parsed = new URL(proxyUrl);
-  return new http.Agent({
-    keepAlive: true,
-  });
-}
-
 function tunnelConnect(
   proxyHost: string,
   proxyPort: number,
@@ -260,16 +253,31 @@ async function rawFetch(
       const req = mod.request(opts, (res) => {
         const chunks: Buffer[] = [];
         res.on("data", (chunk: Buffer) => chunks.push(chunk));
-        res.on("end", () => {
+        res.on("end", async () => {
           const rawBody = Buffer.concat(chunks);
           const encoding = res.headers["content-encoding"]?.toLowerCase();
           let body: Buffer;
           if (encoding === "gzip" || encoding === "x-gzip") {
-            body = zlib.gunzipSync(rawBody);
+            body = await new Promise<Buffer>((resolve, reject) => {
+              zlib.gunzip(rawBody, (err, result) => {
+                if (err) reject(err);
+                else resolve(result);
+              });
+            });
           } else if (encoding === "deflate") {
-            body = zlib.inflateSync(rawBody);
+            body = await new Promise<Buffer>((resolve, reject) => {
+              zlib.inflate(rawBody, (err, result) => {
+                if (err) reject(err);
+                else resolve(result);
+              });
+            });
           } else if (encoding === "br") {
-            body = zlib.brotliDecompressSync(rawBody);
+            body = await new Promise<Buffer>((resolve, reject) => {
+              zlib.brotliDecompress(rawBody, (err, result) => {
+                if (err) reject(err);
+                else resolve(result);
+              });
+            });
           } else {
             body = rawBody;
           }
@@ -327,7 +335,7 @@ async function rawFetch(
     const finalSocket = tunnelModule.connect({
       socket,
       servername: targetHost,
-      rejectUnauthorized: false,
+      rejectUnauthorized: true,
     });
     tlsSocket = finalSocket;
     await new Promise<void>((resolve, reject) => {

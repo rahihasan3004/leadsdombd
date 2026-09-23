@@ -65,7 +65,10 @@ export async function PATCH(request: Request) {
 
     const updatedUser = await db.user.update({
       where: { id: session.user.id },
-      data: updateData,
+      data: {
+        ...updateData,
+        ...(updateData.passwordHash ? { tokenVersion: { increment: 1 } } : {}),
+      },
       select: { id: true, name: true, email: true },
     });
 

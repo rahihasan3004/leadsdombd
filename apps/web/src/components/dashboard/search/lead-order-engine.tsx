@@ -30,9 +30,8 @@ const DATA_GUARANTEES = [
 export function LeadOrderEngine() {
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(0);
+  const [quantityInput, setQuantityInput] = useState("");
   const [inventoryStats, setInventoryStats] = useState<Record<string, number>>({});
-  const [overOrderWarning, setOverOrderWarning] = useState(false);
-  const [minQuantityWarning, setMinQuantityWarning] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,25 +53,15 @@ export function LeadOrderEngine() {
 
   const handleQuantityChange = useCallback(
     (val: number) => {
-      const clamped = Math.min(50000, Math.max(0, val));
-      if (totalAvailable > 0 && clamped > totalAvailable) {
-        setQuantity(totalAvailable);
-        setOverOrderWarning(true);
-      } else {
-        setQuantity(clamped);
-        setOverOrderWarning(false);
-      }
+      setQuantity(val);
+      setQuantityInput(val > 0 ? String(val) : "");
     },
-    [totalAvailable],
+    [],
   );
 
   const handleToggleState = (code: string) => {
     setSelectedStates((prev) => {
       const next = prev.includes(code) ? prev.filter((s) => s !== code) : [...prev, code];
-      const minQty = Math.max(10, next.length || 10);
-      if (quantity > 0 && quantity < minQty) {
-        setMinQuantityWarning(true);
-      }
       return next;
     });
   };
@@ -92,31 +81,35 @@ export function LeadOrderEngine() {
       }
       return [code];
     });
-    if (quantity === 0) setQuantity(1000);
+    if (quantity === 0) {
+      setQuantity(1000);
+      setQuantityInput("1000");
+    }
   };
 
+  const parsedQty = parseInt(quantityInput, 10) || 0;
+  const minLeads = Math.max(10, selectedStates.length);
+  const isValidQty = parsedQty >= minLeads && parsedQty <= 50000;
+  const isFormValid = selectedStates.length > 0 && isValidQty;
+
   const totalPrice = useMemo(() => {
-    const num = ((quantity || 0) * 0.019).toFixed(2);
+    const num = (isValidQty ? parsedQty * 0.019 : 0).toFixed(2);
     return parseFloat(num).toLocaleString("en-US", {
       style: "currency",
       currency: "USD",
     });
-  }, [quantity]);
+  }, [parsedQty, isValidQty]);
 
   const minQuantity = useMemo(
     () => Math.max(10, selectedStates.length || 10),
     [selectedStates.length],
   );
 
-  const isValid =
-    selectedStates.length > 0 &&
-    quantity >= minQuantity &&
-    quantity <= 50000 &&
-    totalAvailable > 0;
+  const isValid = isFormValid;
 
   return (
-    <div className="max-w-[1440px] mx-auto p-6 md:p-8 space-y-6">
-      <div>
+    <div className="max-w-[1440px] mx-auto pt-6 md:pt-8 pb-6 md:pb-8 space-y-6">
+      <div className="px-6 sm:px-8">
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
           Order Real Estate Leads
         </h1>
@@ -126,7 +119,7 @@ export function LeadOrderEngine() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <div className="lg:col-span-8 bg-white border-0 shadow-none rounded-2xl p-7 md:p-8 space-y-6">
+        <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-2xl p-6 sm:p-8 border-0 shadow-none space-y-7">
           <SectionNiche />
           <SectionStates
             selectedStates={selectedStates}
@@ -137,98 +130,94 @@ export function LeadOrderEngine() {
           />
           <SectionQuantity
             quantity={quantity}
+            quantityInput={quantityInput}
             onQuantityChange={handleQuantityChange}
+            onQuantityInputChange={setQuantityInput}
             totalAvailable={totalAvailable}
-            overOrderWarning={overOrderWarning}
             minQuantity={minQuantity}
             selectedStatesCount={selectedStates.length}
-            onWarningClear={() => setMinQuantityWarning(false)}
           />
           <SectionGuarantee />
         </div>
 
-        <div className="lg:col-span-4 bg-white border-0 shadow-none rounded-2xl p-7 md:p-8 space-y-6 sticky top-8">
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-            Order Summary
-          </h2>
+        <div className="lg:col-span-5 xl:col-span-4 sticky top-6">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 border-0 shadow-none space-y-6">
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+              Order Summary
+            </h2>
 
-          <div className="space-y-3 text-sm">
-            <div className="flex items-center justify-between gap-4 text-sm">
-              <span className="text-slate-500">Target States</span>
-              <span
-                className={
-                  selectedStates.length === 0
-                    ? "text-slate-400"
-                    : "font-semibold text-slate-900"
-                }
-                title={
-                  selectedStates.length > 4
-                    ? selectedStates.join(", ")
-                    : undefined
-                }
-              >
-                {selectedStates.length === 0
-                  ? "None selected"
-                    : selectedStates.length === ALL_US_STATES.length
-                      ? "All 50 US States + DC"
-                    : selectedStates.length <= 4
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-slate-500">Target States</span>
+                <span
+                  className={
+                    selectedStates.length === 0
+                      ? "text-slate-400"
+                      : "font-semibold text-slate-900"
+                  }
+                  title={
+                    selectedStates.length > 4
                       ? selectedStates.join(", ")
-                      : `${selectedStates.slice(0, 3).join(", ")} (+${selectedStates.length - 3} more)`}
-              </span>
+                      : undefined
+                  }
+                >
+                  {selectedStates.length === 0
+                    ? "None selected"
+                      : selectedStates.length === ALL_US_STATES.length
+                        ? "All 50 US States + DC"
+                      : selectedStates.length <= 4
+                        ? selectedStates.join(", ")
+                        : `${selectedStates.slice(0, 3).join(", ")} (+${selectedStates.length - 3} more)`}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Lead Quantity</span>
+                <span className="font-semibold text-slate-900 tabular-nums">
+                  {parsedQty > 0 ? `${parsedQty.toLocaleString()} Leads` : "—"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Unit Price</span>
+                <span className="font-semibold text-slate-900 tabular-nums">
+                  $0.019 / lead ($19.00 / 1k)
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Delivery Speed</span>
+                <span className="font-semibold text-slate-900">Instant Cloud Vault Delivery</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">SMTP Deliverability</span>
+                <span className="font-semibold text-emerald-600">100% Verified (0% Bounce)</span>
+              </div>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Lead Quantity</span>
-              <span className="font-semibold text-slate-900 tabular-nums">
-                {quantity > 0 ? `${quantity.toLocaleString()} Leads` : "—"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Unit Price</span>
-              <span className="font-semibold text-slate-900 tabular-nums">
-                $0.019 / lead ($19.00 / 1k)
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Delivery Speed</span>
-              <span className="font-semibold text-slate-900">Instant Cloud Vault Delivery</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">SMTP Deliverability</span>
-              <span className="font-semibold text-emerald-600">100% Verified (0% Bounce)</span>
-            </div>
-          </div>
 
-          <div className="border-t border-slate-100 pt-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-slate-900">Estimated Total</span>
-              <span className="text-2xl font-extrabold text-slate-900 tabular-nums tracking-tight">
-                {totalPrice}
-              </span>
+            <div className="border-t border-slate-100 pt-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-900">Estimated Total</span>
+                <span className="text-2xl font-extrabold text-slate-900 tabular-nums tracking-tight">
+                  {totalPrice}
+                </span>
+              </div>
             </div>
-          </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              if (quantity < minQuantity && selectedStates.length > 0) {
-                setMinQuantityWarning(true);
-              }
-            }}
-            disabled={!isValid}
-            className="w-full py-3.5 rounded-xl bg-[#465FFF] hover:bg-[#3B50E0] text-white font-bold text-sm shadow-sm transition-all duration-200 block text-center disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Unlock & Export Leads →
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!isFormValid && selectedStates.length > 0 && parsedQty >= minLeads) {
+                  handleQuantityChange(parsedQty);
+                }
+              }}
+              disabled={!isFormValid}
+              className="w-full py-3.5 rounded-xl bg-[#465FFF] hover:bg-[#3B50E0] text-white font-bold text-sm shadow-sm transition-all duration-200 block text-center disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Unlock & Export Leads →
+            </button>
 
-          {minQuantityWarning && (
-            <p className="text-xs text-amber-600">
-              Please select at least {minQuantity.toLocaleString()} leads for {selectedStates.length} selected state{selectedStates.length !== 1 ? "s" : ""}.
-            </p>
-          )}
-
-          <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
-            <Lock className="h-3.5 w-3.5" />
-            <span>Secured Checkout · 100% Deliverable Guarantee · Instant Download</span>
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
+              <Lock className="h-3.5 w-3.5" />
+              <span>Secured Checkout · 100% Deliverable Guarantee · Instant Download</span>
+            </div>
           </div>
         </div>
       </div>
@@ -239,15 +228,12 @@ export function LeadOrderEngine() {
 function SectionNiche() {
   return (
     <div>
-      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+      <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase block mb-2.5">
         Target Industry & Category
       </span>
-        <div className="mt-2">
-          <div className="py-2.5 px-4 rounded-xl bg-slate-50 text-sm flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-900">Real Estate Agents & Brokers</span>
-            <span className="text-xs text-slate-500">All 50 US States + DC</span>
-          </div>
-        </div>
+      <div className="w-full h-12 bg-white border border-slate-200 rounded-xl px-4 flex items-center text-sm text-slate-900">
+        <span className="font-semibold text-slate-900">Real Estate Agents & Brokers</span>
+      </div>
     </div>
   );
 }
@@ -282,21 +268,21 @@ function SectionStates({
 
   return (
     <div>
-      <label className="text-sm font-bold text-slate-900 mb-2 block">
-        1. Select States / Territories
-      </label>
+      <h3 className="text-sm font-bold text-slate-900 mb-3">
+        Select States / Territories
+      </h3>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="w-full h-11 flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 text-sm text-slate-900 hover:border-[#465FFF] transition-colors"
+            className="w-full h-12 flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 text-sm text-slate-900 hover:border-[#465FFF] transition-colors"
           >
             <span className={selectedStates.length === 0 ? "text-slate-400" : ""}>
               {selectedStates.length === 0
                 ? "Select states..."
                 : `${selectedStates.length} selected`}
             </span>
-            <ChevronDown className="h-4 w-4 text-slate-400 flex-shrink-0" />
+            <ChevronDown className="h-4 w-4 text-slate-400 flex-shrink-0 transition-transform duration-200" />
           </button>
         </PopoverTrigger>
         <PopoverContent
@@ -378,7 +364,7 @@ function SectionStates({
             {selectedStates.map((code) => (
               <span
                 key={code}
-                className="inline-flex items-center gap-1 bg-[#F0F4FF] text-[#465FFF] border border-blue-100/60 px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-tight transition-colors"
+                className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-lg px-2.5 py-1 text-xs font-medium hover:bg-blue-100 transition-colors"
               >
                 {code}
                 <button
@@ -399,62 +385,56 @@ function SectionStates({
 
 function SectionQuantity({
   quantity,
+  quantityInput,
   onQuantityChange,
+  onQuantityInputChange,
   totalAvailable,
-  overOrderWarning,
   minQuantity,
   selectedStatesCount,
-  onWarningClear,
 }: {
   quantity: number;
+  quantityInput: string;
   onQuantityChange: (qty: number) => void;
+  onQuantityInputChange: (val: string) => void;
   totalAvailable: number;
-  overOrderWarning?: boolean;
   minQuantity: number;
   selectedStatesCount: number;
-  onWarningClear?: () => void;
 }) {
+  const parsedQty = parseInt(quantityInput, 10) || 0;
+  const isValidQty = parsedQty >= minQuantity && parsedQty <= 50000;
+
   return (
     <div>
-      <label className="text-sm font-bold text-slate-900 mb-2 block">
-        2. Choose Lead Volume
-      </label>
+      <h3 className="text-sm font-bold text-slate-900 mb-3">
+        Choose Lead Volume
+      </h3>
       <div className="relative">
         <input
           type="number"
           min={minQuantity}
           max={50000}
           placeholder={`Enter lead quantity (min. ${minQuantity})`}
-          value={quantity === 0 ? "" : quantity}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (value === "") {
-              onQuantityChange(0);
-              onWarningClear?.();
-              return;
-            }
-            const parsed = parseInt(value, 10);
-            if (isNaN(parsed)) return;
-
-            if (parsed > 50000) {
-              onQuantityChange(50000);
-            } else if (parsed < minQuantity) {
-              onQuantityChange(minQuantity);
-              onWarningClear?.();
-            } else {
-              onQuantityChange(parsed);
-              onWarningClear?.();
-            }
-          }}
-          className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:border-[#465FFF] focus:ring-1 focus:ring-[#465FFF] transition-colors bg-white"
+          value={quantityInput}
+          onChange={(e) => onQuantityInputChange(e.target.value)}
+          className="w-full h-12 text-base rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#465FFF]/20 focus:border-[#465FFF] px-4 text-sm text-slate-900 focus:outline-none transition-colors bg-white"
         />
       </div>
-      <p className="text-xs text-slate-400 mt-1.5 font-normal">
-        Min: {minQuantity} leads · Max: 50,000 leads per order
-      </p>
-      {overOrderWarning && (
-        <p className="mt-1.5 text-xs text-amber-600">
-          Quantity adjusted to maximum available inventory for selected states.
+
+      {parsedQty > 0 && !isValidQty && (
+        <p className="text-xs text-red-500 mt-2 font-medium">
+          Minimum {minQuantity.toLocaleString()} leads required ({selectedStatesCount} state{selectedStatesCount !== 1 ? "s" : ""} selected · 1 lead/state min)
+        </p>
+      )}
+
+      {parsedQty > 0 && isValidQty && (
+        <p className="text-xs text-slate-400 mt-2 font-normal">
+          Min: {minQuantity.toLocaleString()} leads · Max: 50,000 leads per order
+        </p>
+      )}
+
+      {parsedQty === 0 && (
+        <p className="text-xs text-slate-400 mt-2 font-normal">
+          Min: {minQuantity.toLocaleString()} leads · Max: 50,000 leads per order
         </p>
       )}
     </div>
@@ -463,11 +443,11 @@ function SectionQuantity({
 
 function SectionGuarantee() {
   return (
-    <div>
-      <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase block mb-2">
+    <div className="space-y-3">
+      <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase block mb-3">
         Included Data Guarantee (17 Verified Fields)
       </span>
-      <div className="grid grid-cols-3 gap-x-4 gap-y-2.5 text-xs text-slate-600">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2.5 text-xs text-slate-600">
         {DATA_GUARANTEES.map((item) => (
           <div
             key={item}

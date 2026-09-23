@@ -24,6 +24,10 @@ export async function DELETE(request: Request) {
         identifier: email,
         token: otp,
         expires: { gt: new Date() },
+        OR: [
+          { lockedUntil: null },
+          { lockedUntil: { lt: new Date() } },
+        ],
       },
     });
 
@@ -47,8 +51,49 @@ export async function DELETE(request: Request) {
         });
       }
 
-      await tx.walletTransaction.deleteMany({ where: { userId: user.id } });
-      await tx.leadPurchase.deleteMany({ where: { userId: user.id } });
+      await tx.auditLog.deleteMany({
+        where: { userId: user.id },
+      });
+
+      await tx.session.deleteMany({
+        where: { userId: user.id },
+      });
+
+      await tx.account.deleteMany({
+        where: { userId: user.id },
+      });
+
+      await tx.leadExport.deleteMany({
+        where: { userId: user.id },
+      });
+
+      await tx.searchHistory.deleteMany({
+        where: { userId: user.id },
+      });
+
+      await tx.savedList.deleteMany({
+        where: { userId: user.id },
+      });
+
+      await tx.agentActivity.deleteMany({
+        where: { agentId: { in: [] } },
+      });
+
+      await tx.apiKey.deleteMany({
+        where: { userId: user.id },
+      });
+
+      await tx.leadPurchase.deleteMany({
+        where: { userId: user.id },
+      });
+
+      await tx.walletTransaction.deleteMany({
+        where: { userId: user.id },
+      });
+
+      await tx.subscription.deleteMany({
+        where: { userId: user.id },
+      });
 
       if (user.organizationId) {
         const remainingOrgMembers = await tx.user.count({

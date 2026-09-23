@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { User, Mail, Key, Trash2, AlertTriangle, ShieldAlert, X } from "lucide-react";
+import { User, Mail, Key, Trash2, Eye, EyeOff, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Button, Input } from "@fine-leads/ui";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -12,40 +14,24 @@ import {
   DialogDescription,
 } from "@fine-leads/ui";
 
-function SuccessMessage({ message }: { message: string }) {
-  return (
-    <div className="flex items-center gap-2 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700 dark:bg-green-950 dark:text-green-300">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-      {message}
-    </div>
-  );
+interface SecurityInfo {
+  hasPassword: boolean;
+  provider: string;
+  isGoogleUser: boolean;
 }
-
-function ErrorMessage({ message }: { message: string }) {
-  return (
-    <div className="flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:bg-red-950 dark:text-red-300">
-      <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-      {message}
-    </div>
-  );
-}
-
-const inputClass =
-  "h-10 w-full px-3 bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-md text-sm focus:ring-1 focus:ring-surface-950 focus:outline-none transition-colors placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-900 dark:text-white";
 
 export default function SettingsPage() {
   const { data: session, update } = useSession();
   const router = useRouter();
   const user = session?.user;
 
+  const [securityInfo, setSecurityInfo] = useState<SecurityInfo | null>(null);
+  const [securityLoading, setSecurityLoading] = useState(true);
+
   const [name, setName] = useState(user?.name ?? "");
-  const [nameSuccess, setNameSuccess] = useState<string | null>(null);
-  const [nameError, setNameError] = useState<string | null>(null);
   const [nameLoading, setNameLoading] = useState(false);
 
   const [newEmail, setNewEmail] = useState("");
-  const [emailSuccess, setEmailSuccess] = useState<string | null>(null);
-  const [emailError, setEmailError] = useState<string | null>(null);
   const [emailLoading, setEmailLoading] = useState(false);
 
   const [showEmailOTPModal, setShowEmailOTPModal] = useState(false);
@@ -56,8 +42,10 @@ export default function SettingsPage() {
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -68,11 +56,30 @@ export default function SettingsPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  useEffect(() => {
+    async function fetchSecurityInfo() {
+      try {
+        const res = await fetch("/api/user/security");
+        if (res.ok) {
+          const data = await res.json();
+          setSecurityInfo(data);
+        }
+      } catch {
+        // silently fail
+      } finally {
+        setSecurityLoading(false);
+      }
+    }
+    fetchSecurityInfo();
+  }, []);
+
+  const isOAuthUser = securityInfo && !securityInfo.hasPassword;
+  const provider = securityInfo?.provider ?? "credentials";
+  const isGoogleUser = securityInfo?.isGoogleUser ?? false;
+
   async function handleSaveName() {
-    setNameError(null);
-    setNameSuccess(null);
     if (!name.trim()) {
-      setNameError("Name cannot be empty");
+      toast.error("Name cannot be empty");
       return;
     }
     setNameLoading(true);
@@ -84,24 +91,22 @@ export default function SettingsPage() {
       });
       const data = await res.json().catch(() => ({ error: "Something went wrong" }));
       if (!res.ok) {
-        setNameError(data.error ?? "Something went wrong");
+        toast.error(data.error ?? "Something went wrong");
         return;
       }
       await update({ name: name.trim() });
-      setNameSuccess(data.message ?? "Name updated");
+      toast.success("Name updated successfully");
       router.refresh();
     } catch {
-      setNameError("Network error");
+      toast.error("Network error");
     } finally {
       setNameLoading(false);
     }
   }
 
   async function handleRequestEmailChange() {
-    setEmailError(null);
-    setEmailSuccess(null);
     if (!newEmail || !newEmail.includes("@")) {
-      setEmailError("Enter a valid email address");
+      toast.error("Enter a valid email address");
       return;
     }
     setEmailLoading(true);
@@ -113,7 +118,7 @@ export default function SettingsPage() {
       });
       const data = await res.json().catch(() => ({ error: "Something went wrong" }));
       if (!res.ok) {
-        setEmailError(data.error ?? "Something went wrong");
+        toast.error(data.error ?? "Something went wrong");
         return;
       }
       setCurrentEmailCode("");
@@ -121,7 +126,7 @@ export default function SettingsPage() {
       setOtpError(null);
       setShowEmailOTPModal(true);
     } catch {
-      setEmailError("Network error");
+      toast.error("Network error");
     } finally {
       setEmailLoading(false);
     }
@@ -155,7 +160,7 @@ export default function SettingsPage() {
       }
       setShowEmailOTPModal(false);
       setNewEmail("");
-      setEmailSuccess("Email updated successfully");
+      toast.success("Email updated successfully");
       await update({ email: newEmail.trim() });
       router.refresh();
     } catch {
@@ -166,33 +171,24 @@ export default function SettingsPage() {
   }
 
   async function handleUpdatePassword() {
-    setPasswordError(null);
-    setPasswordSuccess(null);
-    if (!currentPassword) {
-      setPasswordError("Current password is required");
-      return;
-    }
-    if (!newPassword || newPassword.length < 8) {
-      setPasswordError("New password must be at least 8 characters");
-      return;
-    }
     setPasswordLoading(true);
     try {
-      const res = await fetch("/api/user/profile", {
-        method: "PATCH",
+      const res = await fetch("/api/user/change-password", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword, newPassword }),
+        body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
       });
       const data = await res.json().catch(() => ({ error: "Something went wrong" }));
       if (!res.ok) {
-        setPasswordError(data.error ?? "Something went wrong");
+        toast.error(data.error ?? "Something went wrong");
         return;
       }
-      setPasswordSuccess(data.message ?? "Password updated");
+      toast.success("Password updated successfully");
       setCurrentPassword("");
       setNewPassword("");
+      setConfirmPassword("");
     } catch {
-      setPasswordError("Network error");
+      toast.error("Network error");
     } finally {
       setPasswordLoading(false);
     }
@@ -213,6 +209,7 @@ export default function SettingsPage() {
         return;
       }
       setDeleteOtpSent(true);
+      toast.success("Deletion code sent to your email");
     } catch {
       setDeleteError("Network error");
     } finally {
@@ -222,8 +219,8 @@ export default function SettingsPage() {
 
   async function handleDeleteAccount() {
     setDeleteError(null);
-    if (dangerConfirm !== "DANGER" || deleteOtp.length !== 6) {
-      setDeleteError("You must type DANGER and enter a valid 6-digit OTP");
+    if (dangerConfirm !== "DELETE" || deleteOtp.length !== 6) {
+      setDeleteError("You must type DELETE and enter a valid 6-digit OTP");
       return;
     }
     setDeleteLoading(true);
@@ -253,249 +250,354 @@ export default function SettingsPage() {
     setDeleteError(null);
   }
 
-  const canDelete = dangerConfirm === "DANGER" && deleteOtp.length === 6;
+  const canDelete = dangerConfirm === "DELETE" && deleteOtp.length === 6;
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-h-screen bg-[#F4F7FB] p-6 pb-6 space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+          Settings
+        </h1>
+        <p className="mt-1.5 text-sm text-slate-500">
           Manage your account and security settings.
         </p>
       </div>
 
-      <div className="max-w-3xl space-y-6">
-        {/* Profile & Security */}
-        <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-md p-6 sm:p-7 shadow-2xs mb-6">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Profile &amp; Security</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left / Main Column */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Card 1: Profile Information */}
+          <div className="bg-white rounded-2xl border-0 shadow-none p-6">
+            <h2 className="text-base font-bold text-slate-900 tracking-tight mb-1">
+              Profile Information
+            </h2>
+            <p className="text-xs text-slate-400 mb-6">
+              Update your personal details and email address.
+            </p>
 
-          <div className="space-y-8">
-            {/* Name Update */}
-            <div>
-              <label className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                <User className="h-4 w-4 text-slate-400" />
-                Full Name
-              </label>
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className={inputClass}
-                  placeholder="Your full name"
-                />
-                <button
-                  type="button"
-                  onClick={handleSaveName}
-                  disabled={nameLoading}
-                  className="h-10 px-4 bg-surface-950 hover:bg-surface-800 text-white dark:bg-white dark:text-surface-950 rounded-md text-xs font-semibold transition-colors shrink-0 disabled:opacity-60"
-                >
-                  {nameLoading ? "Saving..." : "Save Name"}
-                </button>
+            <div className="space-y-6">
+              {/* Full Name */}
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Full Name
+                </label>
+                <div className="flex gap-3">
+                  <Input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your full name"
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={handleSaveName}
+                    disabled={nameLoading}
+                    className="shrink-0 bg-[#465FFF] hover:bg-[#3B50E0] text-white border-0 shadow-none"
+                  >
+                    {nameLoading ? "Saving..." : "Save Name"}
+                  </Button>
+                </div>
               </div>
-              {nameSuccess && <div className="mt-3"><SuccessMessage message={nameSuccess} /></div>}
-              {nameError && <div className="mt-3"><ErrorMessage message={nameError} /></div>}
-            </div>
 
-            {/* Email Change */}
-            <div>
-              <label className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                <Mail className="h-4 w-4 text-slate-400" />
-                Email Address
-              </label>
-              <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
-                Current: {user?.email}
-              </p>
-              <div className="flex gap-3">
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  className={inputClass}
-                  placeholder="New email address"
-                />
-                <button
-                  type="button"
-                  onClick={handleRequestEmailChange}
-                  disabled={emailLoading}
-                  className="h-10 px-4 bg-surface-950 hover:bg-surface-800 text-white dark:bg-white dark:text-surface-950 rounded-md text-xs font-semibold transition-colors shrink-0 disabled:opacity-60"
-                >
-                  {emailLoading ? "Sending..." : "Request Email Change"}
-                </button>
+              {/* Email Address */}
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Email Address
+                </label>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-sm text-slate-700">{user?.email}</span>
+                  <CheckCircle2
+                    className="h-4.5 w-4.5 text-[#465FFF]"
+                    title="Verified Email"
+                  />
+                </div>
+                {!securityLoading && securityInfo?.isGoogleUser && (
+                  <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                    Email is managed securely by your Google Account.
+                  </div>
+                )}
+                {!securityLoading && securityInfo && !securityInfo.isGoogleUser && (
+                  <div className="flex gap-3 mt-2">
+                    <Input
+                      type="email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="Enter new email address"
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={handleRequestEmailChange}
+                      disabled={emailLoading}
+                      variant="outline"
+                      className="shrink-0"
+                    >
+                      {emailLoading ? "Sending..." : "Request Email Change"}
+                    </Button>
+                  </div>
+                )}
+                {!securityLoading && securityInfo && !securityInfo.isGoogleUser && (
+                  <p className="text-[11px] text-slate-400 mt-2 font-normal">
+                    You will receive a 6-digit verification code at both your current and new email addresses.
+                  </p>
+                )}
               </div>
-              {emailSuccess && <div className="mt-3"><SuccessMessage message={emailSuccess} /></div>}
-              {emailError && <div className="mt-3"><ErrorMessage message={emailError} /></div>}
-            </div>
-
-            {/* Password Change */}
-            <div>
-              <label className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                <Key className="h-4 w-4 text-slate-400" />
-                Password
-              </label>
-              <div className="space-y-3">
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className={inputClass}
-                  placeholder="Current password"
-                />
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className={inputClass}
-                  placeholder="New password (min 8 characters)"
-                />
-                <button
-                  type="button"
-                  onClick={handleUpdatePassword}
-                  disabled={passwordLoading}
-                  className="h-10 px-4 bg-surface-950 hover:bg-surface-800 text-white dark:bg-white dark:text-surface-950 rounded-md text-xs font-semibold transition-colors mt-2 disabled:opacity-60"
-                >
-                  {passwordLoading ? "Updating..." : "Update Password"}
-                </button>
-              </div>
-              {passwordSuccess && <div className="mt-3"><SuccessMessage message={passwordSuccess} /></div>}
-              {passwordError && <div className="mt-3"><ErrorMessage message={passwordError} /></div>}
             </div>
           </div>
-        </div>
 
-        {/* Danger Zone */}
-        <div className="bg-red-50/40 dark:bg-red-950/20 border border-red-200/70 dark:border-red-900/50 rounded-md p-6 sm:p-7 mb-8">
-          <h2 className="text-base font-bold text-red-600 mb-1">
-            <ShieldAlert className="inline h-5 w-5 mr-1.5 -mt-0.5" />
-            Danger Zone
-          </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
-            Permanently delete your account, wallet balance, and unlocked lead data. Requires typing DANGER and verifying an email OTP to proceed. This action is irreversible.
-          </p>
-          <button
-            type="button"
-            onClick={() => setShowDeleteModal(true)}
-            className="inline-flex items-center gap-2 h-10 px-4 bg-red-600 hover:bg-red-700 text-white rounded-md text-xs font-semibold transition-colors cursor-pointer"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete Account
-          </button>
-        </div>
-
-        {/* Email OTP Verification Modal */}
-        <Dialog open={showEmailOTPModal} onOpenChange={setShowEmailOTPModal}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Verify Email Change</DialogTitle>
-              <DialogDescription>
-                Enter the 6-digit codes sent to both your current and new email addresses.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 mt-3">
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Current Email Code
-                </label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={currentEmailCode}
-                  onChange={(e) => setCurrentEmailCode(e.target.value.replace(/\D/g, ""))}
-                  className={inputClass}
-                  placeholder="6-digit code"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  New Email Code
-                </label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={newEmailCode}
-                  onChange={(e) => setNewEmailCode(e.target.value.replace(/\D/g, ""))}
-                  className={inputClass}
-                  placeholder="6-digit code"
-                />
-              </div>
-              {otpError && <ErrorMessage message={otpError} />}
-              <button
-                type="button"
-                onClick={handleVerifyEmailChange}
-                disabled={otpLoading}
-                className="w-full h-11 cursor-pointer rounded-xl bg-[#14A800] text-sm font-semibold text-white hover:bg-[#108A00] transition-colors border-0 shadow-none disabled:opacity-60"
-              >
-                {otpLoading ? "Verifying..." : "Verify & Update Email"}
-              </button>
+          {/* Card 2: Security & Password */}
+          {(securityLoading || !securityInfo) ? (
+            <div className="bg-white rounded-2xl border-0 shadow-none p-6">
+              <div className="h-7 w-32 bg-slate-200 rounded-md animate-pulse mb-2" />
+              <div className="h-4 w-48 bg-slate-200 rounded-md animate-pulse mb-6" />
+              <div className="h-24 bg-slate-200 rounded-xl animate-pulse" />
             </div>
-          </DialogContent>
-        </Dialog>
+          ) : securityInfo.isGoogleUser ? (
+            <div className="bg-white rounded-2xl border-0 shadow-none p-6">
+              <h2 className="text-base font-bold text-slate-900 tracking-tight mb-1">
+                Security
+              </h2>
+              <p className="text-xs text-slate-400 mb-6">
+                Password and authentication settings.
+              </p>
 
-        {/* Delete Account Modal */}
-        <Dialog open={showDeleteModal} onOpenChange={(open) => { if (!open) closeDeleteModal(); }}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-red-600 flex items-center gap-2">
-                <ShieldAlert className="h-5 w-5" />
-                Delete Account
-              </DialogTitle>
-              <DialogDescription className="text-left mt-3">
-                <span className="block mb-1 font-semibold text-red-600">
-                  To confirm deletion, please complete the two verification steps below:
-                </span>
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-5 mt-2">
-              <div>
-                <p className="mb-1.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Step 1: Type confirmation text
-                </p>
-                <input
-                  type="text"
-                  value={dangerConfirm}
-                  onChange={(e) => setDangerConfirm(e.target.value)}
-                  placeholder="Type DANGER to proceed"
-                  className="w-full h-11 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm font-semibold border-0"
-                />
+              <div className="mt-4 flex items-start gap-3.5">
+                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-900">Authenticated via Google</h4>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Your account is secured with Google OAuth. Passwords, two-factor authentication, and security settings are managed directly in your Google Security Center.
+                  </p>
+                </div>
               </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border-0 shadow-none p-6">
+              <h2 className="text-base font-bold text-slate-900 tracking-tight mb-1">
+                Security & Password
+              </h2>
+              <p className="text-xs text-slate-400 mb-6">
+                Update your password to keep your account secure.
+              </p>
 
-              <div>
-                <p className="mb-1.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Step 2: Email OTP Verification
-                </p>
-                <button
-                  type="button"
-                  onClick={handleSendDeleteOtp}
-                  disabled={dangerConfirm !== "DANGER" || deleteOtpLoading || deleteOtpSent}
-                  className="mb-3 h-10 cursor-pointer rounded-xl bg-[#14A800] px-4 text-sm font-semibold text-white hover:bg-[#108A00] transition-colors border-0 shadow-none disabled:opacity-60"
+              <div className="space-y-4 max-w-md">
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Current Password
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type={showCurrentPassword ? "text" : "password"}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Enter current password"
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type={showNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Min 8 characters"
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Confirm New Password
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Re-enter new password"
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleUpdatePassword}
+                  disabled={passwordLoading || !currentPassword || !newPassword || !confirmPassword}
+                  className="w-full bg-[#465FFF] hover:bg-[#3B50E0] text-white border-0 shadow-none"
                 >
-                  {deleteOtpSent ? "Code Sent" : deleteOtpLoading ? "Sending..." : "Send Deletion Code"}
-                </button>
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={deleteOtp}
-                  onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, ""))}
-                  className={inputClass}
-                  placeholder="6-digit OTP code"
-                />
+                  {passwordLoading ? "Updating..." : "Update Password"}
+                </Button>
               </div>
-
-              {deleteError && <ErrorMessage message={deleteError} />}
-
-              <button
-                type="button"
-                onClick={handleDeleteAccount}
-                disabled={!canDelete || deleteLoading}
-                className="w-full h-11 cursor-pointer rounded-xl bg-red-600 text-sm font-bold text-white hover:bg-red-700 transition-colors border-0 shadow-none disabled:opacity-60"
-              >
-                {deleteLoading ? "Deleting..." : "Permanently Delete Account"}
-              </button>
             </div>
-          </DialogContent>
-        </Dialog>
+          )}
+        </div>
+
+        {/* Right Column: Danger Zone */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-white rounded-2xl border-0 shadow-none p-6 border border-red-200">
+            <h2 className="text-base font-bold text-red-600 tracking-tight mb-1 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Danger Zone
+            </h2>
+            <p className="text-xs text-slate-500 mb-5">
+              Permanently delete your account, wallet balance, and unlocked lead data. Requires typing DELETE and verifying an email OTP to proceed. This action is irreversible.
+            </p>
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteModal(true)}
+              className="h-10 px-5 text-xs font-semibold"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-2" />
+              Delete Account
+            </Button>
+          </div>
+        </div>
       </div>
+
+      {/* Email OTP Verification Modal */}
+      <Dialog open={showEmailOTPModal} onOpenChange={setShowEmailOTPModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Verify Email Change</DialogTitle>
+            <DialogDescription>
+              Enter the 6-digit codes sent to both your current and new email addresses.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Current Email Code
+              </label>
+              <Input
+                type="text"
+                maxLength={6}
+                value={currentEmailCode}
+                onChange={(e) => setCurrentEmailCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="6-digit code"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                New Email Code
+              </label>
+              <Input
+                type="text"
+                maxLength={6}
+                value={newEmailCode}
+                onChange={(e) => setNewEmailCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="6-digit code"
+              />
+            </div>
+            {otpError && (
+              <p className="text-xs font-medium text-red-600">{otpError}</p>
+            )}
+            <Button
+              onClick={handleVerifyEmailChange}
+              disabled={otpLoading}
+              className="w-full bg-[#14A800] hover:bg-[#108A00] text-white border-0 shadow-none"
+            >
+              {otpLoading ? "Verifying..." : "Verify & Update Email"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Account Modal */}
+      <Dialog open={showDeleteModal} onOpenChange={(open) => { if (!open) closeDeleteModal(); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Account
+            </DialogTitle>
+            <DialogDescription className="text-left mt-3">
+              <span className="block mb-1 font-semibold text-red-600">
+                To confirm deletion, please complete the two verification steps below:
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 mt-2">
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Step 1: Type confirmation text
+              </p>
+              <Input
+                type="text"
+                value={dangerConfirm}
+                onChange={(e) => setDangerConfirm(e.target.value)}
+                placeholder="Type DELETE to proceed"
+              />
+            </div>
+
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Step 2: Email OTP Verification
+              </p>
+              <Button
+                type="button"
+                onClick={handleSendDeleteOtp}
+                disabled={dangerConfirm !== "DELETE" || deleteOtpLoading || deleteOtpSent}
+                className="mb-3 bg-[#14A800] hover:bg-[#108A00] text-white border-0 shadow-none"
+              >
+                {deleteOtpSent ? "Code Sent" : deleteOtpLoading ? "Sending..." : "Send Deletion Code"}
+              </Button>
+              <Input
+                type="text"
+                maxLength={6}
+                value={deleteOtp}
+                onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, ""))}
+                placeholder="6-digit OTP code"
+              />
+            </div>
+
+            {deleteError && (
+              <p className="text-xs font-medium text-red-600">{deleteError}</p>
+            )}
+
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={!canDelete || deleteLoading}
+              className="w-full"
+            >
+              {deleteLoading ? "Deleting..." : "Permanently Delete Account"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

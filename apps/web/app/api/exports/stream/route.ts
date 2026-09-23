@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
 import { LEAD_STATES } from "@fine-leads/utils";
@@ -25,6 +26,10 @@ const CSV_HEADERS = [
 ] as const;
 
 const BATCH_SIZE = 1000;
+
+const exportQuerySchema = z.object({
+  state: z.string().length(2, "State code must be 2 characters").toUpperCase(),
+});
 
 function escapeCsvField(value: string | number | null | undefined): string {
   if (value == null) return '""';
@@ -167,11 +172,21 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const stateCode = searchParams.get("state")?.toUpperCase()?.trim();
+    const stateCodeRaw = searchParams.get("state")?.toUpperCase()?.trim();
 
-    if (!stateCode) {
+    if (!stateCodeRaw) {
       return NextResponse.json({ error: "State parameter is required" }, { status: 400 });
     }
+
+    const parsedState = exportQuerySchema.safeParse({ state: stateCodeRaw });
+    if (!parsedState.success) {
+      return NextResponse.json(
+        { error: parsedState.error.issues.map((i) => i.message).join(", ") },
+        { status: 400 }
+      );
+    }
+
+    const stateCode = parsedState.data.state;
 
     const validState = LEAD_STATES.find(
       (s) => s.code.toUpperCase() === stateCode

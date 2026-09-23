@@ -7,6 +7,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@fine-leads/ui";
+import { OrganizationSchema, WebSiteSchema, SoftwareApplicationSchema } from "@/components/seo";
 import "@fine-leads/ui/globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -29,9 +30,19 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: [
+      { url: "/favicon.svg", sizes: "180x180", type: "image/svg+xml" },
+    ],
+    shortcut: ["/favicon.svg"],
+  },
   title: {
-    default: "LeadsDom — Verified US Real Estate Agent Data",
-    template: "%s | LeadsDom",
+    default: "LeadsDom - B2B Lead Generation & Scraping Platform",
+    template: "%s | LeadsDom - B2B Lead Generation & Scraping Platform",
   },
   description:
     "Access verified data on 2M+ US real estate agents. Search, filter, and export leads by state, brokerage, transaction volume, and more.",
@@ -49,13 +60,39 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     siteName: "LeadsDom",
-    title: "LeadsDom — Verified US Real Estate Agent Data",
+    url: "https://getleadsdom.com",
+    title: "LeadsDom - B2B Lead Generation & Scraping Platform",
     description:
-      "Access verified data on 2M+ US real estate agents. Search, filter, and export leads.",
+      "Access verified data on 2M+ US real estate agents. Search, filter, and export leads by state, brokerage, transaction volume, and more.",
+    images: [
+      {
+        url: "https://getleadsdom.com/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "LeadsDom - B2B Lead Generation Platform",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "LeadsDom - B2B Lead Generation & Scraping Platform",
+    description:
+      "Access verified data on 2M+ US real estate agents. Search, filter, and export leads by state, brokerage, transaction volume, and more.",
+    images: ["https://getleadsdom.com/og-image.png"],
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  alternates: {
+    canonical: "https://getleadsdom.com",
   },
 };
 
@@ -69,6 +106,9 @@ export default function RootLayout({
       <body className="min-h-screen bg-white text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-50 font-sans">
         <Providers>{children}</Providers>
         <Toaster />
+        <OrganizationSchema />
+        <WebSiteSchema />
+        <SoftwareApplicationSchema />
       </body>
     </html>
   );

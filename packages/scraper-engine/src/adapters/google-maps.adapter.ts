@@ -228,14 +228,17 @@ interface ExtractedCard {
 }
 
 function cleanGoogleRedirectUrl(url: string): string {
-  const parsed = URL.parse(url);
-  if (!parsed) return url;
-  if (parsed.hostname === "www.google.com" || parsed.hostname === "google.com") {
-    const q = parsed.searchParams.get("q") ?? parsed.searchParams.get("url");
-    if (q) {
-      const decoded = decodeURIComponent(q);
-      try { new URL(decoded); return decoded; } catch { /* keep original */ }
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === "www.google.com" || parsed.hostname === "google.com") {
+      const q = parsed.searchParams.get("q") ?? parsed.searchParams.get("url");
+      if (q) {
+        const decoded = decodeURIComponent(q);
+        try { new URL(decoded); return decoded; } catch { /* keep original */ }
+      }
     }
+  } catch {
+    // keep original if not a valid URL
   }
   return url;
 }

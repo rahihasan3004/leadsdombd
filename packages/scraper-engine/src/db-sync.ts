@@ -103,7 +103,7 @@ export class DatabaseSynchronizer {
         lead.googlePlaceId,
         lead.googleMapsLink,
         "SCRAPER_ENGINE",
-        true,
+        lead.emailStatus === "deliverable" || lead.emailStatus === "validated",
         100,
         "ACTIVE",
       ]);

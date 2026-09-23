@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect, type KeyboardEvent } from "re
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail } from "lucide-react";
+import { Logo } from "@/components/logo";
 
 export default function VerifyEmailPage() {
   const router = useRouter();
@@ -92,87 +93,94 @@ export default function VerifyEmailPage() {
 
   if (!email) {
     return (
-      <div className="min-h-[100dvh] w-full bg-white text-surface-950 flex flex-col items-center justify-center p-4 sm:p-6 py-12">
-        <p className="text-sm text-surface-500">No email provided. Please go back and try signing up again.</p>
-        <Link href="/register" className="mt-4 inline-block text-sm text-surface-950 hover:underline font-semibold">
-          Back to Sign Up
-        </Link>
-      </div>
+      <>
+        <div className="flex flex-col items-center text-center mb-6">
+          <div className="mb-4">
+            <Logo showText={false} size={56} className="w-14 h-14 object-contain transition-transform hover:scale-105" />
+          </div>
+        </div>
+        <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 py-12">
+            <p className="text-sm text-surface-500">No email provided. Please go back and try signing up again.</p>
+            <Link href="/register" className="mt-4 inline-block text-sm text-surface-950 hover:underline font-semibold">
+              Back to Sign Up
+            </Link>
+          </main>
+      </>
     );
   }
 
   return (
-    <div className="min-h-[100dvh] w-full bg-white text-surface-950 flex flex-col items-center justify-center p-4 sm:p-6 py-12">
-      <div className="w-full max-w-[400px] flex flex-col items-center text-center">
-
-        <Link href="/" className="text-2xl font-bold tracking-tight text-surface-950 mb-6">
-          leadsdom
-        </Link>
-
-        <Mail className="h-12 w-12 text-surface-950 stroke-[1.25] mx-auto mb-6" />
-
-        <h1 className="text-2xl font-semibold tracking-tight text-surface-950 mb-2">
+    <>
+      <div className="flex flex-col items-center text-center mb-6">
+        <div className="mb-4">
+          <Logo showText={false} size={56} className="w-14 h-14 object-contain transition-transform hover:scale-105" />
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 mb-2">
           Check your inbox
         </h1>
-        <p className="mb-8 text-sm text-surface-500">
+        <p className="text-sm text-slate-500 mt-1">
           We sent a 6-digit verification code to{" "}
-          <span className="font-semibold text-surface-950">{email}</span>
+          <span className="font-semibold text-slate-900">{email}</span>
         </p>
+      </div>
 
-        <div className="flex items-center justify-between gap-2 w-full mb-6" onPaste={handlePaste}>
-          {code.map((digit, i) => (
-            <input
-              key={i}
-              ref={(el) => { inputRefs.current[i] = el; }}
-              type="text"
-              inputMode="numeric"
-              maxLength={1}
-              value={digit}
-              onChange={(e) => handleChange(i, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(i, e)}
-              className="w-12 h-12 text-center text-lg font-bold tabular-nums bg-white border border-surface-200 rounded-md text-surface-950 focus:border-surface-950 focus:ring-1 focus:ring-surface-950 transition-all outline-none"
-            />
-          ))}
-        </div>
+      <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 py-12">
+          <div className="w-full max-w-[400px] flex flex-col items-center text-center">
+            <div className="flex items-center justify-between gap-2 w-full mb-6" onPaste={handlePaste}>
+              {code.map((digit, i) => (
+                <input
+                  key={i}
+                  ref={(el) => { inputRefs.current[i] = el; }}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleChange(i, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(i, e)}
+                  className="w-12 h-12 text-center text-lg font-bold tabular-nums bg-white border border-surface-200 rounded-md text-surface-950 focus:border-surface-950 focus:ring-1 focus:ring-surface-950 transition-all outline-none"
+                  aria-label={`Verification digit ${i + 1}`}
+                />
+              ))}
+            </div>
 
-        {error && (
-          <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-center text-xs text-red-600">
-            {error}
-          </p>
-        )}
+            {error && (
+              <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-center text-xs text-red-600">
+                {error}
+              </p>
+            )}
 
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={isLoading}
-          className="w-full h-11 bg-surface-950 hover:bg-surface-800 text-white rounded-md text-sm font-semibold transition-colors shadow-xs disabled:opacity-60"
-        >
-          {isLoading ? "Verifying..." : "Verify & Continue"}
-        </button>
-
-        <p className="mt-4 text-xs text-surface-500">
-          Didn&apos;t receive the code?{" "}
-          {resendCooldown > 0 ? (
-            <span className="text-surface-400">Resend in {resendCooldown}s</span>
-          ) : (
             <button
               type="button"
-              onClick={handleResend}
-              className="text-surface-500 hover:text-surface-950 font-medium cursor-pointer"
+              onClick={handleSubmit}
+              disabled={isLoading}
+              className="w-full h-11 bg-surface-950 hover:bg-surface-800 text-white rounded-md text-sm font-semibold transition-colors shadow-xs disabled:opacity-60"
             >
-              Resend code
+              {isLoading ? "Verifying..." : "Verify & Continue"}
             </button>
-          )}
-        </p>
 
-        <p className="mt-8 text-[11px] text-surface-400">
-          &copy; 2026 LeadsDom. All Rights Reserved.{" "}
-          <Link href="/privacy" className="underline underline-offset-2 hover:text-surface-600">Privacy</Link>{" "}
-          and{" "}
-          <Link href="/terms" className="underline underline-offset-2 hover:text-surface-600">Terms</Link>.
-        </p>
+            <p className="mt-4 text-xs text-surface-500">
+              Didn&apos;t receive the code?{" "}
+              {resendCooldown > 0 ? (
+                <span className="text-surface-400">Resend in {resendCooldown}s</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  className="text-surface-500 hover:text-surface-950 font-medium cursor-pointer"
+                >
+                  Resend code
+                </button>
+              )}
+            </p>
 
-      </div>
-    </div>
-  );
+            <p className="mt-8 text-[11px] text-surface-400">
+              &copy; 2026 LeadsDom. All Rights Reserved.{" "}
+              <Link href="/privacy" className="underline underline-offset-2 hover:text-surface-600">Privacy</Link>{" "}
+              and{" "}
+              <Link href="/terms" className="underline underline-offset-2 hover:text-surface-600">Terms</Link>.
+            </p>
+          </div>
+          </main>
+        </>
+      );
 }

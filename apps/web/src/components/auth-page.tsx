@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
 import { MapPin } from "lucide-react";
 
 const signupSchema = z.object({
@@ -201,15 +202,14 @@ export function AuthPage({ mode }: AuthPageProps) {
             </p>
           </div>
 
-          <form action="/api/auth/signin/google" method="POST" className="mb-5">
-            <button
-              type="submit"
-              className="flex h-11 w-full items-center justify-center gap-2.5 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-transparent dark:text-slate-200 dark:hover:bg-slate-800/60"
-            >
-              <GoogleIcon />
-              Continue with Google
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+            className="flex h-11 w-full items-center justify-center gap-2.5 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-transparent dark:text-slate-200 dark:hover:bg-slate-800/60"
+          >
+            <GoogleIcon />
+            Continue with Google
+          </button>
 
           <div className="relative mb-5">
             <div className="absolute inset-0 flex items-center">
@@ -224,8 +224,13 @@ export function AuthPage({ mode }: AuthPageProps) {
 
           {isLogin ? (
             <form
-              action="/api/auth/signin/credentials"
-              method="POST"
+              onSubmit={async (e: React.FormEvent<HTMLFormElement>) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const email = formData.get("email") as string;
+                const password = formData.get("password") as string;
+                await signIn("credentials", { email, password, redirect: true });
+              }}
               className="space-y-3.5"
             >
               <input

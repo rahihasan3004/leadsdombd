@@ -28,6 +28,8 @@ export function LoginForm() {
 
   const displayError = errorParam === "CredentialsSignin"
     ? "Invalid email or password, or your email has not been verified. Please check your inbox for a verification code."
+    : errorParam === "auth"
+    ? "Authentication failed. Please try again or contact support if the issue persists."
     : error
     ? error
     : "";
@@ -55,7 +57,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 text-left">
       {displayError && (
         <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
           {displayError}
@@ -65,7 +67,7 @@ export function LoginForm() {
       <div>
         <label
           htmlFor="email"
-          className="mb-1.5 block text-xs font-medium text-surface-700"
+          className="text-left block text-sm font-medium text-slate-700 mb-1.5"
         >
           Work Email
         </label>
@@ -80,16 +82,16 @@ export function LoginForm() {
       </div>
 
       <div>
-        <div className="mb-1.5 flex items-center justify-between">
+        <div className="flex justify-between items-center mb-1.5">
           <label
             htmlFor="password"
-            className="text-xs font-medium text-surface-700"
+            className="text-left block text-sm font-medium text-slate-700"
           >
             Password
           </label>
           <Link
             href="/forgot-password"
-            className="text-xs text-surface-500 hover:text-surface-950 hover:underline inline-block"
+            className="text-xs text-[#465FFF] hover:underline inline-block"
           >
             Forgot password?
           </Link>

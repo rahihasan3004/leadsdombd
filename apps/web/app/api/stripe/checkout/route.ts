@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
 import { getStripeClient } from "@/lib/stripe";
 import { refundLeadPurchase } from "@/lib/refund";
 import { PRICE_PER_LEAD, generateOrderRef, generateTxnRef } from "@fine-leads/utils";
 import Stripe from "stripe";
+
+const checkoutSchema = z.object({
+  states: z.array(z.string().length(2, "State code must be 2 characters")).min(1, "At least one state is required"),
+  requestedLeadCount: z.coerce.number().int().positive("Lead count must be a positive integer").optional(),
+  paymentMethod: z.enum(["wallet", "stripe"]).default("stripe"),
+});
 
 async function getLeadCountForStates(stateCodes: string[]): Promise<number> {
   if (stateCodes.length === 0) return 0;
@@ -39,7 +46,16 @@ export async function POST(req: Request) {
   try {
     const session = await auth();
     const body = await req.json().catch(() => ({}));
-    const { states = [], requestedLeadCount, paymentMethod } = body;
+    const parsed = checkoutSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues.map((i) => i.message).join(", ") },
+        { status: 400 }
+      );
+    }
+
+    const { states, requestedLeadCount, paymentMethod } = parsed.data;
 
     let userId = session?.user?.id;
 
@@ -57,10 +73,6 @@ export async function POST(req: Request) {
         { error: "User not authenticated. Please log in again." },
         { status: 401 }
       );
-    }
-
-    if (!Array.isArray(states) || states.length === 0) {
-      return NextResponse.json({ error: "No states selected." }, { status: 400 });
     }
 
     const minQuantity = Math.max(10, states.length);

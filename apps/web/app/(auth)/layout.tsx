@@ -16,5 +16,11 @@ export default async function AuthLayout({
     redirect("/dashboard");
   }
 
-  return <>{children}</>;
+  return (
+    <main className="min-h-screen w-full bg-white flex items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-[400px]">
+        {children}
+      </div>
+    </main>
+  );
 }

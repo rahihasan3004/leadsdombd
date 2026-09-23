@@ -309,12 +309,12 @@ export function RegisterForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 text-left">
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label
             htmlFor="firstName"
-            className="mb-1.5 block text-xs font-medium text-surface-700"
+            className="text-left block text-sm font-medium text-slate-700 mb-1.5"
           >
             First name
           </label>
@@ -334,7 +334,7 @@ export function RegisterForm() {
         <div>
           <label
             htmlFor="lastName"
-            className="mb-1.5 block text-xs font-medium text-surface-700"
+            className="text-left block text-sm font-medium text-slate-700 mb-1.5"
           >
             Last name
           </label>
@@ -356,7 +356,7 @@ export function RegisterForm() {
       <div>
         <label
           htmlFor="email"
-          className="mb-1.5 block text-xs font-medium text-surface-700"
+          className="text-left block text-sm font-medium text-slate-700 mb-1.5"
         >
           Work Email
         </label>
@@ -376,7 +376,7 @@ export function RegisterForm() {
       <div>
         <label
           htmlFor="password"
-          className="mb-1.5 block text-xs font-medium text-surface-700"
+          className="text-left block text-sm font-medium text-slate-700 mb-1.5"
         >
           Password
         </label>
@@ -395,7 +395,7 @@ export function RegisterForm() {
       <div>
         <label
           htmlFor="country"
-          className="mb-1.5 block text-xs font-medium text-surface-700"
+          className="text-left block text-sm font-medium text-slate-700 mb-1.5"
         >
           Country / Region
         </label>

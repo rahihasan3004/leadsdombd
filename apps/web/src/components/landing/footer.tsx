@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/logo";
 
 export function LandingFooter() {
   return (
@@ -8,12 +9,7 @@ export function LandingFooter() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-12">
           {/* Brand / Left Column */}
           <div className="space-y-3">
-            <div className="flex items-center gap-2.5 font-bold text-lg text-neutral-900">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 text-white text-xs font-black">
-                L
-              </div>
-              <span>LeadsDom</span>
-            </div>
+            <Logo />
             <p className="text-xs text-neutral-400 leading-relaxed">
               © 2026 LeadsDom. All rights reserved.
             </p>

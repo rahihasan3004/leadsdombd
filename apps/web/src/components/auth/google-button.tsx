@@ -1,6 +1,8 @@
 "use client";
 
-function GoogleIcon() {
+import { signIn } from "next-auth/react";
+
+export function GoogleIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
@@ -16,29 +18,23 @@ interface GoogleButtonProps {
 }
 
 export function GoogleButton({ variant = "default" }: GoogleButtonProps) {
+  const handleSignIn = () => {
+    signIn("google", { callbackUrl: "/dashboard" });
+  };
+
   if (variant === "outline") {
     return (
-      <form action="/api/auth/signin/google" method="POST" className="w-full">
-        <button
-          type="submit"
-          className="w-full h-11 flex items-center justify-center gap-2.5 bg-white border border-surface-200 text-surface-900 hover:bg-surface-100 rounded-md text-sm font-medium transition-colors shadow-xs cursor-pointer"
-        >
-          <GoogleIcon />
-          Continue with Google
-        </button>
-      </form>
+      <button onClick={handleSignIn} type="button" className="w-full h-11 flex items-center justify-center gap-2.5 bg-white border border-surface-200 text-surface-900 hover:bg-surface-100 rounded-md text-sm font-medium transition-colors shadow-xs cursor-pointer">
+        <GoogleIcon />
+        Continue with Google
+      </button>
     );
   }
 
   return (
-    <form action="/api/auth/signin/google" method="POST" className="w-full">
-      <button
-        type="submit"
-        className="w-full h-11 flex items-center justify-center gap-3 bg-brand-500 hover:bg-brand-600 text-white rounded-full text-sm font-semibold transition-colors shadow-none cursor-pointer mb-6"
-      >
-        <GoogleIcon />
-        Continue with Google
-      </button>
-    </form>
+    <button onClick={handleSignIn} type="button" className="w-full h-11 flex items-center justify-center gap-3 bg-brand-500 hover:bg-brand-600 text-white rounded-full text-sm font-semibold transition-colors shadow-none cursor-pointer mb-6">
+      <GoogleIcon />
+      Continue with Google
+    </button>
   );
 }

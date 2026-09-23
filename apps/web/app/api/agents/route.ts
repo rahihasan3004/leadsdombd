@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
+
+const agentsQuerySchema = z.object({
+  state: z.string().length(2, "State code must be 2 characters").optional(),
+  city: z.string().max(100, "City must be 100 characters or fewer").optional(),
+  brokerage: z.string().max(200, "Brokerage must be 200 characters or fewer").optional(),
+  minTransactions: z.coerce.number().int().nonnegative("Minimum transactions must be a non-negative integer").optional(),
+  minVolume: z.coerce.number().nonnegative("Minimum volume must be a non-negative number").optional(),
+  specialization: z.string().max(100, "Specialization must be 100 characters or fewer").optional(),
+  verifiedOnly: z.coerce.boolean().optional(),
+  q: z.string().max(100, "Search query must be 100 characters or fewer").optional(),
+  page: z.coerce.number().int().positive("Page must be a positive integer").default(1),
+  limit: z.coerce.number().int().min(1).max(100, "Limit must be between 1 and 100").default(25),
+});
 
 function maskEmail(email: string): string {
   if (!email) return "";
@@ -27,17 +41,28 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
 
-  const state = searchParams.get("state");
-  const city = searchParams.get("city");
-  const brokerage = searchParams.get("brokerage");
-  const minTransactions = searchParams.get("minTransactions");
-  const minVolume = searchParams.get("minVolume");
-  const specialization = searchParams.get("specialization");
-  const verifiedOnly = searchParams.get("verifiedOnly") === "true";
-  const rawQ = searchParams.get("q") || "";
-  const sanitizedQ = rawQ.slice(0, 100).trim();
-  const page = Math.max(1, Number(searchParams.get("page")) || 1);
-  const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit")) || 25));
+  const parsed = agentsQuerySchema.safeParse({
+    state: searchParams.get("state") ?? undefined,
+    city: searchParams.get("city") ?? undefined,
+    brokerage: searchParams.get("brokerage") ?? undefined,
+    minTransactions: searchParams.get("minTransactions") ?? undefined,
+    minVolume: searchParams.get("minVolume") ?? undefined,
+    specialization: searchParams.get("specialization") ?? undefined,
+    verifiedOnly: searchParams.get("verifiedOnly") ?? undefined,
+    q: searchParams.get("q") ?? undefined,
+    page: searchParams.get("page") ?? undefined,
+    limit: searchParams.get("limit") ?? undefined,
+  });
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues.map((i) => i.message).join(", ") },
+      { status: 400 }
+    );
+  }
+
+  const { state, city, brokerage, minTransactions, minVolume, specialization, verifiedOnly, q, page, limit } = parsed.data;
+  const sanitizedQ = (q ?? "").slice(0, 100).trim();
   const skip = (page - 1) * limit;
 
   const where: Record<string, unknown> = {};
@@ -51,8 +76,8 @@ export async function GET(request: Request) {
   if (state) andConditions.push({ state: state.toUpperCase() });
   if (city) andConditions.push({ city: { contains: city, mode: "insensitive" } });
   if (brokerage) andConditions.push({ brokerageName: { contains: brokerage, mode: "insensitive" } });
-  if (minTransactions) andConditions.push({ transactionCount: { gte: Number(minTransactions) } });
-  if (minVolume) andConditions.push({ totalVolume: { gte: Number(minVolume) } });
+  if (minTransactions != null) andConditions.push({ transactionCount: { gte: minTransactions } });
+  if (minVolume != null) andConditions.push({ totalVolume: { gte: minVolume } });
   if (specialization) andConditions.push({ specializations: { has: specialization } });
   if (verifiedOnly) andConditions.push({ isVerified: true });
 

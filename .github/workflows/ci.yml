@@ -38,8 +38,8 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://leadsdom:leadsdom@localhost:5432/leadsdom_test?schema=public
-      DIRECT_URL: postgresql://leadsdom:leadsdom@localhost:5432/leadsdom_test?schema=public
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
 
@@ -101,7 +101,7 @@ jobs:
       - name: Generate Prisma client
         run: pnpm db:generate
         env:
-          DATABASE_URL: postgresql://leadsdom:leadsdom@localhost:5432/leadsdom_test?schema=public
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Build
         run: pnpm build

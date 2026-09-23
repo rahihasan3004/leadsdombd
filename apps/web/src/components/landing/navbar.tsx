@@ -1,11 +1,12 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { Button } from "@fine-leads/ui";
 import { cn } from "@fine-leads/utils";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
+import { Logo } from "@/components/logo";
 
 const navLinks = [
   { href: "/dashboard", label: "Explore Leads" },
@@ -27,25 +28,8 @@ export function LandingNavbar() {
         "dark:bg-surface-950/80 dark:supports-[backdrop-filter]:bg-surface-950/60 dark:border-surface-800"
       )}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-        <Link href="/" className="flex items-center gap-2.5 font-bold text-xl text-surface-900">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-900">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
-          </div>
-          <span className="tracking-tight">LeadsDom</span>
-        </Link>
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
+        <Logo />
 
         <nav className="hidden md:flex items-center gap-8">
           {navLinks.map((link) => (
@@ -64,7 +48,7 @@ export function LandingNavbar() {
             <Button
               asChild
               variant="default"
-              className="rounded-full bg-surface-900 px-5 text-white hover:bg-surface-800"
+              className="rounded-full bg-[#465FFF] hover:bg-[#3B50E0] text-white font-medium transition-colors shadow-none px-5"
             >
               <Link href="/dashboard">Go to Dashboard →</Link>
             </Button>
@@ -79,7 +63,7 @@ export function LandingNavbar() {
               <Button
                 asChild
                 variant="default"
-                className="rounded-full bg-surface-900 px-5 text-white hover:bg-surface-800"
+                className="rounded-full bg-[#465FFF] hover:bg-[#3B50E0] text-white font-medium transition-colors shadow-none px-5"
               >
                 <Link href="/register">Get Started</Link>
               </Button>

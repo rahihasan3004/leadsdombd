@@ -32,53 +32,6 @@ interface RecentOrder {
   status: string;
 }
 
-const MOCK_RECENT_ORDERS: RecentOrder[] = [
-  {
-    id: "1",
-    orderId: "LD-9482",
-    date: "Today",
-    states: "Florida (FL), Texas (TX)",
-    category: "Real Estate Agents",
-    quantity: 2500,
-    status: "Delivered",
-  },
-  {
-    id: "2",
-    orderId: "LD-9480",
-    date: "Yesterday",
-    states: "California (CA)",
-    category: "Real Estate Agents",
-    quantity: 1000,
-    status: "Delivered",
-  },
-  {
-    id: "3",
-    orderId: "LD-9475",
-    date: "Oct 18, 2025",
-    states: "New York (NY), New Jersey (NJ)",
-    category: "Real Estate Agents",
-    quantity: 5000,
-    status: "Delivered",
-  },
-];
-
-const RECENT_ORDERS_SLICE = MOCK_RECENT_ORDERS.slice(0, 3);
-
-const DEFAULT_MONTHLY_TRENDS: MonthlyData[] = [
-  { month: "Jan", leads: 320, orders: 12 },
-  { month: "Feb", leads: 680, orders: 28 },
-  { month: "Mar", leads: 420, orders: 15 },
-  { month: "Apr", leads: 560, orders: 22 },
-  { month: "May", leads: 390, orders: 18 },
-  { month: "Jun", leads: 510, orders: 20 },
-  { month: "Jul", leads: 720, orders: 31 },
-  { month: "Aug", leads: 280, orders: 10 },
-  { month: "Sep", leads: 480, orders: 19 },
-  { month: "Oct", leads: 760, orders: 35 },
-  { month: "Nov", leads: 590, orders: 24 },
-  { month: "Dec", leads: 360, orders: 14 },
-];
-
 interface DashboardMetrics {
   totalLeads: number;
   walletBalance: number;
@@ -93,7 +46,7 @@ const EMPTY_METRICS: DashboardMetrics = {
   walletBalance: 0,
   deliveredFiles: 0,
   deliverability: 100,
-  monthlyTrends: DEFAULT_MONTHLY_TRENDS,
+  monthlyTrends: [],
   recentOrders: [],
 };
 
@@ -154,6 +107,10 @@ export default function DashboardPage() {
   const deliveredFilesFormatted = `${metrics.deliveredFiles} File${metrics.deliveredFiles === 1 ? "" : "s"}`;
   const verifiedCount = metrics.totalLeads;
   const verifiedFormatted = `${formatNumber(verifiedCount)} Valid`;
+
+  const maxLeadCount = metrics.monthlyTrends.length > 0
+    ? Math.max(...metrics.monthlyTrends.map((m) => m.leads), 1)
+    : 1;
 
   return (
     <div className="w-full min-h-screen bg-[#F4F7FB] p-6 md:p-8 space-y-6">
@@ -275,11 +232,14 @@ export default function DashboardPage() {
             <div className="flex items-center justify-center h-[180px] text-xs text-red-500">
               {error}
             </div>
+          ) : metrics.monthlyTrends.length === 0 ? (
+            <div className="flex items-center justify-center h-[180px] text-xs text-neutral-400">
+              No lead data yet. Start a search to see trends.
+            </div>
           ) : (
             <div className="flex items-end gap-2 h-[180px]">
-              {metrics.monthlyTrends.map((item, index) => {
-                const BAR_HEIGHTS = [40, 85, 55, 70, 50, 65, 90, 35, 60, 95, 75, 45];
-                const leadHeight = BAR_HEIGHTS[index] ?? 50;
+              {metrics.monthlyTrends.map((item) => {
+                const leadHeight = maxLeadCount > 0 ? (item.leads / maxLeadCount) * 100 : 0;
                 return (
                   <div
                     key={item.month}
@@ -374,80 +334,85 @@ export default function DashboardPage() {
           </a>
         </div>
         <div className="w-full overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr>
-                <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Order ID &amp; Date
-                </th>
-                <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Target States
-                </th>
-                <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Category
-                </th>
-                <th className="h-9 px-4 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Quantity
-                </th>
-                <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="h-9 px-4 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {(metrics.recentOrders && metrics.recentOrders.length > 0
-                ? metrics.recentOrders
-                : MOCK_RECENT_ORDERS).slice(0, 3).map((order) => (
-                <tr
-                  key={order.id}
-                  className="hover:bg-neutral-50/50 transition-colors"
-                >
-                  <td className="py-3.5 px-4">
-                    <div>
-                      <span className="font-semibold text-neutral-900 tabular-nums">
-                        {order.orderId}
-                      </span>
-                      <p className="text-neutral-400 tabular-nums mt-0.5">
-                        {order.date}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-neutral-100 border border-neutral-200/60 text-neutral-700 font-medium">
-                      {order.states}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="text-neutral-600 font-medium">
-                      {order.category}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <span className="text-neutral-900 font-bold tabular-nums">
-                      {order.quantity.toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="text-emerald-600 font-semibold text-xs">
-                      {order.status || "Delivered"}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1.5 h-8 px-3 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-none cursor-pointer"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      Download CSV
-                    </button>
-                  </td>
+          {metrics.recentOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-neutral-400">
+              <p className="text-xs">No orders yet.</p>
+              <p className="text-[10px] mt-1">Your recent lead purchases will appear here.</p>
+            </div>
+          ) : (
+            <table className="w-full text-xs">
+              <thead>
+                <tr>
+                  <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                    Order ID &amp; Date
+                  </th>
+                  <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                    Target States
+                  </th>
+                  <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="h-9 px-4 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                    Quantity
+                  </th>
+                  <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="h-9 px-4 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                    Action
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {metrics.recentOrders.slice(0, 3).map((order) => (
+                  <tr
+                    key={order.id}
+                    className="hover:bg-neutral-50/50 transition-colors"
+                  >
+                    <td className="py-3.5 px-4">
+                      <div>
+                        <span className="font-semibold text-neutral-900 tabular-nums">
+                          {order.orderId}
+                        </span>
+                        <p className="text-neutral-400 tabular-nums mt-0.5">
+                          {order.date}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-neutral-100 border border-neutral-200/60 text-neutral-700 font-medium">
+                        {order.states}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="text-neutral-600 font-medium">
+                        {order.category}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <span className="text-neutral-900 font-bold tabular-nums">
+                        {order.quantity.toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="text-emerald-600 font-semibold text-xs">
+                        {order.status || "Delivered"}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 h-8 px-3 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-none cursor-pointer"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Download CSV
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

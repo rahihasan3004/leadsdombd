@@ -16,22 +16,21 @@ const relevantEvents = new Set([
   "invoice.payment_failed",
 ]);
 
-const processedEventIds = new Set<string>();
-
-function isEventProcessed(eventId: string): boolean {
-  if (processedEventIds.has(eventId)) return true;
-  return false;
+async function isEventProcessed(eventId: string): Promise<boolean> {
+  const existing = await db.webhookEvent.findUnique({
+    where: { eventId },
+  });
+  return existing !== null;
 }
 
-function markEventProcessed(eventId: string): void {
-  processedEventIds.add(eventId);
-  if (processedEventIds.size > 10_000) {
-    const items = [...processedEventIds];
-    processedEventIds.clear();
-    for (let i = items.length - 5_000; i < items.length; i++) {
-      processedEventIds.add(items[i]);
-    }
-  }
+async function markEventProcessed(eventId: string, status: string): Promise<void> {
+  await db.webhookEvent.create({
+    data: {
+      eventId,
+      provider: "stripe",
+      status,
+    },
+  });
 }
 
 export async function POST(request: Request) {
@@ -51,9 +50,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
 
-  if (isEventProcessed(event.id)) {
+  const alreadyProcessed = await isEventProcessed(event.id);
+  if (alreadyProcessed) {
     return NextResponse.json({ received: true });
   }
+
+  const status = "processed";
 
   try {
     switch (event.type) {
@@ -79,10 +81,11 @@ export async function POST(request: Request) {
       }
     }
 
-    markEventProcessed(event.id);
+    await markEventProcessed(event.id, status);
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("Webhook handler error:", error);
+    await markEventProcessed(event.id, "failed").catch(() => {});
     return NextResponse.json(
       { error: "Webhook handler error" },
       { status: 500 }

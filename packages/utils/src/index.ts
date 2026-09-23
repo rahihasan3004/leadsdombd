@@ -148,7 +148,12 @@ export function calculateUpgradePrice(
   if (purchasedCount >= totalStates) {
     return { canUpgrade: false, upgradePrice: 0 };
   }
-  return { canUpgrade: true, upgradePrice: 0 };
+  const remainingCount = totalStates - purchasedCount;
+  const fullUpgradePrice = remainingCount * PRICE_PER_THOUSAND_LEADS;
+  const credit = Math.min(amountPaidPreviously, fullUpgradePrice);
+  const upgradePrice = Math.max(0, fullUpgradePrice - credit);
+  return { canUpgrade: true, upgradePrice: Math.round(upgradePrice * 100) / 100 };
 }
 
+export { checkRateLimit, createRateLimiter, getClientIp, type RateLimitOptions, type RateLimitResult } from "./rate-limit";
 export { generateOrderRef, generateTxnRef } from "./order-ref";

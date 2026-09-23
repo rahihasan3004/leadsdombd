@@ -12,6 +12,7 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
+import { Logo } from "@/components/logo";
 
 interface SidebarUser {
   name?: string | null;
@@ -47,12 +48,7 @@ export function Sidebar({ user }: SidebarProps) {
     <aside className="w-64 h-screen sticky top-0 bg-white border-r border-neutral-200 flex flex-col justify-between">
       <div>
         <div className="px-6 py-6 flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-[#465FFF] text-white flex items-center justify-center font-black text-base shadow-sm">
-            L
-          </div>
-          <span className="font-extrabold text-xl text-slate-900 tracking-tight">
-            LeadsDom
-          </span>
+          <Logo size={36} showText={true} />
         </div>
 
         <nav className="px-3">

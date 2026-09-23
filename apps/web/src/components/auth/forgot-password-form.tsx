@@ -186,15 +186,7 @@ export function ForgotPasswordForm() {
     "w-full h-11 bg-surface-950 hover:bg-surface-800 text-white rounded-md text-sm font-semibold transition-colors flex items-center justify-center cursor-pointer disabled:opacity-50";
 
   return (
-    <div className="min-h-[100dvh] w-full bg-white text-surface-950 flex flex-col items-center justify-center p-4 sm:p-6 py-12 sm:py-16">
-      <div className="w-full max-w-[400px] sm:max-w-[420px] flex flex-col items-center">
-      <Link
-        href="/"
-        className="text-2xl font-bold tracking-tight text-surface-950 text-center mb-6 sm:mb-8"
-      >
-        leadsdom
-      </Link>
-
+    <div className="w-full max-w-[400px] sm:max-w-[420px] flex flex-col items-center">
       {step === "email" && (
         <>
           <h1 className="text-2xl font-semibold tracking-tight text-surface-950 text-center mb-2">
@@ -357,7 +349,5 @@ export function ForgotPasswordForm() {
           </form>
         </>
       )}
-      </div>
-    </div>
   );
 }

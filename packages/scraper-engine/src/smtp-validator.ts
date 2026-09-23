@@ -557,10 +557,10 @@ export class SmtpValidator {
   private readonly port: number;
 
   constructor(options?: SmtpValidatorOptions) {
-    this.heloDomain = options?.heloDomain ?? "localhost";
+    this.heloDomain = options?.heloDomain ?? process.env.SMTP_HELO_DOMAIN ?? "getleadsdom.com";
     this.timeout = options?.timeout ?? 10000;
     this.probeSender = options?.probeSender ?? `check@${this.heloDomain}`;
-    this.port = options?.port ?? 25;
+    this.port = options?.port ?? 587;
   }
 
   async validate(email: string): Promise<SmtpValidationResult> {

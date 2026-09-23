@@ -303,7 +303,6 @@ function DonutChart() {
           y={cy - 6}
           textAnchor="middle"
           className="text-lg"
-          fontWeight="700"
           fill="#171717"
         >
           1.2M

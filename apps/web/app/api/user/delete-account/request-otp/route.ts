@@ -21,8 +21,8 @@ export async function POST(request: Request) {
       // body is optional for backward compat
     }
 
-    if (body.confirmText !== "DANGER") {
-      return NextResponse.json({ error: "Confirmation text must be DANGER" }, { status: 400 });
+    if (body.confirmText !== "DELETE") {
+      return NextResponse.json({ error: "Confirmation text must be DELETE" }, { status: 400 });
     }
 
     const email = session.user.email;
