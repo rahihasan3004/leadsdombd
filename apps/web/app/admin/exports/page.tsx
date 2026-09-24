@@ -224,6 +224,7 @@ export default function AdminExportsPage() {
           </Table>
         </div>
         </div>
+      )}
 
       {isError && (
         <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-8 text-center">

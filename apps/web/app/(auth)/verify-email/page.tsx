@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, type KeyboardEvent } from "react";
+import { useState, useCallback, useRef, useEffect, type KeyboardEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail } from "lucide-react";
 import { Logo } from "@/components/logo";
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") ?? "";
@@ -183,4 +183,18 @@ export default function VerifyEmailPage() {
           </main>
         </>
       );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center text-center mb-6">
+        <div className="mb-4">
+          <Logo showText={false} size={56} className="w-14 h-14 object-contain transition-transform hover:scale-105" />
+        </div>
+      </div>
+    }>
+      <VerifyEmailContent />
+    </Suspense>
+  );
 }

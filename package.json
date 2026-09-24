@@ -9,6 +9,7 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "postinstall": "pnpm --filter @fine-leads/database db:generate",
     "db:generate": "turbo db:generate",
     "db:push": "turbo db:push",
     "db:migrate": "turbo db:migrate",
