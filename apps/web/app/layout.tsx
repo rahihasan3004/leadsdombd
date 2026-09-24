@@ -102,8 +102,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${jakarta.variable} ${jetbrainsMono.variable}`}>
-      <body className="min-h-screen bg-white text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-50 font-sans">
+    <html lang="en" suppressHydrationWarning className={`${jakarta.variable} ${jetbrainsMono.variable} overflow-x-hidden`}>
+      <body className="min-h-screen w-full max-w-full overflow-x-hidden bg-white text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-50 font-sans">
         <Providers>{children}</Providers>
         <Toaster />
         <OrganizationSchema />

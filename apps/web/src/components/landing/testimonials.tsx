@@ -95,6 +95,7 @@ export function Testimonials() {
   const mobileTests = testimonials.slice(0, 2);
   const column1 = testimonials.slice(0, 3);
   const column2 = testimonials.slice(3, 6);
+  const column3 = [testimonials[0], testimonials[2], testimonials[4]];
 
   return (
     <section className="py-24 bg-[#FAFAFA]">
@@ -109,10 +110,14 @@ export function Testimonials() {
           </p>
         </div>
 
-        <div className="md:hidden grid grid-cols-1 sm:grid-cols-2 gap-4 mt-12">
-          {mobileTests.map((t) => (
-            <TestimonialCard key={t.name} {...t} />
-          ))}
+        <div className="md:hidden">
+          <div className="mx-auto max-w-6xl px-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-12">
+              {mobileTests.map((t) => (
+                <TestimonialCard key={t.name} {...t} />
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="hidden md:block grid grid-cols-3 gap-6 h-[540px] overflow-hidden relative mt-16">
@@ -127,6 +132,7 @@ export function Testimonials() {
 
           <MarqueeColumn items={column1} />
           <MarqueeColumn items={column2} reverse />
+          <MarqueeColumn items={column3} />
         </div>
       </div>
 

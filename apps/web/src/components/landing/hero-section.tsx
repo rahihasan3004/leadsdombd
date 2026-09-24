@@ -390,31 +390,33 @@ function DashboardMockup() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
                 {kpiCards.map((kpi) => (
                   <div
                     key={kpi.label}
-                    className="rounded-2xl border border-neutral-200/60 bg-white p-5 shadow-none hover:border-neutral-300 transition-colors"
+                    className="rounded-2xl border border-neutral-200/60 bg-white p-3 sm:p-5 shadow-none hover:border-neutral-300 transition-colors"
                   >
-                    <div className="flex items-center gap-1.5 text-neutral-400 mb-1.5">
-                      <kpi.icon className="h-3.5 w-3.5" />
-                      <p className="text-[10px] font-medium uppercase tracking-wider">
+                    <div className="flex items-center gap-1.5 text-neutral-400 mb-1">
+                      <kpi.icon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider">
                         {kpi.label}
                       </p>
                     </div>
-                    <p className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900 tabular-nums">
+                    <p className="text-lg sm:text-2xl md:text-3xl font-bold tracking-tight text-neutral-900 tabular-nums">
                       {kpi.value}
                     </p>
                   </div>
                 ))}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="rounded-2xl border border-neutral-200/60 bg-white p-5 min-h-[220px]">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3">
+                <div className="rounded-2xl border border-neutral-200/60 bg-white p-3 sm:p-5 min-h-[160px] sm:min-h-[220px] w-full min-w-0">
+                  <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-2 sm:mb-3">
                     Sales / Lead Trends
                   </p>
-                  <LineChart />
+                  <div className="w-full min-w-0">
+                    <LineChart />
+                  </div>
                   <div className="flex items-center gap-4 mt-1.5 pl-1">
                     <div className="flex items-center gap-1.5">
                       <div className="h-2 w-2 rounded-full bg-blue-500" />
@@ -427,18 +429,22 @@ function DashboardMockup() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-neutral-200/60 bg-white p-5 min-h-[220px]">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-3">
+                <div className="rounded-2xl border border-neutral-200/60 bg-white p-3 sm:p-5 min-h-[160px] sm:min-h-[220px] w-full min-w-0">
+                  <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-2 sm:mb-3">
                     User Acquisition
                   </p>
-                  <BarChart />
+                  <div className="w-full min-w-0">
+                    <BarChart />
+                  </div>
                 </div>
 
-                <div className="rounded-2xl border border-neutral-200/60 bg-white p-5 min-h-[220px]">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-3">
+                <div className="rounded-2xl border border-neutral-200/60 bg-white p-3 sm:p-5 min-h-[160px] sm:min-h-[220px] w-full min-w-0">
+                  <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-2 sm:mb-3">
                     Top States Distribution
                   </p>
-                  <DonutChart />
+                  <div className="w-full min-w-0">
+                    <DonutChart />
+                  </div>
                 </div>
               </div>
             </div>
@@ -486,13 +492,12 @@ export function HeroSection() {
           </Link>
         </div>
 
-        <div className="relative mt-8">
-          <div className="[mask-image:linear-gradient(to_bottom,black_40%,transparent_100%)] md:[mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)]">
-            <div className="aspect-[16/10] overflow-hidden rounded-xl border border-neutral-200/80 shadow-md bg-white origin-top transform scale-[0.7] sm:scale-100 w-[640px] md:w-full">
+        <div className="w-full max-w-5xl mx-auto px-2 sm:px-4 mt-8 sm:mt-12 overflow-hidden">
+          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-2 sm:p-4 shadow-xl">
+            <div className="rounded-xl border border-neutral-200/80 bg-white shadow-sm overflow-hidden">
               <DashboardMockup />
             </div>
           </div>
-          <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#FAFAFA] via-[#FAFAFA]/80 to-transparent pointer-events-none z-10" />
         </div>
       </div>
     </section>

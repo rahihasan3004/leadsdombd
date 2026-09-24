@@ -16,7 +16,7 @@ function SectionSkeleton() {
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-[#FAFAFA] flex flex-col selection:bg-neutral-900 selection:text-white">
+    <div className="min-h-screen bg-[#FAFAFA] flex flex-col selection:bg-neutral-900 selection:text-white overflow-x-hidden w-full max-w-full">
       <Suspense fallback={<div className="h-20" />}>
         <LandingNavbar />
       </Suspense>
