@@ -11,17 +11,9 @@ const isDev = process.env.NODE_ENV !== "production";
 const defaultAuthUrl =
   isDev ? "http://localhost:3000" : process.env.NEXT_PUBLIC_APP_URL ?? "https://getleadsdom.com";
 
-const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
-
-if (!authSecret && isDev) {
-  console.warn(
-    "[auth] AUTH_SECRET / NEXTAUTH_SECRET is not set. Using a fallback JWT secret for localhost only."
-  );
-}
-
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: authSecret || crypto.randomBytes(32).toString("hex"),
-  trustHost: isDev || process.env.AUTH_TRUST_HOST === "true",
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "default_auth_secret_leadsdom_2026",
+  trustHost: true,
   session: {
     strategy: "jwt",
     maxAge: 7 * 24 * 60 * 60,
