@@ -390,33 +390,30 @@ function DashboardMockup() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-                {kpiCards.map((kpi) => (
-                  <div
-                    key={kpi.label}
-                    className="rounded-2xl border border-neutral-200/60 bg-white p-3 sm:p-5 shadow-none hover:border-neutral-300 transition-colors"
-                  >
-                    <div className="flex items-center gap-1.5 text-neutral-400 mb-1">
-                      <kpi.icon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                      <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider">
-                        {kpi.label}
+              <div className="md:hidden">
+                <div className="grid grid-cols-2 gap-2">
+                  {kpiCards.map((kpi) => (
+                    <div
+                      key={kpi.label}
+                      className="rounded-xl border border-neutral-200/60 bg-white p-3 shadow-none"
+                    >
+                      <div className="flex items-center gap-1 text-neutral-400 mb-1">
+                        <kpi.icon className="h-3 w-3" />
+                        <p className="text-[10px] font-medium uppercase tracking-wider">
+                          {kpi.label}
+                        </p>
+                      </div>
+                      <p className="text-base font-bold tracking-tight text-neutral-900 tabular-nums">
+                        {kpi.value}
                       </p>
                     </div>
-                    <p className="text-lg sm:text-2xl md:text-3xl font-bold tracking-tight text-neutral-900 tabular-nums">
-                      {kpi.value}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3">
-                <div className="rounded-2xl border border-neutral-200/60 bg-white p-3 sm:p-5 min-h-[160px] sm:min-h-[220px] w-full min-w-0">
-                  <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-2 sm:mb-3">
+                  ))}
+                </div>
+                <div className="mt-3 rounded-2xl border border-neutral-200/60 bg-white p-4 min-h-[160px]">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-2">
                     Sales / Lead Trends
                   </p>
-                  <div className="w-full min-w-0">
-                    <LineChart />
-                  </div>
+                  <LineChart />
                   <div className="flex items-center gap-4 mt-1.5 pl-1">
                     <div className="flex items-center gap-1.5">
                       <div className="h-2 w-2 rounded-full bg-blue-500" />
@@ -428,21 +425,57 @@ function DashboardMockup() {
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="rounded-2xl border border-neutral-200/60 bg-white p-3 sm:p-5 min-h-[160px] sm:min-h-[220px] w-full min-w-0">
-                  <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-2 sm:mb-3">
-                    User Acquisition
-                  </p>
-                  <div className="w-full min-w-0">
-                    <BarChart />
-                  </div>
+              <div className="hidden md:block">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {kpiCards.map((kpi) => (
+                    <div
+                      key={kpi.label}
+                      className="rounded-2xl border border-neutral-200/60 bg-white p-5 shadow-none hover:border-neutral-300 transition-colors"
+                    >
+                      <div className="flex items-center gap-1.5 text-neutral-400 mb-1.5">
+                        <kpi.icon className="h-3.5 w-3.5" />
+                        <p className="text-[10px] font-medium uppercase tracking-wider">
+                          {kpi.label}
+                        </p>
+                      </div>
+                      <p className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900 tabular-nums">
+                        {kpi.value}
+                      </p>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="rounded-2xl border border-neutral-200/60 bg-white p-3 sm:p-5 min-h-[160px] sm:min-h-[220px] w-full min-w-0">
-                  <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-2 sm:mb-3">
-                    Top States Distribution
-                  </p>
-                  <div className="w-full min-w-0">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                  <div className="rounded-2xl border border-neutral-200/60 bg-white p-5 min-h-[220px]">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-3">
+                      Sales / Lead Trends
+                    </p>
+                    <LineChart />
+                    <div className="flex items-center gap-4 mt-1.5 pl-1">
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-2 w-2 rounded-full bg-blue-500" />
+                        <span className="text-[10px] text-neutral-500">Leads</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-2 w-2 rounded-full bg-red-500" />
+                        <span className="text-[10px] text-neutral-500">Sales</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-neutral-200/60 bg-white p-5 min-h-[220px]">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-3">
+                      User Acquisition
+                    </p>
+                    <BarChart />
+                  </div>
+
+                  <div className="rounded-2xl border border-neutral-200/60 bg-white p-5 min-h-[220px]">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-3">
+                      Top States Distribution
+                    </p>
                     <DonutChart />
                   </div>
                 </div>
@@ -464,7 +497,7 @@ export function HeroSection() {
     <section className="relative overflow-hidden bg-[#FAFAFA] pt-16 md:pt-24 pb-12">
       <CrosshairGridBackground />
 
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[350px] rounded-full bg-gradient-to-tr from-neutral-200/50 via-slate-100/60 to-transparent blur-3xl -z-10 animate-pulse pointer-events-none [animation-duration:6s]" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] h-[350px] rounded-full bg-gradient-to-tr from-neutral-200/50 via-slate-100/60 to-transparent blur-3xl -z-10 animate-pulse pointer-events-none [animation-duration:6s]" />
 
       <div className="mx-auto max-w-7xl px-6 text-center">
         <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-neutral-900 leading-[1.08] max-w-4xl mx-auto text-center">
@@ -492,12 +525,11 @@ export function HeroSection() {
           </Link>
         </div>
 
-        <div className="w-full max-w-5xl mx-auto px-2 sm:px-4 mt-8 sm:mt-12 overflow-hidden">
-          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-2 sm:p-4 shadow-xl">
-            <div className="rounded-xl border border-neutral-200/80 bg-white shadow-sm overflow-hidden">
-              <DashboardMockup />
-            </div>
+        <div className="relative mt-8">
+          <div className="[mask-image:linear-gradient(to_bottom,black_40%,transparent_100%)] md:[mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)]">
+            <DashboardMockup />
           </div>
+          <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#FAFAFA] via-[#FAFAFA]/80 to-transparent pointer-events-none z-10" />
         </div>
       </div>
     </section>

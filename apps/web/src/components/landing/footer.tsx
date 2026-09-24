@@ -52,7 +52,7 @@ export function LandingFooter() {
 
       {/* Full Width Edge-to-Edge Watermark */}
       <div className="w-full overflow-hidden select-none pointer-events-none text-center pt-8 pb-1 -mb-1 md:-mb-2">
-        <span className="text-[11.5vw] font-black tracking-tight text-neutral-100 uppercase leading-none block whitespace-nowrap">
+        <span className="text-[clamp(40px,11.5vw,200px)] font-black tracking-tight text-neutral-100 uppercase leading-none block whitespace-nowrap">
           LEADSDOM
         </span>
       </div>

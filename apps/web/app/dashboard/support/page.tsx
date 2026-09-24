@@ -91,7 +91,7 @@ export default function SupportPage() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full px-3.5 py-2.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:border-neutral-900 transition-colors bg-white"
+              className="mt-1 w-full px-3.5 py-3 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:border-neutral-900 transition-colors bg-white"
               placeholder="Your name"
               required
             />
@@ -108,7 +108,7 @@ export default function SupportPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full px-3.5 py-2.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:border-neutral-900 transition-colors bg-white"
+              className="mt-1 w-full px-3.5 py-3 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:border-neutral-900 transition-colors bg-white"
               placeholder="you@company.com"
               required
             />
@@ -125,7 +125,7 @@ export default function SupportPage() {
               rows={4}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              className="mt-1 w-full px-3.5 py-2.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:border-neutral-900 transition-colors bg-white"
+              className="mt-1 w-full px-3.5 py-3 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:border-neutral-900 transition-colors bg-white"
               placeholder="How can we help?"
               required
             />

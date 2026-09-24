@@ -476,7 +476,7 @@ export default function SettingsPage() {
             <Button
               variant="destructive"
               onClick={() => setShowDeleteModal(true)}
-              className="h-10 px-5 text-xs font-semibold"
+              className="h-11 px-5 text-xs font-semibold"
             >
               <Trash2 className="h-3.5 w-3.5 mr-2" />
               Delete Account

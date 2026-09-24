@@ -122,7 +122,7 @@ function Card1() {
       </div>
 
       <div className="mt-8 rounded-sm bg-white/80 border border-neutral-200/40 p-5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-3">
           <div>
             <p className="text-[11px] text-neutral-500 font-medium uppercase tracking-wide">
               Territory rate
@@ -326,10 +326,13 @@ function Card4() {
               </p>
             ))}
           </div>
-          {rows.map((row) => (
+          {rows.map((row, idx) => (
              <div
                key={row.name}
-               className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 px-4 py-3 border-b border-neutral-50 last:border-b-0 hover:bg-neutral-50/50 transition-colors"
+               className={cn(
+                 "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 px-4 py-3 border-b border-neutral-50 last:border-b-0 hover:bg-neutral-50/50 transition-colors",
+                 idx >= 2 && "hidden md:grid"
+               )}
              >
               <p className="text-sm font-medium text-neutral-900 truncate">
                 {row.name}

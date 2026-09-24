@@ -182,7 +182,7 @@ export function AuthPage({ mode }: AuthPageProps) {
         <BrandShowcase />
       </div>
 
-      <div className="flex w-full items-center justify-center bg-white px-4 py-12 dark:bg-slate-900 lg:w-1/2">
+      <div className="flex w-full items-center justify-center bg-white px-6 py-12 dark:bg-slate-900 lg:w-1/2">
         <div className="w-full max-w-md px-0 py-12 sm:px-8">
           <div className="mb-8 lg:hidden">
             <div className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">

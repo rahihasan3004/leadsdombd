@@ -392,7 +392,7 @@ export default function DashboardPage() {
                     <td className="py-3.5 px-4 text-right">
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1.5 h-8 px-3 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-none cursor-pointer"
+                        className="inline-flex items-center gap-1.5 h-11 px-3 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-none cursor-pointer"
                       >
                         <Download className="h-3.5 w-3.5" />
                         Download CSV
