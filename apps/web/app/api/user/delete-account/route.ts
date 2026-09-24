@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
+import { getClientIp } from "@fine-leads/utils";
+import crypto from "crypto";
+
+function hashOTP(otp: string, identifier: string): string {
+  return crypto.createHmac("sha256", identifier).update(otp).digest("hex");
+}
 
 export async function DELETE(request: Request) {
   try {
@@ -18,11 +24,12 @@ export async function DELETE(request: Request) {
 
     const email = session.user.email;
     const userId = session.user.id;
+    const hashedOtp = hashOTP(otp, email);
 
     const verificationToken = await db.verificationToken.findFirst({
       where: {
         identifier: email,
-        token: otp,
+        token: hashedOtp,
         expires: { gt: new Date() },
         OR: [
           { lockedUntil: null },
@@ -45,6 +52,18 @@ export async function DELETE(request: Request) {
     }
 
     await db.$transaction(async (tx) => {
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "delete_account",
+          resource: "user",
+          resourceId: user.id,
+          details: { email: user.email },
+          ipAddress: getClientIp(request),
+          userAgent: request.headers.get("user-agent") ?? undefined,
+        },
+      });
+
       if (user.email) {
         await tx.verificationToken.deleteMany({
           where: { identifier: user.email },

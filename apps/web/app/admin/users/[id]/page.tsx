@@ -550,19 +550,20 @@ export default function AdminUserDetailPage() {
               {data.recentTransactions.length === 0 ? (
                 <p className="text-sm text-surface-400 text-center py-4">No transactions</p>
               ) : (
-                <div className="rounded-md border border-surface-200 dark:border-surface-800">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Reference</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Balance After</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                <div className="w-full overflow-x-auto">
+                  <div className="rounded-md border border-surface-200 dark:border-surface-800">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Reference</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Balance After</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
                     <TableBody>
                       {data.recentTransactions.map((txn) => (
                         <TableRow key={txn.id}>
@@ -599,12 +600,13 @@ export default function AdminUserDetailPage() {
                     </TableBody>
                   </Table>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <TabsContent value="purchases" className="mt-4 space-y-4">
+          <TabsContent value="purchases" className="mt-4 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Lead Purchases</CardTitle>
@@ -614,17 +616,18 @@ export default function AdminUserDetailPage() {
               {data.recentPurchases.length === 0 ? (
                 <p className="text-sm text-surface-400 text-center py-4">No purchases</p>
               ) : (
-                <div className="rounded-md border border-surface-200 dark:border-surface-800">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Reference</TableHead>
-                        <TableHead>States</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                <div className="w-full overflow-x-auto">
+                  <div className="rounded-md border border-surface-200 dark:border-surface-800">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Reference</TableHead>
+                          <TableHead>States</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
                     <TableBody>
                       {data.recentPurchases.map((purchase) => (
                         <TableRow key={purchase.id}>
@@ -663,11 +666,12 @@ export default function AdminUserDetailPage() {
                     </TableBody>
                   </Table>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
       <Dialog open={unlockDialogOpen} onOpenChange={setUnlockDialogOpen}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">

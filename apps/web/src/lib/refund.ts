@@ -15,6 +15,15 @@ export async function refundLeadPurchase(
   reason: string
 ) {
   return db.$transaction(async (tx) => {
+    const purchase = await tx.leadPurchase.findFirst({
+      where: { id: purchaseId, status: { not: "REFUNDED" } },
+      select: { id: true },
+    });
+
+    if (!purchase) {
+      throw new Error(`Purchase ${purchaseId} not found or already refunded`);
+    }
+
     await tx.leadPurchase.update({
       where: { id: purchaseId },
       data: { status: "REFUNDED" },

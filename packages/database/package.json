@@ -19,6 +19,7 @@
     "clean": "rm -rf node_modules .turbo"
   },
   "dependencies": {
+    "@lemonsqueezy/lemonsqueezy.js": "^4.0.0",
     "@prisma/client": "^6.1.0"
   },
   "devDependencies": {

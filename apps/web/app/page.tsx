@@ -6,20 +6,33 @@ import { Testimonials } from "@/components/landing/testimonials";
 import { FAQSection } from "@/components/landing/faq-section";
 import { CTABanner } from "@/components/landing/cta-banner";
 import { LandingFooter } from "@/components/landing/footer";
+import { Suspense } from "react";
+
+function SectionSkeleton() {
+  return (
+    <div className="min-h-[200px] animate-pulse bg-neutral-100" />
+  );
+}
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#FAFAFA] flex flex-col selection:bg-neutral-900 selection:text-white">
-      <LandingNavbar />
+      <Suspense fallback={<div className="h-20" />}>
+        <LandingNavbar />
+      </Suspense>
       <main className="flex-1">
-        <HeroSection />
+        <Suspense fallback={<SectionSkeleton />}>
+          <HeroSection />
+        </Suspense>
         <BentoFeatures />
         <FeatureMatrix />
         <Testimonials />
         <FAQSection />
-        <CTABanner />
-        <LandingFooter />
+        <Suspense fallback={<SectionSkeleton />}>
+          <CTABanner />
+        </Suspense>
       </main>
+      <LandingFooter />
     </div>
   );
 }

@@ -19,6 +19,10 @@ function expandStateQuery(states: string[]): string[] {
   return Array.from(expanded);
 }
 
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 100;
+
 export async function POST(req: Request) {
   try {
     const session = await auth();
@@ -57,8 +61,6 @@ export async function POST(req: Request) {
     });
     const finalAmount = Math.round(leadCount * PRICE_PER_LEAD * 100) / 100;
 
-    console.log("[CHECKOUT REQUEST]:", { user: session?.user?.email, states, finalAmount, leadCount });
-
     const successUrl = `${baseUrl || ""}/dashboard?purchase=success`;
 
     return NextResponse.json({ url: successUrl });
@@ -79,14 +81,25 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const page = Math.max(
+      DEFAULT_PAGE,
+      parseInt(searchParams.get("page") || String(DEFAULT_PAGE), 10)
+    );
+    const rawLimit = parseInt(searchParams.get("limit") || String(DEFAULT_LIMIT), 10);
+    const limit = Math.min(MAX_LIMIT, Math.max(1, rawLimit));
+    const skip = (page - 1) * limit;
+
     const purchases = await db.leadPurchase.findMany({
       where: { userId: session.user.id, status: "COMPLETED" },
       orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
     });
 
     const purchasedStates: string[] = purchases.flatMap((p) => p.unlockedStates || []);
     const uniquePurchasedStates = Array.from(new Set(purchasedStates));
-    const totalAmountPaid = purchases.reduce((sum, p) => sum + p.amountPaid, 0);
+    const totalAmountPaid = purchases.reduce((sum, p) => sum + Number(p.amountPaid), 0);
 
     const stateQuery = expandStateQuery(uniquePurchasedStates);
 
@@ -98,9 +111,13 @@ export async function GET(request: Request) {
             isDeliverable: true,
           },
           orderBy: { rating: "desc" },
-          take: 1000,
+          take: limit,
         })
       : [];
+
+    const totalPurchases = await db.leadPurchase.count({
+      where: { userId: session.user.id, status: "COMPLETED" },
+    });
 
     return NextResponse.json({
       purchases,
@@ -111,6 +128,13 @@ export async function GET(request: Request) {
       canUpgrade: false,
       leads,
       totalUnlocked: leads.length,
+      pagination: {
+        page,
+        limit,
+        total: totalPurchases,
+        totalPages: Math.ceil(totalPurchases / limit),
+        hasMore: skip + limit < totalPurchases,
+      },
     });
   } catch (error) {
     console.error("Purchase fetch error:", error);

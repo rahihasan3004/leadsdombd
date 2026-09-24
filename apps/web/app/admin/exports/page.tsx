@@ -179,7 +179,7 @@ export default function AdminExportsPage() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
@@ -193,6 +193,7 @@ export default function AdminExportsPage() {
       </div>
 
       {isLoading && (
+      <div className="w-full overflow-x-auto">
         <div className="rounded-md border border-surface-200 dark:border-surface-800">
           <Table>
             <TableHeader>
@@ -222,7 +223,7 @@ export default function AdminExportsPage() {
             </TableBody>
           </Table>
         </div>
-      )}
+        </div>
 
       {isError && (
         <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-8 text-center">
@@ -240,17 +241,18 @@ export default function AdminExportsPage() {
             </p>
           </div>
 
-          <div className="rounded-md border border-surface-200 dark:border-surface-800">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Format</TableHead>
-                  <TableHead className="text-right">Records Exported</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Export Timestamp</TableHead>
-                </TableRow>
-              </TableHeader>
+          <div className="w-full overflow-x-auto">
+            <div className="rounded-md border border-surface-200 dark:border-surface-800">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Format</TableHead>
+                    <TableHead className="text-right">Records Exported</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Export Timestamp</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {data.exports.length === 0 ? (
                   <TableRow>
@@ -316,6 +318,7 @@ export default function AdminExportsPage() {
                 )}
               </TableBody>
             </Table>
+          </div>
           </div>
 
           {data.pagination.totalPages > 1 && (

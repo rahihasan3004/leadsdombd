@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@fine-leads/database";
-import { hashPassword, checkRateLimit, getClientIp } from "@fine-leads/utils";
+import { hashPassword } from "@fine-leads/auth";
+import { checkRateLimit, getClientIp } from "@fine-leads/utils";
 import crypto from "crypto";
 
 const MAX_SIGNUP_ATTEMPTS = 5;
@@ -16,6 +17,10 @@ const signupSchema = z.object({
 
 function generateSecureOTP(): string {
   return crypto.randomInt(100000, 999999).toString();
+}
+
+function hashOTP(otp: string, identifier: string): string {
+  return crypto.createHmac("sha256", identifier).update(otp).digest("hex");
 }
 
 export async function POST(request: Request) {
@@ -76,14 +81,7 @@ export async function POST(request: Request) {
     });
 
     const code = generateSecureOTP();
-
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[REAL OTP FOR ${normalizedEmail}]: ${code}`);
-    } else {
-      const masked = `${code.charAt(0)}***${code.slice(-2)}`;
-      console.log(`[OTP_DISPATCHED]: ${normalizedEmail} -> ${masked}`);
-    }
-
+    const hashedCode = hashOTP(code, normalizedEmail);
     const expires = new Date(Date.now() + 15 * 60 * 1000);
 
     await db.verificationToken.deleteMany({
@@ -93,7 +91,7 @@ export async function POST(request: Request) {
     await db.verificationToken.create({
       data: {
         identifier: normalizedEmail,
-        token: code,
+        token: hashedCode,
         expires,
       },
     });

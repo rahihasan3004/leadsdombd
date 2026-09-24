@@ -476,7 +476,7 @@ export default function AdminAgentsPage() {
               setPage(1);
             }}
           >
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue placeholder="All States" />
             </SelectTrigger>
             <SelectContent>
@@ -495,7 +495,7 @@ export default function AdminAgentsPage() {
               setPage(1);
             }}
           >
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-full sm:w-[160px]">
               <SelectValue placeholder="Deliverability" />
             </SelectTrigger>
             <SelectContent>
@@ -523,8 +523,9 @@ export default function AdminAgentsPage() {
         </div>
       )}
 
-      <div className="rounded-md border border-surface-200 dark:border-surface-800">
-        <Table>
+      <div className="w-full overflow-x-auto">
+        <div className="rounded-md border border-surface-200 dark:border-surface-800">
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Agent</TableHead>
@@ -631,6 +632,7 @@ export default function AdminAgentsPage() {
             )}
           </TableBody>
         </Table>
+      </div>
       </div>
 
       {data && data.pagination.totalPages > 1 && (

@@ -239,7 +239,7 @@ export default function AdminSubscriptionsPage() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-full sm:w-[150px]">
             <SelectValue placeholder="Filter by tier" />
           </SelectTrigger>
           <SelectContent>
@@ -258,7 +258,7 @@ export default function AdminSubscriptionsPage() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-[170px]">
+          <SelectTrigger className="w-full sm:w-[170px]">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
@@ -272,8 +272,9 @@ export default function AdminSubscriptionsPage() {
         </Select>
       </div>
 
-      <div className="rounded-md border border-surface-200 dark:border-surface-800">
-        <Table>
+      <div className="w-full overflow-x-auto">
+        <div className="rounded-md border border-surface-200 dark:border-surface-800">
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>User</TableHead>
@@ -374,6 +375,7 @@ export default function AdminSubscriptionsPage() {
             )}
           </TableBody>
         </Table>
+      </div>
       </div>
 
       {data && data.pagination.totalPages > 1 && (

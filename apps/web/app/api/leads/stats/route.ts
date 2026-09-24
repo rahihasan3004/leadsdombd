@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
 import { LEAD_STATES } from "@fine-leads/utils";
 
@@ -9,6 +10,11 @@ let cachedAt = 0;
 
 export async function GET() {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const now = Date.now();
     if (cachedData && now - cachedAt < TTL_MS) {
       return NextResponse.json(cachedData);

@@ -9,8 +9,6 @@ services:
       POSTGRES_USER: leadsdom
       POSTGRES_PASSWORD: leadsdom
       POSTGRES_DB: leadsdom
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,8 +21,6 @@ services:
     image: redis:7-alpine
     container_name: leadsdom-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes

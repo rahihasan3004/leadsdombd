@@ -24,7 +24,7 @@ export function GoogleButton({ variant = "default" }: GoogleButtonProps) {
 
   if (variant === "outline") {
     return (
-      <button onClick={handleSignIn} type="button" className="w-full h-11 flex items-center justify-center gap-2.5 bg-white border border-surface-200 text-surface-900 hover:bg-surface-100 rounded-md text-sm font-medium transition-colors shadow-xs cursor-pointer">
+      <button onClick={handleSignIn} type="button" className="w-full h-11 flex items-center justify-center gap-2.5 shadow-none border border-slate-200/80 bg-white hover:bg-slate-50 rounded-md text-sm font-medium text-surface-900 transition-colors cursor-pointer">
         <GoogleIcon />
         Continue with Google
       </button>

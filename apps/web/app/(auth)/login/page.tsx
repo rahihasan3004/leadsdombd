@@ -36,7 +36,7 @@ export default function LoginPage() {
           </span>
         </div>
 
-        <Suspense>
+        <Suspense fallback={<div className="space-y-4 text-left" />}>
           <ResetSuccessNotifier />
           <LoginForm />
         </Suspense>

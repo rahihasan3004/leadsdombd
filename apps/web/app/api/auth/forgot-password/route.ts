@@ -15,6 +15,10 @@ function generateSecureOTP(): string {
   return crypto.randomInt(100000, 999999).toString();
 }
 
+function hashOTP(otp: string, identifier: string): string {
+  return crypto.createHmac("sha256", identifier).update(otp).digest("hex");
+}
+
 export async function POST(request: Request) {
   try {
     const clientIp = getClientIp(request);
@@ -55,20 +59,13 @@ export async function POST(request: Request) {
     });
 
     const code = generateSecureOTP();
-
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[PASSWORD RESET OTP FOR ${normalizedEmail}]: ${code}`);
-    } else {
-      const masked = `${code.charAt(0)}***${code.slice(-2)}`;
-      console.log(`[PASSWORD_RESET_OTP_DISPATCHED]: ${normalizedEmail} -> ${masked}`);
-    }
-
+    const hashedCode = hashOTP(code, normalizedEmail);
     const expires = new Date(Date.now() + 15 * 60 * 1000);
 
     await db.verificationToken.create({
       data: {
         identifier: normalizedEmail,
-        token: code,
+        token: hashedCode,
         expires,
       },
     });

@@ -6,30 +6,22 @@ import { db } from "@fine-leads/database";
 import { verifyPassword } from "./password";
 import crypto from "crypto";
 
-const authSecret = process.env.AUTH_SECRET;
-if (!authSecret && process.env.NODE_ENV === "production") {
-  throw new Error("FATAL: AUTH_SECRET environment variable must be defined in production.");
+const isDev = process.env.NODE_ENV !== "production";
+
+const defaultAuthUrl =
+  isDev ? "http://localhost:3000" : process.env.NEXT_PUBLIC_APP_URL ?? "https://getleadsdom.com";
+
+const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+
+if (!authSecret && isDev) {
+  console.warn(
+    "[auth] AUTH_SECRET / NEXTAUTH_SECRET is not set. Using a fallback JWT secret for localhost only."
+  );
 }
 
-export type SessionUser = {
-  id: string;
-  email: string;
-  name: string | null;
-  role: string;
-  walletBalance: number;
-  tokenVersion: number;
-};
-
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: authSecret,
-  trustHost: process.env.NODE_ENV !== "production"
-    ? true
-    : process.env.AUTH_TRUST_HOST === "true"
-      ? ((host: string) => {
-          const allowed = [process.env.AUTH_URL, process.env.NEXTAUTH_URL].filter(Boolean) as string[];
-          return allowed.some((url) => new URL(url).hostname === host);
-        })
-      : false,
+  secret: authSecret || crypto.randomBytes(32).toString("hex"),
+  trustHost: isDev || process.env.AUTH_TRUST_HOST === "true",
   session: {
     strategy: "jwt",
     maxAge: 7 * 24 * 60 * 60,
@@ -42,7 +34,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET || "",
+      clientSecret:
+        process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET || "",
       authorization: {
         params: {
           prompt: "consent",
@@ -53,7 +46,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
     GitHub({
       clientId: process.env.AUTH_GITHUB_ID || process.env.GITHUB_CLIENT_ID || "",
-      clientSecret: process.env.AUTH_GITHUB_SECRET || process.env.GITHUB_CLIENT_SECRET || "",
+      clientSecret:
+        process.env.AUTH_GITHUB_SECRET || process.env.GOOGLE_CLIENT_SECRET || "",
       checks: ["state"],
       authorization: {
         params: {
@@ -93,16 +87,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           name: user.name,
           role: user.role,
-          walletBalance: user.walletBalance,
+          walletBalance: user.walletBalance.toNumber(),
           tokenVersion: user.tokenVersion,
-        };
+        } as any;
       },
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       if ((account?.provider === "google" || account?.provider === "github") && user.email) {
         const normalizedEmail = user.email.toLowerCase().trim();
+
         const existingUser = await db.user.findUnique({
           where: { email: normalizedEmail },
           include: { accounts: true },
@@ -134,87 +129,98 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             });
           }
         } else {
-          const org = await db.organization.create({
-            data: {
-              name: user.name || `${normalizedEmail}'s Organization`,
-              slug: `org-${crypto.randomUUID().slice(0, 12)}`,
-            },
-          });
+          await db.$transaction(async (tx) => {
+            const org = await tx.organization.create({
+              data: {
+                name: user.name || `${normalizedEmail}'s Organization`,
+                slug: `org-${crypto.randomUUID().slice(0, 12)}`,
+              },
+            });
 
-          const newUser = await db.user.create({
-            data: {
-              name: user.name,
-              email: normalizedEmail,
-              image: user.image,
-              emailVerified: new Date(),
-              organizationId: org.id,
-            },
-          });
+            const newUser = await tx.user.create({
+              data: {
+                name: user.name,
+                email: normalizedEmail,
+                image: user.image,
+                emailVerified: new Date(),
+                organizationId: org.id,
+              },
+            });
 
-          await db.account.create({
-            data: {
-              userId: newUser.id,
-              type: account.type,
-              provider: account.provider,
-              providerAccountId: account.providerAccountId,
-              access_token: account.access_token,
-              expires_at: account.expires_at,
-              token_type: account.token_type,
-              scope: account.scope,
-              id_token: account.id_token,
-            },
-          });
+            await tx.account.create({
+              data: {
+                userId: newUser.id,
+                type: account.type,
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+                access_token: account.access_token,
+                expires_at: account.expires_at,
+                token_type: account.token_type,
+                scope: account.scope,
+                id_token: account.id_token,
+              },
+            });
 
-          await db.subscription.create({
-            data: {
-              userId: newUser.id,
-              organizationId: org.id,
-              tier: "FREE",
-              status: "ACTIVE",
-            },
+            await tx.subscription.create({
+              data: {
+                userId: newUser.id,
+                organizationId: org.id,
+                tier: "FREE",
+                status: "ACTIVE",
+              },
+            });
           });
         }
       }
       return true;
     },
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.email = user.email;
-        token.name = user.name;
-        token.role = (user as any).role;
-        token.walletBalance = (user as any).walletBalance;
-        token.tokenVersion = (user as any).tokenVersion ?? 0;
-      }
-      if (trigger === "update" && session) {
-        if (session.name) token.name = session.name;
-        if (session.email) token.email = session.email;
+        const dbUser = await db.user.findUnique({
+          where: { email: (user.email as string) },
+          select: { id: true, role: true, walletBalance: true, tokenVersion: true },
+        });
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.email = (user.email ?? "") as string;
+          token.name = (user.name ?? "") as string;
+          token.role = dbUser.role as string;
+          token.walletBalance = dbUser.walletBalance.toNumber();
+          token.tokenVersion = dbUser.tokenVersion;
+        } else {
+          token.id = (user.id ?? token.sub ?? "") as string;
+          token.email = (user.email ?? "") as string;
+          token.name = (user.name ?? "") as string;
+          token.role = (user.role ?? "") as string;
+          token.walletBalance = (user.walletBalance as number);
+          token.tokenVersion = (((user as any).tokenVersion ?? 0) as number);
+        }
       }
 
       if (token.id && !user) {
         const dbUser = await db.user.findUnique({
-          where: { id: token.id as string },
+          where: { id: (token.id as string) },
           select: { tokenVersion: true, walletBalance: true },
         });
         if (dbUser) {
-          const jtv = (token.tokenVersion as number) ?? 0;
+          const jtv = ((token.tokenVersion ?? 0) as number);
           if (jtv !== dbUser.tokenVersion) {
-            return {};
+            return null;
           }
-          token.walletBalance = dbUser.walletBalance;
+          token.walletBalance = dbUser.walletBalance.toNumber();
         }
       }
 
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: any) {
       if (token && session.user) {
-        session.user.id = token.id as string;
-        session.user.name = token.name as string;
-        session.user.email = token.email as string;
-        session.user.role = token.role as any;
-        (session.user as any).walletBalance = token.walletBalance;
-        (session.user as any).tokenVersion = token.tokenVersion;
+        session.user.id = (token.id as string) || (token.sub as string);
+        session.user.name = (token.name as string | null);
+        session.user.email = (token.email as string);
+        session.user.role = (token.role as string);
+        session.user.walletBalance = (token.walletBalance as number);
+        session.user.tokenVersion = (token.tokenVersion as number);
       }
       return session;
     },

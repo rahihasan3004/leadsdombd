@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
 import { verifyPassword, hashPassword } from "@fine-leads/auth";
+import { getClientIp } from "@fine-leads/utils";
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
@@ -59,6 +60,17 @@ export async function POST(request: Request) {
       data: {
         passwordHash: hashedPassword,
         tokenVersion: { increment: 1 },
+      },
+    });
+
+    await db.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "change_password",
+        resource: "user",
+        resourceId: session.user.id,
+        ipAddress: getClientIp(request),
+        userAgent: request.headers.get("user-agent") ?? undefined,
       },
     });
 

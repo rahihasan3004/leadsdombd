@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@fine-leads/database";
-import { hashPassword, checkRateLimit, getClientIp } from "@fine-leads/utils";
+import { hashPassword } from "@fine-leads/auth";
+import { checkRateLimit, getClientIp } from "@fine-leads/utils";
+import crypto from "crypto";
 
 const MAX_RESET_PASSWORD_ATTEMPTS = 5;
 const RESET_PASSWORD_WINDOW_MS = 15 * 60 * 1000;
@@ -12,6 +14,10 @@ const resetPasswordSchema = z.object({
   code: z.string().min(1, "Verification code is required").max(6, "Verification code must be 6 digits"),
   newPassword: z.string().min(8, "Password must be at least 8 characters").max(128, "Password must be 128 characters or fewer"),
 });
+
+function hashOTP(otp: string, identifier: string): string {
+  return crypto.createHmac("sha256", identifier).update(otp).digest("hex");
+}
 
 export async function POST(request: Request) {
   try {
@@ -43,11 +49,12 @@ export async function POST(request: Request) {
     const { email, code, newPassword } = parsed.data;
     const normalizedEmail = email.toLowerCase().trim();
     const enteredCode = code.trim();
+    const hashedCode = hashOTP(enteredCode, normalizedEmail);
 
     const verificationToken = await db.verificationToken.findFirst({
       where: {
         identifier: normalizedEmail,
-        token: enteredCode,
+        token: hashedCode,
         expires: { gt: new Date() },
         OR: [
           { lockedUntil: null },
@@ -60,7 +67,7 @@ export async function POST(request: Request) {
       const staleToken = await db.verificationToken.findFirst({
         where: {
           identifier: normalizedEmail,
-          token: enteredCode,
+          token: hashedCode,
           OR: [
             { expires: { lte: new Date() } },
             { lockedUntil: { gte: new Date() } },

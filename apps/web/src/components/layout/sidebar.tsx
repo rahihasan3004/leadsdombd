@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut as nextAuthSignOut } from "next-auth/react";
@@ -13,6 +14,12 @@ import {
   LogOut,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@fine-leads/ui";
 
 interface SidebarUser {
   name?: string | null;
@@ -21,6 +28,8 @@ interface SidebarUser {
 
 interface SidebarProps {
   user: SidebarUser;
+  mobileOpen?: boolean;
+  onMobileOpenChange?: (open: boolean) => void;
 }
 
 const NAV_ITEMS = [
@@ -31,7 +40,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/support", label: "Support", icon: HelpCircle },
 ] as const;
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) {
   const pathname = usePathname();
 
   const isActive = (href: string) => {
@@ -44,8 +53,8 @@ export function Sidebar({ user }: SidebarProps) {
     user.email?.charAt(0)?.toUpperCase() ??
     "U";
 
-  return (
-    <aside className="w-64 h-screen sticky top-0 bg-white border-r border-neutral-200 flex flex-col justify-between">
+  const renderNav = () => (
+    <>
       <div>
         <div className="px-6 py-6 flex items-center gap-3">
           <Logo size={36} showText={true} />
@@ -113,6 +122,25 @@ export function Sidebar({ user }: SidebarProps) {
           </button>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      <aside className="hidden lg:flex w-64 h-screen sticky top-0 bg-white border-r border-neutral-200 flex-col justify-between">
+        {renderNav()}
+      </aside>
+
+      <Dialog open={mobileOpen} onOpenChange={onMobileOpenChange}>
+        <DialogContent className="sm:max-w-xs p-0 gap-0 rounded-none">
+          <DialogHeader className="px-6 py-4 border-b border-neutral-100">
+            <DialogTitle className="text-base font-semibold">Menu</DialogTitle>
+          </DialogHeader>
+          <div className="px-3 py-4">
+            {renderNav()}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

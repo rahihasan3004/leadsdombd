@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-guard";
 import { updateUser, deleteUser, getUserDetail } from "@/lib/admin/users-service";
+import type { AdminUser } from "@/lib/admin-guard";
 
 export async function GET(
   _request: NextRequest,
@@ -41,10 +42,10 @@ export async function PATCH(
     }
 
      const updated = await updateUser(
-       id,
-       { role, organizationId, walletBalanceAdjustment, balanceReason },
-       (adminCheck.user as any).id || "admin",
-     );
+        id,
+        { role, organizationId, walletBalanceAdjustment, balanceReason },
+        (adminCheck.user as AdminUser).id,
+      );
 
     return NextResponse.json({ user: updated });
   } catch (err: unknown) {
@@ -61,7 +62,7 @@ export async function DELETE(
   const adminCheck = await requireAdminApi();
   if (adminCheck instanceof NextResponse) return adminCheck;
 
-  const userRole = (adminCheck.user as any)?.role;
+  const userRole = (adminCheck.user as AdminUser).role;
   if (userRole !== "SUPER_ADMIN") {
     return NextResponse.json(
       { error: "Only SUPER_ADMIN can delete users" },

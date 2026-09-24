@@ -18,15 +18,6 @@ const DEFAULT_MONTHLY_TRENDS = Array.from({ length: 12 }, (_, i) => {
   return { month: d.toLocaleDateString("en-US", { month: "short" }) };
 }).map((m) => ({ ...m, leads: 0, orders: 0 }));
 
-const SAFE_DEFAULTS = {
-  totalLeads: 0,
-  walletBalance: 0,
-  deliveredFiles: 0,
-  deliverability: 100,
-  monthlyTrends: DEFAULT_MONTHLY_TRENDS,
-  recentOrders: [],
-};
-
 export async function GET() {
   try {
     const session = await auth();
@@ -156,6 +147,9 @@ export async function GET() {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[DASHBOARD_METRICS_ERROR]:", message);
-    return NextResponse.json(SAFE_DEFAULTS, { status: 200 });
+    return NextResponse.json(
+      { error: "Failed to load dashboard metrics" },
+      { status: 500 }
+    );
   }
 }

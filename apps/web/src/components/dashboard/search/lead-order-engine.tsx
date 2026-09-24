@@ -32,6 +32,7 @@ export function LeadOrderEngine() {
   const [quantity, setQuantity] = useState(0);
   const [quantityInput, setQuantityInput] = useState("");
   const [inventoryStats, setInventoryStats] = useState<Record<string, number>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,6 +107,34 @@ export function LeadOrderEngine() {
   );
 
   const isValid = isFormValid;
+
+  const handleCheckout = useCallback(async () => {
+    if (!isFormValid) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/lemon-squeezy/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "LEAD_PURCHASE",
+          unlockedStates: selectedStates,
+          amount: parsedQty * 0.019,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error("Checkout error:", data.error || "Unknown error");
+      }
+    } catch (err) {
+      console.error("[CHECKOUT_ERROR]:", err);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [isFormValid, selectedStates, parsedQty]);
 
   return (
     <div className="max-w-[1440px] mx-auto pt-6 md:pt-8 pb-6 md:pb-8 space-y-6">
@@ -203,15 +232,11 @@ export function LeadOrderEngine() {
 
             <button
               type="button"
-              onClick={() => {
-                if (!isFormValid && selectedStates.length > 0 && parsedQty >= minLeads) {
-                  handleQuantityChange(parsedQty);
-                }
-              }}
-              disabled={!isFormValid}
+              onClick={handleCheckout}
+              disabled={!isFormValid || submitting}
               className="w-full py-3.5 rounded-xl bg-[#465FFF] hover:bg-[#3B50E0] text-white font-bold text-sm shadow-sm transition-all duration-200 block text-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Unlock & Export Leads →
+              {submitting ? "Processing..." : "Unlock & Export Leads →"}
             </button>
 
             <div className="flex items-center justify-center gap-2 text-xs text-slate-400">

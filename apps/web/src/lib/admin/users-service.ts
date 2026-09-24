@@ -118,7 +118,7 @@ export async function updateUser(
       throw new Error("User not found");
     }
 
-    const newBalance = user.walletBalance + walletBalanceAdjustment;
+    const newBalance = Number(user.walletBalance) + walletBalanceAdjustment;
     const isAddition = walletBalanceAdjustment > 0;
 
     const [, updatedUser] = await db.$transaction([
@@ -302,17 +302,27 @@ export async function revokeUnlockStates(
       status: "COMPLETED",
       unlockedStates: { hasSome: stateCodes },
     },
+    select: { id: true, unlockedStates: true },
   });
 
-  for (const purchase of purchases) {
-    const updatedStates = purchase.unlockedStates.filter(
-      (s) => !stateCodes.includes(s),
-    );
-    await db.leadPurchase.update({
-      where: { id: purchase.id },
-      data: { unlockedStates: updatedStates },
-    });
+  if (purchases.length === 0) {
+    return { revoked: stateCodes };
   }
+
+  await db.$transaction(
+    purchases.map((purchase) =>
+      db.leadPurchase.update({
+        where: { id: purchase.id },
+        data: {
+          unlockedStates: {
+            set: purchase.unlockedStates.filter(
+              (s) => !stateCodes.includes(s)
+            ),
+          },
+        },
+      })
+    )
+  );
 
   await db.auditLog.create({
     data: {

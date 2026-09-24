@@ -1,8 +1,17 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
+const isDev = process.env.NODE_ENV === "development";
+const scriptSrc = isDev
+  ? "'self' 'unsafe-inline' 'unsafe-eval'"
+  : "'self' 'unsafe-inline'";
+
+const connectSrc = isDev
+  ? "'self' https: http: ws: wss: localhost:*"
+  : "'self' https: *.lemonsqueezy.com";
+
 const nextConfig: NextConfig = {
-  transpilePackages: ["@fine-leads/ui", "@fine-leads/utils", "@fine-leads/auth", "@fine-leads/database"],
+  transpilePackages: ["@fine-leads/ui", "@fine-leads/utils", "@fine-leads/auth", "@fine-leads/database", "recharts"],
   experimental: {
     optimizePackageImports: ["@fine-leads/ui", "lucide-react"],
   },
@@ -30,7 +39,7 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https://lh3.googleusercontent.com https://avatars.githubusercontent.com data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* ws://localhost:*; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+              `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' https://lh3.googleusercontent.com https://avatars.githubusercontent.com data: blob:; font-src 'self' data:; connect-src ${connectSrc}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
           },
         ],
       },

@@ -157,7 +157,7 @@ export function AgentSearch() {
       {isLoading && (
         <div className="space-y-2">
           <Skeleton className="h-4 w-56" />
-          <div className="overflow-hidden rounded-xl border-0 bg-slate-50 dark:bg-slate-900">
+          <div className="w-full overflow-x-auto rounded-xl border-0 bg-slate-50 dark:bg-slate-900">
             <div className="grid grid-cols-7 gap-4 p-4">
               <Skeleton className="h-4 w-16" />
               <Skeleton className="h-4 w-16" />
@@ -199,7 +199,7 @@ export function AgentSearch() {
             </p>
           </div>
 
-          <div className="overflow-hidden rounded-xl border-0 bg-slate-50 dark:bg-slate-900">
+          <div className="w-full overflow-x-auto rounded-xl border-0 bg-slate-50 dark:bg-slate-900">
             <Table>
               <TableHeader>
                 <TableRow>

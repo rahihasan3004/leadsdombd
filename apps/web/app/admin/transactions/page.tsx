@@ -252,7 +252,7 @@ export default function AdminTransactionsPage() {
                 setPurchasesPage(1);
               }}
             >
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-full sm:w-[160px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -269,7 +269,7 @@ export default function AdminTransactionsPage() {
                 setPurchasesPage(1);
               }}
             >
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-full sm:w-[160px]">
                 <SelectValue placeholder="Filter by state" />
               </SelectTrigger>
               <SelectContent>
@@ -283,19 +283,20 @@ export default function AdminTransactionsPage() {
             </Select>
           </div>
 
-          <div className="rounded-md border border-surface-200 dark:border-surface-800">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Order Ref</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>Purchased States</TableHead>
-                  <TableHead>Amount Paid</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead className="w-[120px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
+          <div className="w-full overflow-x-auto">
+            <div className="rounded-md border border-surface-200 dark:border-surface-800">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order Ref</TableHead>
+                    <TableHead>User</TableHead>
+                    <TableHead>Purchased States</TableHead>
+                    <TableHead>Amount Paid</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="w-[120px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {purchasesQuery.isLoading ? (
                   Array.from({ length: 8 }).map((_, i) => (
@@ -382,6 +383,7 @@ export default function AdminTransactionsPage() {
               </TableBody>
             </Table>
           </div>
+          </div>
 
           {purchasesQuery.data && purchasesQuery.data.pagination.totalPages > 1 && (
             <div className="flex items-center justify-between">
@@ -423,9 +425,9 @@ export default function AdminTransactionsPage() {
                 setTxnPage(1);
               }}
             >
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[160px]">
+              <SelectValue placeholder="Filter by type" />
+            </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Types</SelectItem>
                 <SelectItem value="RECHARGE">Recharge</SelectItem>
@@ -437,19 +439,20 @@ export default function AdminTransactionsPage() {
             </Select>
           </div>
 
-          <div className="rounded-md border border-surface-200 dark:border-surface-800">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Txn Ref</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Timestamp</TableHead>
-                </TableRow>
-              </TableHeader>
+          <div className="w-full overflow-x-auto">
+            <div className="rounded-md border border-surface-200 dark:border-surface-800">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Txn Ref</TableHead>
+                    <TableHead>User</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Timestamp</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {transactionsQuery.isLoading ? (
                   Array.from({ length: 8 }).map((_, i) => (
@@ -530,6 +533,7 @@ export default function AdminTransactionsPage() {
                 )}
               </TableBody>
             </Table>
+          </div>
           </div>
 
           {transactionsQuery.data && transactionsQuery.data.pagination.totalPages > 1 && (

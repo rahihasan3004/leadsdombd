@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@fine-leads/database";
 import { checkRateLimit, getClientIp } from "@fine-leads/utils";
+import crypto from "crypto";
 
 const MAX_VERIFY_RESET_CODE_ATTEMPTS = 5;
 const VERIFY_RESET_CODE_WINDOW_MS = 15 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 5;
+
+function hashOTP(otp: string, identifier: string): string {
+  return crypto.createHmac("sha256", identifier).update(otp).digest("hex");
+}
 
 export async function POST(request: Request) {
   try {
@@ -35,11 +40,12 @@ export async function POST(request: Request) {
 
     const normalizedEmail = email.toLowerCase().trim();
     const enteredCode = code.trim();
+    const hashedCode = hashOTP(enteredCode, normalizedEmail);
 
     const verificationToken = await db.verificationToken.findFirst({
       where: {
         identifier: normalizedEmail,
-        token: enteredCode,
+        token: hashedCode,
         expires: { gt: new Date() },
         OR: [
           { lockedUntil: null },
@@ -52,7 +58,7 @@ export async function POST(request: Request) {
       const staleToken = await db.verificationToken.findFirst({
         where: {
           identifier: normalizedEmail,
-          token: enteredCode,
+          token: hashedCode,
           OR: [
             { expires: { lte: new Date() } },
             { lockedUntil: { gte: new Date() } },

@@ -16,8 +16,6 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log("Support ticket:", { name, email, message });
-
     return NextResponse.json({ success: true, message: "Support ticket submitted!" });
   } catch (error) {
     console.error("Support ticket error:", error);

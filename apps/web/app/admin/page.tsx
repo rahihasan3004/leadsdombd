@@ -164,10 +164,10 @@ export default async function AdminPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-surface-950 dark:text-white">
-              {formatCurrency(financials.totalRevenue)}
+              {formatCurrency(Number(financials.totalRevenue))}
             </div>
             <p className="text-xs text-surface-400 mt-1">
-              Wallet balance: {formatCurrency(financials.totalWalletBalance)}
+              Wallet balance: {formatCurrency(Number(financials.totalWalletBalance))}
             </p>
           </CardContent>
         </Card>
@@ -350,8 +350,8 @@ export default async function AdminPage() {
                             tx.type === "CHARGE" ? "text-red-600" : "text-emerald-600"
                           }
                         >
-                          {tx.type === "CHARGE" ? "-" : "+"}
-                          {formatCurrency(tx.amount)}
+                           {tx.type === "CHARGE" ? "-" : "+"}
+                           {formatCurrency(Number(tx.amount))}
                         </span>
                       </TableCell>
                       <TableCell>

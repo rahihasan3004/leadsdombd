@@ -12,6 +12,7 @@ interface OrderPanelProps {
   onPackageTypeChange: (type: PackageType) => void;
   quantity: number;
   onQuantityChange: (qty: number) => void;
+  onCheckout?: () => void;
 }
 
 const QUANTITY_PILLS = [1000, 2500, 5000, 10000] as const;
@@ -28,6 +29,7 @@ export function OrderPanel({
   onPackageTypeChange,
   quantity,
   onQuantityChange,
+  onCheckout,
 }: OrderPanelProps) {
   const allSelected = selectedStates.length === US_STATES.length;
   const totalPrice = quantity * PRICE_PER_LEAD;
@@ -183,6 +185,7 @@ export function OrderPanel({
       <div className="mt-6 space-y-2">
         <button
           type="button"
+          onClick={onCheckout}
           className="w-full h-11 bg-surface-950 hover:bg-surface-800 dark:bg-white dark:hover:bg-surface-200 dark:text-surface-950 text-white rounded-md text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer"
         >
           Unlock &amp; Order Leads

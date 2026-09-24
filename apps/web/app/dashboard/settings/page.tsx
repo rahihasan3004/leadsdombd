@@ -308,7 +308,6 @@ export default function SettingsPage() {
                   <span className="text-sm text-slate-700">{user?.email}</span>
                   <CheckCircle2
                     className="h-4.5 w-4.5 text-[#465FFF]"
-                    title="Verified Email"
                   />
                 </div>
                 {!securityLoading && securityInfo?.isGoogleUser && (

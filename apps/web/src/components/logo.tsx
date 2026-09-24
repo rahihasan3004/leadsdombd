@@ -13,9 +13,9 @@ export function Logo({ className = "", showText = true, size = 48 }: LogoProps) 
       <Image
         src="/favicon.svg"
         alt="LeadsDom Logo"
-        width={size || 56}
-        height={size || 56}
-        className={`${size ? `w-[${size}px] h-[${size}px]` : "w-11 h-11"} object-contain shrink-0`}
+        width={size}
+        height={size}
+        className={`object-contain shrink-0 ${className}`}
         priority
       />
       {showText && (

@@ -63,7 +63,7 @@ export class ProxyPool {
 
   constructor(proxies: ProxyConfig[], maxFails = 3) {
     if (proxies.length === 0) {
-      this.proxies = [{ config: { host: "", port: 0 }, healthy: true, failCount: 0, lastUsed: 0, lastCheck: Date.now() }];
+      this.proxies = [];
     } else {
       this.proxies = proxies.map((p) => ({
         config: p,

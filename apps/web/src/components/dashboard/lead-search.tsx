@@ -39,97 +39,28 @@ const BROKERAGES = [
   "Coldwell Banker",
 ] as const;
 
-const MOCK_AGENTS = [
-  {
-    id: "1",
-    name: "Sarah Mitchell",
-    title: "Managing Broker",
-    brokerage: "Compass Florida",
-    city: "Miami",
-    state: "FL",
-    hasEmail: true,
-    hasPhone: true,
-    tier: "Top 1% Producer",
-    status: "Verified",
-  },
-  {
-    id: "2",
-    name: "Marcus Rodriguez",
-    title: "Principal Agent",
-    brokerage: "Douglas Elliman",
-    city: "Austin",
-    state: "TX",
-    hasEmail: true,
-    hasPhone: true,
-    tier: "Luxury Specialist",
-    status: "Verified",
-  },
-  {
-    id: "3",
-    name: "Emily Chen",
-    title: "VP of Sales",
-    brokerage: "Sotheby's International",
-    city: "Beverly Hills",
-    state: "CA",
-    hasEmail: true,
-    hasPhone: true,
-    tier: "15+ Yrs Exp",
-    status: "Verified",
-  },
-  {
-    id: "4",
-    name: "David Ross",
-    title: "Associate Broker",
-    brokerage: "Keller Williams Premier",
-    city: "Atlanta",
-    state: "GA",
-    hasEmail: true,
-    hasPhone: true,
-    tier: "Commercial & Res",
-    status: "Verified",
-  },
-  {
-    id: "5",
-    name: "Rachel Vance",
-    title: "Team Lead",
-    brokerage: "eXp Realty",
-    city: "Seattle",
-    state: "WA",
-    hasEmail: true,
-    hasPhone: true,
-    tier: "Top Producer",
-    status: "Verified",
-  },
-  {
-    id: "6",
-    name: "Alexander Wright",
-    title: "Managing Broker",
-    brokerage: "Coldwell Banker",
-    city: "Chicago",
-    state: "IL",
-    hasEmail: true,
-    hasPhone: true,
-    tier: "Luxury Residential",
-    status: "Verified",
-  },
-  {
-    id: "7",
-    name: "Lauren Hayes",
-    title: "Senior Realtor",
-    brokerage: "RE/MAX Alliance",
-    city: "Denver",
-    state: "CO",
-    hasEmail: true,
-    hasPhone: true,
-    tier: "10+ Yrs Exp",
-    status: "Verified",
-  },
-];
+interface SearchAgent {
+  id: string;
+  name: string;
+  title: string;
+  brokerage: string;
+  city: string;
+  state: string;
+  hasEmail: boolean;
+  hasPhone: boolean;
+  tier: string;
+  status: string;
+}
 
-const TOTAL_RECORDS = 2418900;
-const MATCH_COUNT = 142850;
+interface LeadSearchProps {
+  agents?: SearchAgent[];
+  matchCount?: number;
+  totalRecords?: number;
+}
 
-export function LeadSearch() {
+const TOTAL_RECORDS_DEFAULT = 2418900;
+
+export function LeadSearch({ agents = [], matchCount, totalRecords = TOTAL_RECORDS_DEFAULT }: LeadSearchProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
   const [selectedBrokerage, setSelectedBrokerage] = useState("All Brokerages");
@@ -167,10 +98,11 @@ export function LeadSearch() {
   const tableHeaderClasses = "px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-surface-500 dark:text-surface-400";
   const tableCellClasses = "px-4 py-3.5 align-middle";
 
+  const displayMatchCount = matchCount ?? 0;
+
   return (
     <div className="h-full overflow-auto">
       <div className="pb-8">
-        {/* ===== PAGE HEADER ===== */}
         <div className="flex items-start justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-surface-950 dark:text-white">
@@ -182,13 +114,11 @@ export function LeadSearch() {
           </div>
           <div className="flex-shrink-0 text-xs font-bold font-sans tabular-nums text-surface-900 dark:text-surface-100 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 px-3 py-1.5 rounded-sm inline-flex items-center gap-1.5">
             <Database className="h-3.5 w-3.5 text-surface-500" />
-            {formatNumber(TOTAL_RECORDS)} Verified Records
+            {formatNumber(totalRecords)} Verified Records
           </div>
         </div>
 
-        {/* ===== FILTER TOOLBAR ===== */}
         <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-md p-3.5 flex flex-wrap items-center gap-3 shadow-2xs mb-4">
-          {/* Search Input */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-surface-400" />
             <input
@@ -200,7 +130,6 @@ export function LeadSearch() {
             />
           </div>
 
-          {/* State Multi-Select */}
           <Popover open={statePopoverOpen} onOpenChange={setStatePopoverOpen}>
             <PopoverTrigger asChild>
               <button className="inline-flex items-center gap-1.5 h-9 px-3 text-xs font-medium text-surface-700 dark:text-surface-300 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-md hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors">
@@ -268,7 +197,6 @@ export function LeadSearch() {
             </PopoverContent>
           </Popover>
 
-          {/* Brokerage Select */}
           <Select value={selectedBrokerage} onValueChange={setSelectedBrokerage}>
             <SelectTrigger className="h-9 w-44 text-xs bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 rounded-md px-3 gap-1.5 focus:ring-1 focus:ring-surface-950 dark:focus:ring-surface-400 focus:ring-offset-0 [&>svg]:hidden">
               <Building2 className="h-3.5 w-3.5 text-surface-400 flex-shrink-0" />
@@ -284,10 +212,8 @@ export function LeadSearch() {
             </SelectContent>
           </Select>
 
-          {/* Separator */}
           <div className="w-px h-7 bg-surface-200 dark:bg-surface-700" />
 
-          {/* Verified Filter Pill */}
           <button
             onClick={() => setVerifiedOnly(!verifiedOnly)}
             className={`inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-md border transition-colors ${
@@ -300,10 +226,8 @@ export function LeadSearch() {
             Verified Only
           </button>
 
-          {/* Spacer */}
           <div className="flex-1" />
 
-          {/* Reset Button */}
           <button
             onClick={() => {
               setSearchQuery("");
@@ -317,11 +241,10 @@ export function LeadSearch() {
           </button>
         </div>
 
-        {/* ===== ACTION BAR ===== */}
         <div className="bg-surface-100 dark:bg-surface-150 border border-surface-200 dark:border-surface-800 rounded-md px-4 py-2.5 flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-surface-950 dark:text-surface-100 tabular-nums">
-              {formatNumber(MATCH_COUNT)} Agents Match Active Filters
+              {formatNumber(displayMatchCount)} Agents Match Active Filters
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -351,7 +274,6 @@ export function LeadSearch() {
           </div>
         </div>
 
-        {/* ===== DATA GRID TABLE ===== */}
         <div className="w-full bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-md overflow-hidden shadow-2xs">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -366,7 +288,7 @@ export function LeadSearch() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-100 dark:divide-surface-800">
-                {MOCK_AGENTS.map((agent) => (
+                {agents.map((agent) => (
                   <tr
                     key={agent.id}
                     className="hover:bg-surface-50/50 dark:hover:bg-surface-800/50 transition-colors"
@@ -441,6 +363,12 @@ export function LeadSearch() {
             </table>
           </div>
         </div>
+
+        {agents.length === 0 && (
+          <div className="px-5 py-12 text-center text-sm text-slate-400">
+            No agents found matching your filters.
+          </div>
+        )}
       </div>
     </div>
   );

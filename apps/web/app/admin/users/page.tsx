@@ -197,7 +197,7 @@ export default function AdminUsersPage() {
           />
         </div>
         <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-full sm:w-[160px]">
             <SelectValue placeholder="Filter by role" />
           </SelectTrigger>
           <SelectContent>
@@ -215,8 +215,9 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      <div className="rounded-md border border-surface-200 dark:border-surface-800">
-        <Table>
+      <div className="w-full overflow-x-auto">
+        <div className="rounded-md border border-surface-200 dark:border-surface-800">
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>User</TableHead>
@@ -342,6 +343,7 @@ export default function AdminUsersPage() {
             )}
           </TableBody>
         </Table>
+      </div>
       </div>
 
       {data && data.pagination.totalPages > 1 && (

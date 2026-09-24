@@ -173,7 +173,8 @@ export default function InventoryPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <div className="w-full overflow-x-auto">
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[180px]">State</TableHead>
@@ -304,8 +305,9 @@ export default function InventoryPage() {
                   </TableRow>
                 ))
               )}
-            </TableBody>
-          </Table>
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

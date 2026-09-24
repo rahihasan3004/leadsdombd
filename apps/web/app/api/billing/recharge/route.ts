@@ -1,14 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@fine-leads/auth";
-import { db } from "@fine-leads/database";
-import { generateTxnRef } from "@fine-leads/utils";
-import Stripe from "stripe";
-
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: "2025-03-31.basil" as any,
-    })
-  : null;
+import { getLemonSqueezyStoreId } from "@/lib/lemon-squeezy";
 
 export async function POST(req: Request) {
   try {
@@ -41,83 +33,51 @@ export async function POST(req: Request) {
       );
     }
 
-    if (stripe) {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const storeId = getLemonSqueezyStoreId();
 
-      const stripeSession = await stripe.checkout.sessions.create({
-        mode: "payment",
-        payment_method_types: ["card"],
-        line_items: [
-          {
-            price_data: {
-              currency: "usd",
-              product_data: {
-                name: "LeadsDom Wallet Top-Up",
-                description: `Add $${rawAmount.toFixed(2)} to your wallet`,
-              },
-              unit_amount: Math.round(rawAmount * 100),
-            },
-            quantity: 1,
-          },
-        ],
-        metadata: {
-          userId: session.user.id,
-          type: "wallet_topup",
-          amount: String(rawAmount),
-        },
-        success_url: `${appUrl}/dashboard/billing?topup_success=true&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${appUrl}/dashboard/billing?topup_cancelled=true`,
-      });
-
-      return NextResponse.json({
-        url: stripeSession.url,
-        stripeSessionId: stripeSession.id,
-      });
-    }
-
-    if (process.env.NODE_ENV === "development") {
-      console.log(
-        "[DEV_MOCK] Stripe keys missing, crediting wallet directly:",
-        rawAmount
+    if (!storeId) {
+      return NextResponse.json(
+        { error: "Payment processing is currently unavailable." },
+        { status: 503 }
       );
-
-      const updatedUser = await db.$transaction(async (tx) => {
-        const user = await tx.user.update({
-          where: { id: session.user.id },
-          data: { walletBalance: { increment: rawAmount } },
-          select: { id: true, walletBalance: true },
-        });
-
-        await tx.walletTransaction.create({
-          data: {
-            referenceId: generateTxnRef(),
-            userId: session.user.id,
-            type: "RECHARGE",
-            amount: rawAmount,
-            balanceAfter: user.walletBalance,
-            description: `Wallet Top-Up (+$${rawAmount.toFixed(2)})`,
-            status: "COMPLETED",
-          },
-        });
-
-        return user;
-      });
-
-      return NextResponse.json({
-        success: true,
-        amount: rawAmount,
-        newBalance: updatedUser.walletBalance,
-        devMode: true,
-      });
     }
 
-    return NextResponse.json(
-      { error: "Payment processing is currently unavailable." },
-      { status: 500 }
-    );
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+    const res = await fetch(`${appUrl}/api/lemon-squeezy/checkout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Cookie": req.headers.get("cookie") || "",
+      },
+      body: JSON.stringify({
+        type: "WALLET_TOPUP",
+        amount: rawAmount,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.url) {
+      return NextResponse.json(
+        { error: data.error || "Unable to process recharge. Please try again." },
+        { status: res.status || 500 }
+      );
+    }
+
+    return NextResponse.json({
+      url: data.url,
+    });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[RECHARGE_ERROR]:", message);
+    console.error(
+      "[LEMON_SQUEEZY_RECHARGE_ERROR]:",
+      err instanceof Error ? err.message : String(err),
+      JSON.stringify(
+        (err as { data?: unknown; errors?: unknown })?.data ||
+          (err as { data?: unknown; errors?: unknown })?.errors ||
+          {}
+      )
+    );
     return NextResponse.json(
       { error: "Recharge failed. Please try again." },
       { status: 500 }

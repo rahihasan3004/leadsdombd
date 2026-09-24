@@ -14,6 +14,7 @@ export function TerritoryOrder() {
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
   const [packageType, setPackageType] = useState<PackageType>("full");
   const [quantity, setQuantity] = useState(1000);
+  const [submitting, setSubmitting] = useState(false);
 
   const toggleState = useCallback((code: string) => {
     setSelectedStates((prev) =>
@@ -36,6 +37,34 @@ export function TerritoryOrder() {
   const clearAll = useCallback(() => {
     setSelectedStates([]);
   }, []);
+
+  const handleCheckout = useCallback(async () => {
+    if (selectedStates.length === 0 || submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/lemon-squeezy/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "LEAD_PURCHASE",
+          unlockedStates: selectedStates,
+          amount: quantity * 0.019,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error("Checkout error:", data.error || "Unknown error");
+      }
+    } catch (err) {
+      console.error("[CHECKOUT_ERROR]:", err);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [selectedStates, quantity, submitting]);
 
   return (
     <div className="h-full flex flex-col overflow-auto">
@@ -76,6 +105,7 @@ export function TerritoryOrder() {
               onPackageTypeChange={setPackageType}
               quantity={quantity}
               onQuantityChange={setQuantity}
+              onCheckout={handleCheckout}
             />
           </div>
         </div>

@@ -1,11 +1,11 @@
 import { handlers } from "@fine-leads/auth";
 import { checkRateLimit, getClientIp } from "@fine-leads/utils";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const clientIp = getClientIp(request);
   const rateLimitKey = `login:${clientIp}`;
   const { allowed, remaining, resetAt } = checkRateLimit(rateLimitKey, MAX_LOGIN_ATTEMPTS, LOGIN_WINDOW_MS);

@@ -32,6 +32,9 @@ interface RecentOrder {
   status: string;
 }
 
+
+
+
 interface DashboardMetrics {
   totalLeads: number;
   walletBalance: number;
@@ -107,10 +110,6 @@ export default function DashboardPage() {
   const deliveredFilesFormatted = `${metrics.deliveredFiles} File${metrics.deliveredFiles === 1 ? "" : "s"}`;
   const verifiedCount = metrics.totalLeads;
   const verifiedFormatted = `${formatNumber(verifiedCount)} Valid`;
-
-  const maxLeadCount = metrics.monthlyTrends.length > 0
-    ? Math.max(...metrics.monthlyTrends.map((m) => m.leads), 1)
-    : 1;
 
   return (
     <div className="w-full min-h-screen bg-[#F4F7FB] p-6 md:p-8 space-y-6">
@@ -232,14 +231,10 @@ export default function DashboardPage() {
             <div className="flex items-center justify-center h-[180px] text-xs text-red-500">
               {error}
             </div>
-          ) : metrics.monthlyTrends.length === 0 ? (
-            <div className="flex items-center justify-center h-[180px] text-xs text-neutral-400">
-              No lead data yet. Start a search to see trends.
-            </div>
           ) : (
             <div className="flex items-end gap-2 h-[180px]">
-              {metrics.monthlyTrends.map((item) => {
-                const leadHeight = maxLeadCount > 0 ? (item.leads / maxLeadCount) * 100 : 0;
+              {metrics.monthlyTrends.map((item, index) => {
+                const leadHeight = Math.max(10, (item.leads / Math.max(...metrics.monthlyTrends.map(m => m.leads))) * 100);
                 return (
                   <div
                     key={item.month}
@@ -334,37 +329,32 @@ export default function DashboardPage() {
           </a>
         </div>
         <div className="w-full overflow-x-auto">
-          {metrics.recentOrders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-neutral-400">
-              <p className="text-xs">No orders yet.</p>
-              <p className="text-[10px] mt-1">Your recent lead purchases will appear here.</p>
-            </div>
-          ) : (
-            <table className="w-full text-xs">
-              <thead>
-                <tr>
-                  <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                    Order ID &amp; Date
-                  </th>
-                  <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                    Target States
-                  </th>
-                  <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="h-9 px-4 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                    Quantity
-                  </th>
-                  <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="h-9 px-4 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {metrics.recentOrders.slice(0, 3).map((order) => (
+          <table className="w-full text-xs">
+            <thead>
+              <tr>
+                <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                  Order ID &amp; Date
+                </th>
+                <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                  Target States
+                </th>
+                <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                  Category
+                </th>
+                <th className="h-9 px-4 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                  Quantity
+                </th>
+                <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="h-9 px-4 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {metrics.recentOrders && metrics.recentOrders.length > 0
+                ? metrics.recentOrders.map((order) => (
                   <tr
                     key={order.id}
                     className="hover:bg-neutral-50/50 transition-colors"
@@ -409,10 +399,16 @@ export default function DashboardPage() {
                       </button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+                ))
+                : (
+                  <tr>
+                    <td colSpan={6} className="py-10 px-4 text-center text-sm text-neutral-400">
+                      No orders yet. Your recent lead purchases will appear here.
+                    </td>
+                  </tr>
+                )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

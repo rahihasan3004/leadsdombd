@@ -7,6 +7,10 @@ function generateSecureOTP(): string {
   return crypto.randomInt(100000, 999999).toString();
 }
 
+function hashOTP(otp: string, identifier: string): string {
+  return crypto.createHmac("sha256", identifier).update(otp).digest("hex");
+}
+
 export async function POST(request: Request) {
   try {
     const session = await auth();
@@ -35,26 +39,20 @@ export async function POST(request: Request) {
 
     const otp1 = generateSecureOTP();
     const otp2 = generateSecureOTP();
+    const hashedOtp1 = hashOTP(otp1, currentEmail);
+    const hashedOtp2 = hashOTP(otp2, normalizedNewEmail);
     const expires = new Date(Date.now() + 15 * 60 * 1000);
 
     await db.verificationToken.deleteMany({ where: { identifier: currentEmail } });
     await db.verificationToken.deleteMany({ where: { identifier: normalizedNewEmail } });
 
     await db.verificationToken.create({
-      data: { identifier: currentEmail, token: otp1, expires },
+      data: { identifier: currentEmail, token: hashedOtp1, expires },
     });
 
     await db.verificationToken.create({
-      data: { identifier: normalizedNewEmail, token: otp2, expires },
+      data: { identifier: normalizedNewEmail, token: hashedOtp2, expires },
     });
-
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[EMAIL CHANGE OTP] Current (${currentEmail}): ${otp1} | New (${normalizedNewEmail}): ${otp2}`);
-    } else {
-      const masked1 = `${otp1.charAt(0)}***${otp1.slice(-2)}`;
-      const masked2 = `${otp2.charAt(0)}***${otp2.slice(-2)}`;
-      console.log(`[OTP_DISPATCHED]: current=${currentEmail} -> ${masked1}, new=${normalizedNewEmail} -> ${masked2}`);
-    }
 
     return NextResponse.json({ success: true, message: "OTP sent to both emails" });
   } catch (error) {

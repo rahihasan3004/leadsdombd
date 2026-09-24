@@ -172,7 +172,7 @@ export default function AdminAuditLogsPage() {
           value={actionFilter}
           onValueChange={(v) => handleFilterChange("action", v)}
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Filter by action" />
           </SelectTrigger>
           <SelectContent>
@@ -188,7 +188,7 @@ export default function AdminAuditLogsPage() {
           value={resourceFilter}
           onValueChange={(v) => handleFilterChange("resource", v)}
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Filter by resource" />
           </SelectTrigger>
           <SelectContent>
@@ -203,6 +203,7 @@ export default function AdminAuditLogsPage() {
       </div>
 
       {isLoading && (
+      <div className="w-full overflow-x-auto">
         <div className="rounded-md border border-surface-200 dark:border-surface-800">
           <Table>
             <TableHeader>
@@ -237,7 +238,7 @@ export default function AdminAuditLogsPage() {
             </TableBody>
           </Table>
         </div>
-      )}
+        </div>
 
       {isError && (
         <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-8 text-center">
@@ -255,18 +256,19 @@ export default function AdminAuditLogsPage() {
             </p>
           </div>
 
-          <div className="rounded-md border border-surface-200 dark:border-surface-800">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Resource</TableHead>
-                  <TableHead>Resource ID</TableHead>
-                  <TableHead>IP Address</TableHead>
-                  <TableHead className="text-right">Date/Time</TableHead>
-                </TableRow>
-              </TableHeader>
+          <div className="w-full overflow-x-auto">
+            <div className="rounded-md border border-surface-200 dark:border-surface-800">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Action</TableHead>
+                    <TableHead>Resource</TableHead>
+                    <TableHead>Resource ID</TableHead>
+                    <TableHead>IP Address</TableHead>
+                    <TableHead className="text-right">Date/Time</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {data.auditLogs.length === 0 ? (
                   <TableRow>
@@ -340,6 +342,7 @@ export default function AdminAuditLogsPage() {
                 )}
               </TableBody>
             </Table>
+          </div>
           </div>
 
           {data.pagination.totalPages > 1 && (

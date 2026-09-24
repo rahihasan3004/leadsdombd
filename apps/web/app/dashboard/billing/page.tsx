@@ -4,171 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 
 
 
-const MOCK_TRANSACTIONS = [
-  {
-    id: "LD-TXN-N4R8W6YJ",
-    type: "TOPUP",
-    amount: 500.0,
-    description: "Stripe Wallet Recharge",
-    balanceAfter: 500.0,
-    status: "COMPLETED",
-    createdAt: "2026-09-19",
-  },
-  {
-    id: "LD-TXN-K9X2M4P7",
-    type: "PURCHASE",
-    amount: -190.0,
-    description: "Order #LD-ORD-A1B2 (2,500 FL Leads)",
-    balanceAfter: 310.0,
-    status: "COMPLETED",
-    createdAt: "2026-09-19",
-  },
-  {
-    id: "LD-TXN-B3F5H7K9",
-    type: "TOPUP",
-    amount: 250.0,
-    description: "Stripe Wallet Recharge",
-    balanceAfter: 560.0,
-    status: "COMPLETED",
-    createdAt: "2026-09-18",
-  },
-  {
-    id: "LD-TXN-R5B3N8WQ",
-    type: "PURCHASE",
-    amount: -95.0,
-    description: "Order #LD-ORD-C3D4 (5,000 TX Leads)",
-    balanceAfter: 465.0,
-    status: "COMPLETED",
-    createdAt: "2026-09-18",
-  },
-  {
-    id: "LD-TXN-L2N4C8J3",
-    type: "PURCHASE",
-    amount: -47.5,
-    description: "Order #LD-ORD-E5F6 (2,500 CA Leads)",
-    balanceAfter: 417.5,
-    status: "COMPLETED",
-    createdAt: "2026-09-17",
-  },
-  {
-    id: "LD-TXN-P8W2M4X7",
-    type: "TOPUP",
-    amount: 100.0,
-    description: "Stripe Wallet Recharge",
-    balanceAfter: 517.5,
-    status: "COMPLETED",
-    createdAt: "2026-09-17",
-  },
-  {
-    id: "LD-TXN-Q6K9M2B5",
-    type: "PURCHASE",
-    amount: -38.0,
-    description: "Order #LD-ORD-G7H8 (2,000 NY Leads)",
-    balanceAfter: 479.5,
-    status: "COMPLETED",
-    createdAt: "2026-09-15",
-  },
-  {
-    id: "LD-TXN-Z8R1N5W3",
-    type: "REFUND",
-    amount: 47.5,
-    description: "Refund: Order #LD-ORD-E5F6",
-    balanceAfter: 527.0,
-    status: "REFUNDED",
-    createdAt: "2026-09-14",
-  },
-  {
-    id: "LD-TXN-V4X7J9K2",
-    type: "PURCHASE",
-    amount: -19.0,
-    description: "Order #LD-ORD-I9J0 (1,000 IL Leads)",
-    balanceAfter: 508.0,
-    status: "COMPLETED",
-    createdAt: "2026-09-13",
-  },
-  {
-    id: "LD-TXN-H5M2N8P4",
-    type: "TOPUP",
-    amount: 50.0,
-    description: "Stripe Wallet Recharge",
-    balanceAfter: 558.0,
-    status: "COMPLETED",
-    createdAt: "2026-09-10",
-  },
-  {
-    id: "LD-TXN-C7K3Q6R9",
-    type: "PURCHASE",
-    amount: -190.0,
-    description: "Order #LD-ORD-K1L2 (10,000 FL Leads)",
-    balanceAfter: 368.0,
-    status: "COMPLETED",
-    createdAt: "2026-09-05",
-  },
-  {
-    id: "LD-TXN-W9J4L2M6",
-    type: "REFUND",
-    amount: 19.0,
-    description: "Refund: Order #LD-ORD-I9J0",
-    balanceAfter: 387.0,
-    status: "REFUNDED",
-    createdAt: "2026-09-02",
-  },
-  {
-    id: "LD-TXN-F1X5N8P3",
-    type: "TOPUP",
-    amount: 500.0,
-    description: "Stripe Wallet Recharge",
-    balanceAfter: 887.0,
-    status: "COMPLETED",
-    createdAt: "2026-08-28",
-  },
-  {
-    id: "LD-TXN-D3Q7R9B2",
-    type: "PURCHASE",
-    amount: -95.0,
-    description: "Order #LD-ORD-M3N4 (5,000 CA Leads)",
-    balanceAfter: 792.0,
-    status: "COMPLETED",
-    createdAt: "2026-08-25",
-  },
-  {
-    id: "LD-TXN-M6K2W4X9",
-    type: "PURCHASE",
-    amount: -47.5,
-    description: "Order #LD-ORD-O5P6 (2,500 AZ Leads)",
-    balanceAfter: 744.5,
-    status: "COMPLETED",
-    createdAt: "2026-08-20",
-  },
-  {
-    id: "LD-TXN-T8N5J1L7",
-    type: "TOPUP",
-    amount: 100.0,
-    description: "Stripe Wallet Recharge",
-    balanceAfter: 844.5,
-    status: "COMPLETED",
-    createdAt: "2026-08-15",
-  },
-  {
-    id: "LD-TXN-Y4P9C3H6",
-    type: "PURCHASE",
-    amount: -38.0,
-    description: "Order #LD-ORD-Q7R8 (2,000 NV Leads)",
-    balanceAfter: 806.5,
-    status: "COMPLETED",
-    createdAt: "2026-08-10",
-  },
-  {
-    id: "LD-TXN-A2R7M5Q1",
-    type: "TOPUP",
-    amount: 250.0,
-    description: "Stripe Wallet Recharge",
-    balanceAfter: 1056.5,
-    status: "COMPLETED",
-    createdAt: "2026-08-01",
-  },
-];
-
 interface WalletData {
   walletBalance: number;
   transactions: Array<{
@@ -247,6 +82,7 @@ export default function BillingPage() {
       const res = await fetch("/api/billing/recharge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ amount }),
       });
 
@@ -255,6 +91,10 @@ export default function BillingPage() {
       if (res.ok) {
         setSelectedAmount(null);
         setCustomAmount("");
+        if (json.url) {
+          window.location.href = json.url;
+          return;
+        }
         setSuccessMessage(json.message || "Funds added successfully.");
         setData((prev) => ({
           ...prev,
@@ -271,8 +111,9 @@ export default function BillingPage() {
     }
   }, [selectedAmount, customAmount, fetchBillingData]);
 
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString("en-US", {
+  const formatCurrency = (value?: number | string | null) => {
+    const num = Number(value ?? 0);
+    return (isNaN(num) ? 0 : num).toLocaleString("en-US", {
       style: "currency",
       currency: "USD",
     });
@@ -286,11 +127,9 @@ export default function BillingPage() {
     });
   };
 
-  const displayTransactions =
-    data.transactions.length > 0 ? data.transactions : MOCK_TRANSACTIONS;
-
-  const totalPages = Math.max(1, Math.ceil(displayTransactions.length / ITEMS_PER_PAGE));
-  const paginatedTransactions = displayTransactions.slice(
+  const transactions = data.transactions;
+  const totalPages = Math.max(1, Math.ceil(transactions.length / ITEMS_PER_PAGE));
+  const paginatedTransactions = transactions.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
@@ -447,7 +286,7 @@ export default function BillingPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border-0 shadow-none p-6 flex flex-col justify-between h-[435px] overflow-hidden">
+      <div className="bg-white rounded-2xl border-0 shadow-none p-6 flex flex-col justify-between min-h-[300px]">
         {/* Top: Header */}
         <div className="shrink-0">
           <h2 className="text-base font-bold text-slate-900 tracking-tight">Transaction Ledger</h2>
@@ -456,7 +295,8 @@ export default function BillingPage() {
 
          {/* Middle: 5 Rows Table OR Empty State (Same Fixed Space) */}
         <div className="flex-1 flex flex-col justify-center my-2 overflow-hidden">
-          {displayTransactions.length > 0 ? (
+          {transactions.length > 0 ? (
+            <div className="w-full overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-slate-100 text-[11px] font-normal text-slate-400 uppercase">
                 <tr className="h-8">
@@ -508,6 +348,7 @@ export default function BillingPage() {
                 })}
               </tbody>
             </table>
+            </div>
           ) : (
             <div className="text-center py-8 text-xs text-slate-400">
               No transactions recorded yet. Your top-ups and purchases will appear here.
@@ -520,13 +361,13 @@ export default function BillingPage() {
           <span>
             Showing{" "}
             <strong className="text-slate-900 tabular-nums font-semibold">
-              {displayTransactions.length === 0
+              {transactions.length === 0
                 ? "0"
-                : `${(currentPage - 1) * ITEMS_PER_PAGE + 1}–${Math.min(currentPage * ITEMS_PER_PAGE, displayTransactions.length)}`}
+                : `${(currentPage - 1) * ITEMS_PER_PAGE + 1}–${Math.min(currentPage * ITEMS_PER_PAGE, transactions.length)}`}
             </strong>{" "}
             of{" "}
             <strong className="text-slate-900 tabular-nums font-semibold">
-              {displayTransactions.length}
+              {transactions.length}
             </strong>{" "}
             transactions
           </span>

@@ -7,6 +7,10 @@ function generateSecureOTP(): string {
   return crypto.randomInt(100000, 999999).toString();
 }
 
+function hashOTP(otp: string, identifier: string): string {
+  return crypto.createHmac("sha256", identifier).update(otp).digest("hex");
+}
+
 export async function POST(request: Request) {
   try {
     const session = await auth();
@@ -27,20 +31,14 @@ export async function POST(request: Request) {
 
     const email = session.user.email;
     const otp = generateSecureOTP();
+    const hashedOtp = hashOTP(otp, email);
     const expires = new Date(Date.now() + 15 * 60 * 1000);
 
     await db.verificationToken.deleteMany({ where: { identifier: email } });
 
     await db.verificationToken.create({
-      data: { identifier: email, token: otp, expires },
+      data: { identifier: email, token: hashedOtp, expires },
     });
-
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[ACCOUNT DELETION OTP for ${email}]: ${otp}`);
-    } else {
-      const masked = `${otp.charAt(0)}***${otp.slice(-2)}`;
-      console.log(`[OTP_DISPATCHED]: ${email} -> ${masked}`);
-    }
 
     return NextResponse.json({ success: true, message: "Deletion confirmation code sent to your email" });
   } catch (error) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut as nextAuthSignOut } from "next-auth/react";
@@ -18,6 +19,12 @@ ArrowLeft,
 	MapPin,
 	Bot,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@fine-leads/ui";
 
 interface AdminSidebarUser {
   name?: string | null;
@@ -26,6 +33,8 @@ interface AdminSidebarUser {
 
 interface AdminSidebarProps {
   user: AdminSidebarUser;
+  mobileOpen?: boolean;
+  onMobileOpenChange?: (open: boolean) => void;
 }
 
 const NAV_ITEMS = [
@@ -41,7 +50,7 @@ const NAV_ITEMS = [
   { href: "/admin/audit-logs", label: "Audit Logs", icon: ScrollText },
 ] as const;
 
-export function AdminSidebar({ user }: AdminSidebarProps) {
+export function AdminSidebar({ user, mobileOpen, onMobileOpenChange }: AdminSidebarProps) {
   const pathname = usePathname();
 
   const isActive = (href: string) => {
@@ -51,8 +60,8 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
 
   const initial = user.name?.charAt(0)?.toUpperCase() ?? user.email?.charAt(0)?.toUpperCase() ?? "A";
 
-  return (
-    <aside className="w-64 h-screen sticky top-0 bg-white dark:bg-surface-950 border-r border-surface-200 dark:border-surface-800 flex flex-col justify-between p-4">
+  const renderNav = () => (
+    <>
       <div>
         <Link
           href="/admin"
@@ -131,6 +140,25 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
           </button>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      <aside className="hidden lg:flex w-64 h-screen sticky top-0 bg-white dark:bg-surface-950 border-r border-surface-200 dark:border-surface-800 flex-col justify-between p-4">
+        {renderNav()}
+      </aside>
+
+      <Dialog open={mobileOpen} onOpenChange={onMobileOpenChange}>
+        <DialogContent className="sm:max-w-xs p-0 gap-0 rounded-none">
+          <DialogHeader className="px-6 py-4 border-b border-surface-200 dark:border-surface-800">
+            <DialogTitle className="text-base font-semibold text-surface-950 dark:text-white">Menu</DialogTitle>
+          </DialogHeader>
+          <div className="px-4 py-4">
+            {renderNav()}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

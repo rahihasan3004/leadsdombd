@@ -13,8 +13,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@auth/core": "^0.41.3",
     "@auth/prisma-adapter": "^2.7.4",
     "@fine-leads/database": "workspace:*",
+    "@lemonsqueezy/lemonsqueezy.js": "^4.0.0",
     "bcryptjs": "^2.4.3",
     "next-auth": "5.0.0-beta.25"
   },

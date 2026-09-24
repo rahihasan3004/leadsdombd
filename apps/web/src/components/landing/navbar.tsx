@@ -72,7 +72,7 @@ export function LandingNavbar() {
         </div>
 
         <button
-          className="md:hidden p-2 text-surface-600"
+          className="md:hidden p-3 rounded-lg hover:bg-neutral-100 text-surface-600"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label="Toggle menu"
         >

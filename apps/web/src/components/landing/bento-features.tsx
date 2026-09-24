@@ -316,7 +316,7 @@ function Card4() {
         </div>
 
         <div className="mt-8 rounded-sm bg-white/70 border border-neutral-200/40 overflow-hidden">
-          <div className="grid grid-cols-5 gap-4 px-4 py-2.5 border-b border-neutral-100 bg-neutral-50/60">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 px-4 py-2.5 border-b border-neutral-100 bg-neutral-50/60">
             {["Name", "Brokerage", "Email", "Phone", "State"].map((h) => (
               <p
                 key={h}
@@ -327,10 +327,10 @@ function Card4() {
             ))}
           </div>
           {rows.map((row) => (
-            <div
-              key={row.name}
-              className="grid grid-cols-5 gap-4 px-4 py-3 border-b border-neutral-50 last:border-b-0 hover:bg-neutral-50/50 transition-colors"
-            >
+             <div
+               key={row.name}
+               className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 px-4 py-3 border-b border-neutral-50 last:border-b-0 hover:bg-neutral-50/50 transition-colors"
+             >
               <p className="text-sm font-medium text-neutral-900 truncate">
                 {row.name}
               </p>

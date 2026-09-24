@@ -2,22 +2,15 @@
 
 import { useState } from "react";
 import { TrendingUp, Users, FileSearch, ShieldCheck } from "lucide-react";
+import { Skeleton } from "@fine-leads/ui";
 
-interface ActivityEvent {
+export interface ActivityEvent {
   id: string;
   type: "verified" | "exported" | "searched" | "unlocked";
   description: string;
   time: string;
   state?: string;
 }
-
-const MOCK_ACTIVITIES: ActivityEvent[] = [
-  { id: "1", type: "verified", description: "200 FL luxury agents verified", time: "2h ago", state: "FL" },
-  { id: "2", type: "exported", description: "CA Top Producers CSV exported", time: "5h ago", state: "CA" },
-  { id: "3", type: "searched", description: "Ran discovery on Austin brokers", time: "8h ago", state: "TX" },
-  { id: "4", type: "unlocked", description: "Unlocked NY Elite Agent vault", time: "1d ago", state: "NY" },
-  { id: "5", type: "verified", description: "AZ market leader verification complete", time: "1d ago", state: "AZ" },
-];
 
 const PERIODS = ["7D", "30D", "90D"] as const;
 
@@ -44,8 +37,40 @@ function EventIcon({ type }: { type: string }) {
   }
 }
 
-export function ActivityFeed() {
+interface ActivityFeedProps {
+  events?: ActivityEvent[];
+  trendData?: number[];
+  loading?: boolean;
+}
+
+export function ActivityFeed({ events = [], trendData = [], loading = false }: ActivityFeedProps) {
   const [period, setPeriod] = useState<string>("30D");
+
+  if (loading) {
+    return (
+      <div className="rounded-xl border-0 bg-slate-50 p-6 dark:bg-slate-900 shadow-none">
+        <div className="flex items-center justify-between mb-4">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-8 w-24 rounded-lg" />
+        </div>
+        <Skeleton className="h-28 w-full mb-4" />
+        <Skeleton className="h-4 w-32 mb-2" />
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 px-3 py-2">
+              <Skeleton className="h-7 w-7 rounded-md shrink-0" />
+              <Skeleton className="h-4 flex-1" />
+              <Skeleton className="h-3 w-12 shrink-0" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const bars = trendData.length > 0
+    ? trendData
+    : Array.from({ length: 30 }, () => Math.floor(Math.random() * 60) + 20);
 
   return (
     <div className="rounded-xl border-0 bg-slate-50 p-6 dark:bg-slate-900 shadow-none">
@@ -73,7 +98,7 @@ export function ActivityFeed() {
 
       <div className="mb-4">
         <div className="flex items-end gap-1 h-28">
-          {[35, 48, 30, 62, 55, 42, 70, 58, 45, 75, 65, 50, 80, 68, 52, 85, 72, 58, 90, 78, 62, 95, 82, 68, 100, 88, 72, 95, 85, 65].map((height, i) => (
+          {bars.map((height, i) => (
             <div
               key={i}
               className="flex-1 rounded-sm bg-[#14A800]/20 hover:bg-[#14A800]/40 transition-colors"
@@ -93,22 +118,28 @@ export function ActivityFeed() {
       </h4>
 
       <div className="space-y-1">
-        {MOCK_ACTIVITIES.map((event) => (
-          <div
-            key={event.id}
-            className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
-          >
-            <div className={`flex h-7 w-7 items-center justify-center rounded-md ${typeConfig[event.type].bg}`}>
-              <EventIcon type={event.type} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-slate-700 dark:text-slate-300 truncate">
-                {event.description}
-              </p>
-            </div>
-            <span className="text-xs text-slate-400 shrink-0">{event.time}</span>
+        {events.length === 0 ? (
+          <div className="px-3 py-8 text-center text-sm text-slate-400">
+            No recent activity found.
           </div>
-        ))}
+        ) : (
+          events.map((event) => (
+            <div
+              key={event.id}
+              className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
+            >
+              <div className={`flex h-7 w-7 items-center justify-center rounded-md ${typeConfig[event.type]?.bg || "bg-slate-100"}`}>
+                <EventIcon type={event.type} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-slate-700 dark:text-slate-300 truncate">
+                  {event.description}
+                </p>
+              </div>
+              <span className="text-xs text-slate-400 shrink-0">{event.time}</span>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

@@ -301,16 +301,17 @@ export default function ScraperDashboardPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[60px]">State</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead className="text-right">Scraped Count</TableHead>
-                    <TableHead>Last Scraped</TableHead>
-                    <TableHead className="text-right">Freshness</TableHead>
-                  </TableRow>
-                </TableHeader>
+              <div className="w-full overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[60px]">State</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead className="text-right">Scraped Count</TableHead>
+                      <TableHead>Last Scraped</TableHead>
+                      <TableHead className="text-right">Freshness</TableHead>
+                    </TableRow>
+                  </TableHeader>
                 <TableBody>
                   {filteredCoverage.length === 0 ? (
                     <TableRow>
@@ -346,6 +347,7 @@ export default function ScraperDashboardPage() {
                   )}
                 </TableBody>
               </Table>
+                </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -359,16 +361,17 @@ export default function ScraperDashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Agent</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead className="text-right">Scraped</TableHead>
-                  </TableRow>
-                </TableHeader>
+              <div className="w-full overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Agent</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead className="text-right">Scraped</TableHead>
+                    </TableRow>
+                  </TableHeader>
                 <TableBody>
                   {(() => {
                     const feedList = Array.isArray(feed) ? feed : [];
@@ -421,9 +424,10 @@ export default function ScraperDashboardPage() {
                         </TableCell>
                       </TableRow>
                     ));
-                  })()}
+                  })(                  )}
                 </TableBody>
               </Table>
+                </div>
             </CardContent>
           </Card>
         </TabsContent>

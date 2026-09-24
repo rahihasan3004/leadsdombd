@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { Search, Lock, Star, Phone, Mail, MapPin } from "lucide-react";
 import { LEAD_STATES } from "@fine-leads/utils";
 
-interface LeadRow {
+export interface LeadRow {
   id: string;
   fullName: string;
   brokerageName: string;
@@ -16,25 +16,14 @@ interface LeadRow {
   locked: boolean;
 }
 
+interface LeadExplorerProps {
+  leads?: LeadRow[];
+}
+
 const STATE_TABS = [
   { code: "ALL", label: "ALL", count: 1000 },
   ...LEAD_STATES.map((s) => ({ code: s.code, label: s.name, count: s.count })),
 ] as const;
-
-const MOCK_LEADS: LeadRow[] = [
-  { id: "1", fullName: "Sarah Mitchell", brokerageName: "Compass Florida", state: "FL", city: "Miami", email: "sarah.mitchell@compass.com", phone: "+1 (305) 555-0101", rating: 4.9, locked: false },
-  { id: "2", fullName: "James Rodriguez", brokerageName: "Douglas Elliman", state: "FL", city: "Orlando", email: "j.rodriguez@elliman.com", phone: "+1 (407) 555-0202", rating: 4.7, locked: false },
-  { id: "3", fullName: "Emily Chen", brokerageName: "Sotheby's International", state: "CA", city: "Los Angeles", email: "echen@sothebys.com", phone: "+1 (310) 555-0303", rating: 4.8, locked: true },
-  { id: "4", fullName: "Michael Torres", brokerageName: "Keller Williams Beverly Hills", state: "CA", city: "Beverly Hills", email: "mtorres@kw.com", phone: "+1 (424) 555-0404", rating: 4.6, locked: true },
-  { id: "5", fullName: "Jessica Williams", brokerageName: "Compass", state: "TX", city: "Austin", email: "jwilliams@compass.com", phone: "+1 (512) 555-0505", rating: 4.9, locked: false },
-  { id: "6", fullName: "David Kim", brokerageName: "eXp Realty", state: "TX", city: "Dallas", email: "dkim@exp.com", phone: "+1 (214) 555-0606", rating: 4.5, locked: true },
-  { id: "7", fullName: "Amanda Foster", brokerageName: "Corcoran Group", state: "NY", city: "Manhattan", email: "afoster@corcoran.com", phone: "+1 (212) 555-0707", rating: 4.8, locked: true },
-  { id: "8", fullName: "Robert Sterling", brokerageName: "Brown Harris Stevens", state: "NY", city: "Brooklyn", email: "rsterling@bhs.com", phone: "+1 (718) 555-0808", rating: 4.4, locked: false },
-  { id: "9", fullName: "Maria Gonzalez", brokerageName: "Realty ONE Group", state: "AZ", city: "Phoenix", email: "mgonzalez@realtyone.com", phone: "+1 (602) 555-0909", rating: 4.7, locked: true },
-  { id: "10", fullName: "Thomas Wright", brokerageName: "Russ Lyon Sotheby's", state: "AZ", city: "Scottsdale", email: "twright@russlyon.com", phone: "+1 (480) 555-1010", rating: 4.6, locked: false },
-  { id: "11", fullName: "Lauren Davis", brokerageName: "Berkshire Hathaway", state: "FL", city: "Tampa", email: "ldavis@bhhs.com", phone: "+1 (813) 555-1111", rating: 4.3, locked: true },
-  { id: "12", fullName: "Chris Nelson", brokerageName: "Coldwell Banker", state: "CA", city: "San Diego", email: "cnelson@cb.com", phone: "+1 (619) 555-1212", rating: 4.5, locked: true },
-];
 
 function maskEmail(email: string): string {
   const [name, domain] = email.split("@");
@@ -69,12 +58,12 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-export function LeadExplorer() {
+export function LeadExplorer({ leads = [] }: LeadExplorerProps) {
   const [activeState, setActiveState] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredLeads = useMemo(() => {
-    return MOCK_LEADS.filter((lead) => {
+    return leads.filter((lead) => {
       const matchesState = activeState === "ALL" || lead.state === activeState;
       const matchesSearch =
         !searchQuery ||
@@ -83,7 +72,7 @@ export function LeadExplorer() {
         lead.city.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesState && matchesSearch;
     });
-  }, [activeState, searchQuery]);
+  }, [leads, activeState, searchQuery]);
 
   return (
     <div className="rounded-xl border-0 bg-slate-50 dark:bg-slate-900 shadow-none">
@@ -240,7 +229,7 @@ export function LeadExplorer() {
 
       <div className="flex items-center justify-between px-5 py-3">
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Showing {filteredLeads.length} of {MOCK_LEADS.length} leads
+          Showing {filteredLeads.length} of {leads.length} leads
         </p>
         <div className="flex items-center gap-1">
           <button

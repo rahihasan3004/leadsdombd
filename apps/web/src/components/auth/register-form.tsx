@@ -310,7 +310,7 @@ export function RegisterForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 text-left">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label
             htmlFor="firstName"
@@ -487,7 +487,7 @@ export function RegisterForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full h-11 bg-surface-950 hover:bg-surface-800 text-white rounded-md text-sm font-semibold transition-colors flex items-center justify-center mt-2 shadow-xs cursor-pointer disabled:opacity-60"
+        className="w-full h-11 bg-[#465FFF] hover:bg-[#3B50E0] text-white font-semibold rounded-xl shadow-none transition-colors flex items-center justify-center mt-2 cursor-pointer disabled:opacity-60"
       >
         {isSubmitting ? "Creating account..." : "Create account"}
       </button>

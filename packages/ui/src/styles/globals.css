@@ -115,3 +115,12 @@ html.dark {
     font-variant-numeric: tabular-nums;
   }
 }
+
+.dark .recharts-cartesian-grid-horizontal line,
+.dark .recharts-cartesian-grid-vertical line {
+  stroke: #27272A;
+}
+
+.dark .recharts-text {
+  fill: #A1A1AA;
+}

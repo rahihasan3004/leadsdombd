@@ -111,7 +111,7 @@ export function LoginForm() {
 
       <button
         type="submit"
-        className="w-full h-11 bg-surface-950 hover:bg-surface-800 text-white rounded-md text-sm font-semibold transition-colors flex items-center justify-center mt-2 shadow-xs cursor-pointer"
+        className="w-full h-11 bg-[#465FFF] hover:bg-[#3B50E0] text-white font-semibold rounded-xl shadow-none transition-colors flex items-center justify-center mt-2 cursor-pointer"
       >
         Log In
       </button>

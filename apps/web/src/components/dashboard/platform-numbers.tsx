@@ -7,9 +7,9 @@ interface PlatformNumbersProps {
 }
 
 export function PlatformNumbers({
-  totalLeads = 1000,
-  activeStates = 5,
-  creditsAvailable = 1000,
+  totalLeads = 0,
+  activeStates = 0,
+  creditsAvailable = 0,
 }: PlatformNumbersProps) {
   const metrics = [
     {

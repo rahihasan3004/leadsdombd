@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     data: {
       name: body.name,
       description: body.description,
-      query: body.query,
+      query: body.query as any,
       userId: session.user.id,
       organizationId: session.user.organizationId ?? "",
     },

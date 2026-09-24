@@ -14,6 +14,12 @@ function resolveDatabaseUrl(): string {
 }
 
 async function main(): Promise<void> {
+  if (process.env["NODE_ENV"] !== "development") {
+    throw new Error(
+      "reset-agents can only run in development. NODE_ENV must be 'development'.",
+    );
+  }
+
   const connectionString = resolveDatabaseUrl();
 
   console.log("[reset-agents] Connecting to database...");

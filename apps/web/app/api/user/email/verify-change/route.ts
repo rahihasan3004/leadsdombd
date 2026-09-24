@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
+import crypto from "crypto";
+
+function hashOTP(otp: string, identifier: string): string {
+  return crypto.createHmac("sha256", identifier).update(otp).digest("hex");
+}
 
 export async function POST(request: Request) {
   try {
@@ -26,7 +31,7 @@ export async function POST(request: Request) {
     const currentEmailToken = await db.verificationToken.findFirst({
       where: {
         identifier: currentEmail,
-        token: currentEmailCode,
+        token: hashOTP(currentEmailCode, currentEmail),
         expires: { gt: new Date() },
       },
     });
@@ -38,7 +43,7 @@ export async function POST(request: Request) {
     const newEmailToken = await db.verificationToken.findFirst({
       where: {
         identifier: normalizedNewEmail,
-        token: newEmailCode,
+        token: hashOTP(newEmailCode, normalizedNewEmail),
         expires: { gt: new Date() },
       },
     });
