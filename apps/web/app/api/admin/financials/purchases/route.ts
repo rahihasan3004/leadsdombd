@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const statusParam = searchParams.get("status");
     const state = searchParams.get("state") ?? undefined;
-    const page = searchParams.get("page") ? Number(searchParams.get("page")) : undefined;
-    const limit = searchParams.get("limit") ? Number(searchParams.get("limit")) : undefined;
+    const page = Math.max(1, Number(searchParams.get("page") || "1"));
+    const limit = Math.min(Math.max(Number(searchParams.get("limit") || "20"), 1), 100);
     const includeKpis = searchParams.get("includeKpis") === "true";
 
     let status: PurchaseStatus | undefined;

@@ -1,5 +1,5 @@
 export function getLemonSqueezyApiKey(): string {
-  return process.env.LEMONSQUEEZY_API_KEY || process.env.NEXT_PUBLIC_LEMONSQUEEZY_API_KEY || "";
+  return process.env.LEMONSQUEEZY_API_KEY || "";
 }
 
 export function getLemonSqueezyStoreId(): string {
@@ -7,7 +7,7 @@ export function getLemonSqueezyStoreId(): string {
 }
 
 export function getLemonSqueezyWebhookSecret(): string {
-  return process.env.LEMONSQUEEZY_WEBHOOK_SECRET || process.env.NEXT_PUBLIC_LEMONSQUEEZY_WEBHOOK_SECRET || "";
+  return process.env.LEMONSQUEEZY_WEBHOOK_SECRET || "";
 }
 
 export function getWalletTopupVariantId(): string {

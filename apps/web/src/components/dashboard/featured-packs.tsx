@@ -1,10 +1,12 @@
 import { ShieldCheck, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface DatasetPack {
   id: string;
   title: string;
   leadCount: number;
   price: string;
+  state: string;
   icon: typeof Users;
 }
 
@@ -13,6 +15,8 @@ interface FeaturedPacksProps {
 }
 
 export function FeaturedPacks({ packs = [] }: FeaturedPacksProps) {
+  const router = useRouter();
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
@@ -60,6 +64,7 @@ export function FeaturedPacks({ packs = [] }: FeaturedPacksProps) {
 
               <button
                 type="button"
+                onClick={() => router.push(`/dashboard/search?state=${pack.state}`)}
                 className="w-full h-9 bg-surface-950 text-white rounded-md text-xs font-semibold hover:bg-surface-800 transition-colors cursor-pointer"
               >
                 Configure & Unlock

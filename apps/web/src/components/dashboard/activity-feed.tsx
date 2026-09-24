@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { TrendingUp, Users, FileSearch, ShieldCheck } from "lucide-react";
 import { Skeleton } from "@fine-leads/ui";
 
@@ -68,9 +68,11 @@ export function ActivityFeed({ events = [], trendData = [], loading = false }: A
     );
   }
 
-  const bars = trendData.length > 0
-    ? trendData
-    : Array.from({ length: 30 }, () => Math.floor(Math.random() * 60) + 20);
+  const bars = useMemo(() => {
+    return trendData.length > 0
+      ? trendData
+      : Array.from({ length: 30 }, () => Math.floor(Math.random() * 60) + 20);
+  }, [trendData]);
 
   return (
     <div className="rounded-xl border-0 bg-slate-50 p-6 dark:bg-slate-900 shadow-none">

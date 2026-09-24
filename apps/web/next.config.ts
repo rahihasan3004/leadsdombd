@@ -11,6 +11,9 @@ const connectSrc = isDev
   : "'self' https: *.lemonsqueezy.com";
 
 const nextConfig: NextConfig = {
+  env: {
+    AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID || "",
+  },
   transpilePackages: ["@fine-leads/ui", "@fine-leads/utils", "@fine-leads/auth", "@fine-leads/database", "recharts"],
   experimental: {
     optimizePackageImports: ["@fine-leads/ui", "lucide-react"],

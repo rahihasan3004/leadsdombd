@@ -13,8 +13,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") ?? undefined;
     const role = searchParams.get("role") as UserRole | undefined;
-    const page = searchParams.get("page") ? Number(searchParams.get("page")) : undefined;
-    const limit = searchParams.get("limit") ? Number(searchParams.get("limit")) : undefined;
+    const page = Math.max(1, Number(searchParams.get("page") || "1"));
+    const limit = Math.min(Math.max(Number(searchParams.get("limit") || "20"), 1), 100);
 
     if (role && !["USER", "ADMIN", "SUPER_ADMIN"].includes(role)) {
       return NextResponse.json({ error: "Invalid role filter" }, { status: 400 });

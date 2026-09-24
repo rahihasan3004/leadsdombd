@@ -76,6 +76,44 @@ export async function GET() {
 
     const monthKeys = Array.from(monthlyBuckets.keys());
 
+    const allPurchaseStates = new Set<string>();
+    for (const purchase of purchases) {
+      const raw = purchase.unlockedStates || [];
+      for (const s of raw) {
+        allPurchaseStates.add(s.toUpperCase());
+      }
+    }
+
+    const allPurchaseStatesArray = Array.from(allPurchaseStates);
+
+    const allStatesLeadCount =
+      allPurchaseStatesArray.length > 0
+        ? await db.agent.count({
+            where: {
+              state: { in: allPurchaseStatesArray },
+              isDeliverable: true,
+              email: { not: null },
+            },
+          })
+        : 0;
+
+    const stateLeadCountCache = new Map<string, number>();
+    if (allPurchaseStatesArray.length > 0) {
+      const perStateRows = await db.$queryRaw<
+        { state: string; cnt: bigint }[]
+      >`
+        SELECT state, COUNT(*)::int AS cnt
+        FROM "Agent"
+        WHERE state = ANY(${allPurchaseStatesArray}::text[])
+          AND isDeliverable = true
+          AND email IS NOT NULL
+        GROUP BY state
+      `;
+      for (const row of perStateRows) {
+        stateLeadCountCache.set(row.state, Number(row.cnt));
+      }
+    }
+
     for (const purchase of purchases) {
       const key = getMonthKey(new Date(purchase.createdAt));
       if (monthlyBuckets.has(key)) {
@@ -84,13 +122,7 @@ export async function GET() {
         const finalCodes = matching.length > 0 ? matching : stateCodes;
 
         const leadCount = finalCodes.length > 0
-          ? await db.agent.count({
-              where: {
-                state: { in: finalCodes },
-                isDeliverable: true,
-                email: { not: null },
-              },
-            })
+          ? finalCodes.reduce((sum, code) => sum + (stateLeadCountCache.get(code) || 0), 0)
           : 0;
 
         const bucket = monthlyBuckets.get(key);
@@ -112,16 +144,36 @@ export async function GET() {
       };
     });
 
-    const recentOrders = await Promise.all(
-      recentPurchases.map(async (p) => {
+    const recentOrders = (() => {
+      const recentStateSet = new Set<string>();
+      for (const p of recentPurchases) {
+        const raw = p.unlockedStates || [];
+        for (const s of raw) {
+          recentStateSet.add(s.toUpperCase());
+        }
+      }
+      const recentStatesArr = Array.from(recentStateSet);
+      const recentStateCache = new Map<string, number>();
+
+      if (recentStatesArr.length > 0) {
+        const rows = db.$queryRawSync<{ state: string; cnt: bigint }[]>`
+          SELECT state, COUNT(*)::int AS cnt
+          FROM "Agent"
+          WHERE state = ANY(${recentStatesArr}::text[])
+            AND isDeliverable = true
+            AND email IS NOT NULL
+          GROUP BY state
+        `;
+        for (const row of rows) {
+          recentStateCache.set(row.state, Number(row.cnt));
+        }
+      }
+
+      return recentPurchases.map((p) => {
+        const codes = (p.unlockedStates || []).map((s: string) => s.toUpperCase());
         const quantity =
-          p.unlockedStates && p.unlockedStates.length > 0
-            ? await db.agent.count({
-                where: {
-                  state: { in: p.unlockedStates.map((s: string) => s.toUpperCase()) },
-                  isDeliverable: true,
-                },
-              })
+          codes.length > 0
+            ? codes.reduce((sum, code) => sum + (recentStateCache.get(code) || 0), 0)
             : 0;
 
         return {
@@ -133,8 +185,8 @@ export async function GET() {
           quantity,
           status: "Delivered",
         };
-      })
-    );
+      });
+    })();
 
     return NextResponse.json({
       totalLeads: totalLeadsInVault,

@@ -56,6 +56,7 @@ export function FAQSection() {
 
 function FAQItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
+  const contentId = `faq-content-${question.replace(/\s+/g, "-").toLowerCase()}`;
 
   return (
     <div className="border border-neutral-200/80 rounded-lg bg-white p-5 md:p-6 transition-all duration-200">
@@ -63,6 +64,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-between w-full text-left cursor-pointer"
         aria-expanded={isOpen}
+        aria-controls={contentId}
       >
         <span className="font-semibold text-neutral-900 text-base md:text-lg pr-4">
           {question}
@@ -76,6 +78,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
       </button>
 
       <div
+        id={contentId}
         style={{
           display: "grid",
           gridTemplateRows: isOpen ? "1fr" : "0fr",

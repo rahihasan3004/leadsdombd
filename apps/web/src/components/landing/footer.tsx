@@ -29,21 +29,13 @@ export function LandingFooter() {
           </div>
 
           {/* Legal Links */}
-          <div className="space-y-2">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-900">Legal</h4>
-            <div className="flex flex-row items-center justify-center gap-4 sm:gap-6 text-xs text-slate-500">
-              <Link href="/terms" className="hover:text-slate-800 transition-colors whitespace-nowrap">
-                Terms of Service
-              </Link>
-              <span className="text-slate-300">•</span>
-              <Link href="/privacy" className="hover:text-slate-800 transition-colors whitespace-nowrap">
-                Privacy Policy
-              </Link>
-              <span className="text-slate-300">•</span>
-              <Link href="/refund" className="hover:text-slate-800 transition-colors whitespace-nowrap">
-                Refund Policy
-              </Link>
-            </div>
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-900">Legal</h3>
+            <ul className="mt-3 space-y-2">
+              <li><Link href="/terms" className="text-sm text-slate-600 hover:text-slate-900">Terms of Service</Link></li>
+              <li><Link href="/privacy" className="text-sm text-slate-600 hover:text-slate-900">Privacy Policy</Link></li>
+              <li><Link href="/refund" className="text-sm text-slate-600 hover:text-slate-900">Refund Policy</Link></li>
+            </ul>
           </div>
 
           {/* Connect Links */}

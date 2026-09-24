@@ -328,7 +328,7 @@ model Agent {
   @@index([category])
   @@index([state, category])
   @@unique([googlePlaceId])
-  @@unique([email])
+  @@index([email])
 }
 
 model AgentActivity {
@@ -361,7 +361,7 @@ model AuditLog {
 model WebhookEvent {
   id          String    @id @default(cuid())
   eventId     String    @unique
-  provider    String    @default("stripe")
+  provider    String    @default("lemonsqueezy")
   processedAt DateTime  @default(now())
   status      String
   payload     Json?
@@ -380,6 +380,7 @@ model LeadPurchase {
   amountPaid      Decimal          @default(0) @db.Decimal(12, 2)
   status          PurchaseStatus @default(COMPLETED)
   stripeSessionId String?
+  refundedAt      DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 

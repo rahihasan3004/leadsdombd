@@ -134,6 +134,7 @@ export function AdminSidebar({ user, mobileOpen, onMobileOpenChange }: AdminSide
           <button
             type="button"
             onClick={() => nextAuthSignOut({ callbackUrl: "/login" })}
+            aria-label="Log out"
             className="cursor-pointer"
           >
             <LogOut className="h-4 w-4 text-surface-400 hover:text-surface-950 dark:hover:text-white shrink-0" />

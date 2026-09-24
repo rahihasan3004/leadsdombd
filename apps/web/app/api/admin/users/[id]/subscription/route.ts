@@ -47,10 +47,14 @@ export async function PATCH(
       );
     }
 
+    if (!adminCheck.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const subscription = await overrideSubscription(
       id,
       { tier: tier as SubscriptionTier, status: status as SubscriptionStatus },
-      adminCheck.user.id || "admin",
+      adminCheck.user.id,
     );
 
     return NextResponse.json({ subscription });

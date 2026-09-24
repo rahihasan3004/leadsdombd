@@ -38,9 +38,13 @@ export default function BillingPage() {
       if (res.ok) {
         const json = await res.json();
         setData(json);
+        setError(null);
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setError(json.error || "Failed to load billing data");
       }
     } catch {
-      // silently fail
+      setError("Network error. Please check your connection and try again.");
     } finally {
       setPageLoading(false);
     }
@@ -287,6 +291,18 @@ export default function BillingPage() {
       </div>
 
       <div className="bg-white rounded-2xl border-0 shadow-none p-6 flex flex-col justify-between min-h-[300px]">
+        {error && (
+          <div className="mb-4 rounded-xl bg-red-50 border border-red-200/60 p-4 flex items-center gap-3">
+            <span className="text-xs font-medium text-red-600 flex-1">{error}</span>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="text-red-400 hover:text-red-600 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {/* Top: Header */}
         <div className="shrink-0">
           <h2 className="text-base font-bold text-slate-900 tracking-tight">Transaction Ledger</h2>
@@ -340,8 +356,11 @@ export default function BillingPage() {
                           ? formatCurrency(tx.balanceAfter)
                           : "—"}
                       </td>
-                      <td className="py-2 px-4 whitespace-nowrap text-right text-xs font-medium text-emerald-600">
-                        {tx.status === "COMPLETED" ? "Completed" : "Refunded"}
+                      <td className="py-2 px-4 whitespace-nowrap text-right text-xs font-medium">
+                        {tx.status === "COMPLETED" && <span className="text-emerald-600">Completed</span>}
+                        {tx.status === "PENDING" && <span className="text-amber-600">Pending</span>}
+                        {tx.status === "FAILED" && <span className="text-red-600">Failed</span>}
+                        {tx.status === "REFUNDED" && <span className="text-slate-500">Refunded</span>}
                       </td>
                     </tr>
                   );

@@ -24,7 +24,11 @@ export async function POST(
       );
     }
 
-    const result = await revokeUnlockStates(id, states, adminCheck.user.id || "admin");
+    if (!adminCheck.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const result = await revokeUnlockStates(id, states, adminCheck.user.id);
 
     return NextResponse.json({ result });
   } catch (err: unknown) {

@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@fine-leads/database";
 import { getLemonSqueezyWebhookSecret } from "@/lib/lemon-squeezy";
@@ -13,22 +14,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing signature" }, { status: 401 });
   }
 
-  const expectedSignature = await crypto.subtle
-    .importKey(
-      "raw",
-      new TextEncoder().encode(getLemonSqueezyWebhookSecret()),
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["sign"]
-    )
-    .then((key) =>
-      crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body))
-    )
-    .then((signatureBuffer) => {
-      const hashArray = Array.from(new Uint8Array(signatureBuffer));
-      return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-    });
-
+  const webhookSecret = getLemonSqueezyWebhookSecret();
+  const expectedSignature = crypto.createHmac("sha256", webhookSecret).update(body).digest("hex");
   const computedSignature = `sha256=${expectedSignature}`;
 
   if (signature.length !== computedSignature.length) {
@@ -39,9 +26,9 @@ export async function POST(request: Request) {
   try {
     const sigBuffer = Buffer.from(signature);
     const computedBuffer = Buffer.from(computedSignature);
-      if (sigBuffer.length === computedBuffer.length) {
-        isEqual = (crypto as any).timingSafeEqual(sigBuffer, computedBuffer);
-      }
+    if (sigBuffer.length === computedBuffer.length) {
+      isEqual = crypto.timingSafeEqual(sigBuffer, computedBuffer);
+    }
   } catch {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
@@ -127,7 +114,7 @@ export async function POST(request: Request) {
           }
         } else if (type === "LEAD_PURCHASE") {
           if (targetUnlockedStates.length > 0 && userId) {
-            const existingPurchases = await db.leadPurchase.findMany({
+            const existingPurchases = await tx.leadPurchase.findMany({
               where: { userId, status: "COMPLETED" },
               select: { unlockedStates: true },
             });
@@ -153,7 +140,7 @@ export async function POST(request: Request) {
                 },
               });
 
-              const actualLeadCount = await db.agent.count({
+              const actualLeadCount = await tx.agent.count({
                 where: {
                   state: { in: newStateCodes },
                   email: { not: null },
@@ -166,7 +153,8 @@ export async function POST(request: Request) {
                   userId,
                   purchase.id,
                   packPrice,
-                  "No leads available for the purchased states. Purchase has been refunded to your wallet."
+                  "No leads available for the purchased states. Purchase has been refunded to your wallet.",
+                  tx
                 );
               }
             }

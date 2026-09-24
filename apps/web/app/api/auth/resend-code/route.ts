@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@fine-leads/database";
 import { checkRateLimit, getClientIp } from "@fine-leads/utils";
+import { sendVerificationOtpEmail } from "@/lib/email";
 import crypto from "crypto";
 
 const MAX_RESEND_CODE_ATTEMPTS = 3;
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
     await db.verificationToken.deleteMany({ where: { identifier: normalizedEmail } });
 
     const code = generateSecureOTP();
+    await sendVerificationOtpEmail(normalizedEmail, code);
     const hashedCode = hashOTP(code, normalizedEmail);
     const expires = new Date(Date.now() + 15 * 60 * 1000);
 

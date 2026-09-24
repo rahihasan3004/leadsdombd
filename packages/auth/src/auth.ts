@@ -12,8 +12,14 @@ const defaultAuthUrl =
   isDev ? "http://localhost:3000" : process.env.NEXT_PUBLIC_APP_URL ?? "https://getleadsdom.com";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "default_auth_secret_leadsdom_2026",
-  trustHost: true,
+  secret: (() => {
+    const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+    if (!secret && process.env.NODE_ENV === "production") {
+      throw new Error("AUTH_SECRET or NEXTAUTH_SECRET is required in production");
+    }
+    return secret;
+  })(),
+  trustHost: process.env.NODE_ENV !== "production",
   session: {
     strategy: "jwt",
     maxAge: 7 * 24 * 60 * 60,
@@ -25,10 +31,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   providers: [
     Google({
-      clientId: process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID,
+      clientId: process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID || "",
       clientSecret:
-        process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET,
-      allowDangerousEmailAccountLinking: true,
+        process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET || "",
+      allowDangerousEmailAccountLinking: false,
       authorization: {
         params: {
           prompt: "consent",
@@ -40,7 +46,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     GitHub({
       clientId: process.env.AUTH_GITHUB_ID || process.env.GITHUB_CLIENT_ID || "",
       clientSecret:
-        process.env.AUTH_GITHUB_SECRET || process.env.GOOGLE_CLIENT_SECRET || "",
+        process.env.AUTH_GITHUB_SECRET || process.env.GITHUB_CLIENT_SECRET || "",
+      allowDangerousEmailAccountLinking: false,
       checks: ["state"],
       authorization: {
         params: {

@@ -1,23 +1,42 @@
 "use client";
 
 import { useState } from "react";
-import { auth } from "@fine-leads/auth";
-import { redirect } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Button } from "@fine-leads/ui";
 import { Menu } from "lucide-react";
 
-export default async function DashboardLayout({
+const MAX_RETRIES = 20;
+let retryCount = 0;
+
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-  if (!session?.user) {
-    redirect("/login");
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  if (status === "loading") {
+    return (
+      <div className="h-screen max-h-screen w-full flex items-center justify-center bg-surface-50 dark:bg-surface-950">
+        <div className="text-sm text-neutral-500">Loading...</div>
+      </div>
+    );
   }
 
-  const [mobileOpen, setMobileOpen] = useState(false);
+  if (status === "unauthenticated" || !session?.user) {
+    if (retryCount < MAX_RETRIES) {
+      retryCount++;
+      setTimeout(() => router.push("/login"), 0);
+    } else {
+      retryCount = 0;
+      router.push("/login");
+    }
+    return null;
+  }
 
   const user = {
     name: session.user.name,

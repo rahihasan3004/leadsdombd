@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { LandingNavbar } from "@/components/landing/navbar";
 import { LandingFooter } from "@/components/landing/footer";
+import { LandingNavbar } from "@/components/landing/navbar";
 
 export const metadata = {
   title: "Privacy Policy — LeadsDom",
@@ -27,22 +27,22 @@ export default function PrivacyPage() {
         </div>
 
         {/* Legal Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-neutral-200 pb-4 mb-10">
-          <Link
-            href="/terms"
-            className="px-4 py-1.5 rounded-full text-xs font-medium text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+        <div className="flex flex-row items-center justify-center gap-1.5 sm:gap-3 my-6 w-full overflow-x-auto no-scrollbar py-1">
+          <Link 
+            href="/terms" 
+            className="text-[11px] sm:text-xs px-3 sm:px-4 py-1.5 rounded-full font-medium whitespace-nowrap transition-all text-slate-600 hover:text-slate-900 bg-slate-100"
           >
             Terms of Service
           </Link>
-          <Link
-            href="/privacy"
-            className="px-4 py-1.5 rounded-full text-xs font-semibold bg-neutral-900 text-white transition-colors"
+          <Link 
+            href="/privacy" 
+            className="text-[11px] sm:text-xs px-3 sm:px-4 py-1.5 rounded-full font-medium whitespace-nowrap transition-all bg-slate-900 text-white shadow-xs"
           >
             Privacy Policy
           </Link>
-          <Link
-            href="/refund"
-            className="px-4 py-1.5 rounded-full text-xs font-medium text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+          <Link 
+            href="/refund" 
+            className="text-[11px] sm:text-xs px-3 sm:px-4 py-1.5 rounded-full font-medium whitespace-nowrap transition-all text-slate-600 hover:text-slate-900 bg-slate-100"
           >
             Refund Policy
           </Link>

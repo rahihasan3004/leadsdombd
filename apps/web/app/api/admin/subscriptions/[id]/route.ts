@@ -11,7 +11,7 @@ export async function PATCH(
 ) {
   const adminCheck = await requireAdminApi();
   if (adminCheck instanceof NextResponse) return adminCheck;
-  if (!adminCheck.user) {
+  if (!adminCheck.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -21,7 +21,7 @@ export async function PATCH(
     const body = await req.json();
     const { tier, status } = body;
 
-    const adminId: string = adminCheck.user.id || "admin";
+    const adminId: string = adminCheck.user.id;
 
     const subscription = await updateSubscription(
       id,

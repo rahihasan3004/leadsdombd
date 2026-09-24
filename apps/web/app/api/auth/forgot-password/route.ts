@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@fine-leads/database";
 import { checkRateLimit, getClientIp } from "@fine-leads/utils";
+import { sendPasswordResetOtpEmail } from "@/lib/email";
 import crypto from "crypto";
 
 const MAX_FORGOT_PASSWORD_ATTEMPTS = 5;
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
     });
 
     const code = generateSecureOTP();
+    await sendPasswordResetOtpEmail(normalizedEmail, code);
     const hashedCode = hashOTP(code, normalizedEmail);
     const expires = new Date(Date.now() + 15 * 60 * 1000);
 

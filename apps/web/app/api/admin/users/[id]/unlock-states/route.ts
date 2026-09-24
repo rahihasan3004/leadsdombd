@@ -24,7 +24,11 @@ export async function POST(
       );
     }
 
-    const purchase = await grantUnlockStates(id, states, adminCheck.user.id || "admin");
+    if (!adminCheck.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const purchase = await grantUnlockStates(id, states, adminCheck.user.id);
 
     return NextResponse.json({ purchase });
   } catch (err: unknown) {

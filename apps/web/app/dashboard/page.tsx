@@ -83,6 +83,19 @@ export default function DashboardPage() {
     }
   }, [sessionStatus]);
 
+  const handleDownloadCsv = useCallback((states: string) => {
+    const stateList = states.split(",").map((s) => s.trim()).filter(Boolean);
+    stateList.forEach((stateCode) => {
+      const url = `/api/exports/stream?state=${encodeURIComponent(stateCode)}`;
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
+  }, []);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("purchase") === "success" || params.get("checkout_success") === "true") {
@@ -234,7 +247,7 @@ export default function DashboardPage() {
           ) : (
             <div className="flex items-end gap-2 h-[180px]">
               {metrics.monthlyTrends.map((item, index) => {
-                const leadHeight = Math.max(10, (item.leads / Math.max(...metrics.monthlyTrends.map(m => m.leads))) * 100);
+                const leadHeight = Math.max(1, (item.leads / Math.max(1, ...metrics.monthlyTrends.map(m => m.leads))) * 100);
                 return (
                   <div
                     key={item.month}
@@ -392,6 +405,7 @@ export default function DashboardPage() {
                     <td className="py-3.5 px-4 text-right">
                       <button
                         type="button"
+                        onClick={() => handleDownloadCsv(order.states)}
                         className="inline-flex items-center gap-1.5 h-11 px-3 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-none cursor-pointer"
                       >
                         <Download className="h-3.5 w-3.5" />

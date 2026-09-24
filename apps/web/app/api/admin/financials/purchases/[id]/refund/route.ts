@@ -14,11 +14,20 @@ export async function POST(
   const { id } = await props.params;
 
   try {
-    const adminId = adminCheck.user.id || "admin";
+    if (!adminCheck.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const adminId = adminCheck.user.id;
     const result = await refundPurchase(id, adminId);
     return NextResponse.json(result);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to refund purchase";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status =
+      message === "Purchase not found" ||
+      message === "Purchase is already refunded" ||
+      message === "Only completed purchases can be refunded"
+        ? 400
+        : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

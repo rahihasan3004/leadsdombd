@@ -35,7 +35,16 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const { role, organizationId, walletBalanceAdjustment, balanceReason } = body;
+    const ALLOWED_FIELDS = ["role", "organizationId", "walletBalanceAdjustment", "balanceReason"] as const;
+    const updateFields: Record<string, unknown> = {};
+
+    for (const field of ALLOWED_FIELDS) {
+      if (field in body) {
+        updateFields[field] = body[field];
+      }
+    }
+
+    const { role, organizationId, walletBalanceAdjustment, balanceReason } = updateFields;
 
     if (walletBalanceAdjustment !== undefined && typeof walletBalanceAdjustment !== "number") {
       return NextResponse.json({ error: "walletBalanceAdjustment must be a number" }, { status: 400 });

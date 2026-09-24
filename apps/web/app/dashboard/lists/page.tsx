@@ -186,6 +186,18 @@ export default function ListsPage() {
     );
   }, [leads, leadSearch]);
 
+  const handleDownloadCsv = useCallback((states: string[]) => {
+    states.forEach((stateCode) => {
+      const url = `/api/exports/stream?state=${encodeURIComponent(stateCode)}`;
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
+  }, []);
+
   const totalLeadPages = Math.ceil(filteredLeads.length / LEAD_PAGE_SIZE);
   const paginatedLeads = useMemo(() => {
     const start = leadPage * LEAD_PAGE_SIZE;
@@ -279,6 +291,7 @@ export default function ListsPage() {
                 </div>
                 <button
                   type="button"
+                  onClick={() => handleDownloadCsv(selectedPurchase.unlockedStates)}
                   className="px-4 py-2.5 rounded-xl bg-[#465FFF] hover:bg-[#3B50E0] text-white text-xs font-semibold shadow-none transition-colors flex items-center gap-2 cursor-pointer"
                 >
                   <Download className="h-3.5 w-3.5" /> Download Full CSV
@@ -568,7 +581,10 @@ export default function ListsPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownloadCsv(purchase.unlockedStates);
+                          }}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F0F4FF] text-[#465FFF] border border-blue-100 hover:bg-blue-100/70 font-semibold text-xs shadow-none transition-colors cursor-pointer"
                         >
                           <Download className="h-3 w-3" />

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@fine-leads/database";
 import { hashPassword } from "@fine-leads/auth";
 import { checkRateLimit, getClientIp } from "@fine-leads/utils";
+import { sendVerificationOtpEmail } from "@/lib/email";
 import crypto from "crypto";
 
 const MAX_SIGNUP_ATTEMPTS = 5;
@@ -60,40 +61,45 @@ export async function POST(request: Request) {
     const passwordHash = await hashPassword(password);
     const name = `${firstName} ${lastName}`;
 
-    const org = await db.organization.create({
-      data: { name: name, slug: `org-${crypto.randomUUID().slice(0, 12)}` },
-    });
+    const result = await db.$transaction(async (tx) => {
+      const org = await tx.organization.create({
+        data: { name: name, slug: `org-${crypto.randomUUID().slice(0, 12)}` },
+      });
 
-    await db.user.create({
-      data: {
-        name,
-        email: normalizedEmail,
-        passwordHash,
-        organizationId: org.id,
-        subscriptions: {
-          create: {
-            organizationId: org.id,
-            tier: "FREE",
-            status: "ACTIVE",
+      const user = await tx.user.create({
+        data: {
+          name,
+          email: normalizedEmail,
+          passwordHash,
+          organizationId: org.id,
+          subscriptions: {
+            create: {
+              organizationId: org.id,
+              tier: "FREE",
+              status: "ACTIVE",
+            },
           },
         },
-      },
-    });
+      });
 
-    const code = generateSecureOTP();
-    const hashedCode = hashOTP(code, normalizedEmail);
-    const expires = new Date(Date.now() + 15 * 60 * 1000);
+      const code = generateSecureOTP();
+      await sendVerificationOtpEmail(normalizedEmail, code);
+      const hashedCode = hashOTP(code, normalizedEmail);
+      const expires = new Date(Date.now() + 15 * 60 * 1000);
 
-    await db.verificationToken.deleteMany({
-      where: { identifier: normalizedEmail },
-    });
+      await tx.verificationToken.deleteMany({
+        where: { identifier: normalizedEmail },
+      });
 
-    await db.verificationToken.create({
-      data: {
-        identifier: normalizedEmail,
-        token: hashedCode,
-        expires,
-      },
+      await tx.verificationToken.create({
+        data: {
+          identifier: normalizedEmail,
+          token: hashedCode,
+          expires,
+        },
+      });
+
+      return user;
     });
 
     return NextResponse.json({ success: true }, { status: 201 });

@@ -2,6 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@fine-leads/database";
 import { auth } from "@fine-leads/auth";
 
+function maskEmail(email: string): string {
+  if (!email) return "";
+  const [local, domain] = email.split("@");
+  if (!domain) return email;
+  const maskedLocal =
+    local.length <= 2
+      ? "*".repeat(local.length)
+      : local.slice(0, 2) + "*".repeat(Math.max(local.length - 2, 3));
+  return `${maskedLocal}@${domain}`;
+}
+
+function maskPhone(phone: string): string {
+  if (!phone) return "";
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length <= 4) return "*".repeat(digits.length);
+  return "*".repeat(digits.length - 4) + digits.slice(-4);
+}
+
+const PUBLIC_FIELDS = [
+  "id",
+  "fullName",
+  "city",
+  "state",
+  "brokerageName",
+  "category",
+  "rating",
+  "reviewCount",
+  "isDeliverable",
+] as const;
+
 export async function GET(
   request: NextRequest,
   props: { params: Promise<{ id: string }> }
@@ -24,7 +54,6 @@ export async function GET(
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
 
-    // Check if the user has unlocked the state for this agent
     let isUnlocked = false;
     if (session?.user?.id && agent.state) {
       const purchases = await db.leadPurchase.findMany({
@@ -38,24 +67,36 @@ export async function GET(
       const allUnlocked = purchases.flatMap(
         (p: { unlockedStates: string[] }) => p.unlockedStates
       );
-      isUnlocked = allUnlocked.includes(agent.state.toUpperCase());
+      const hasPurchaseUnlock = allUnlocked.includes(agent.state.toUpperCase());
+
+      const subscription = await db.subscription.findFirst({
+        where: {
+          userId: session.user.id,
+          status: "ACTIVE",
+        },
+        select: { id: true },
+      });
+
+      isUnlocked = hasPurchaseUnlock || Boolean(subscription);
     }
 
-    // Safe role check
     const userRole = session?.user.role;
     const isAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN";
 
-    // Mask data if not unlocked and not admin
     if (!isUnlocked && !isAdmin) {
       return NextResponse.json({
-        ...agent,
-        email: agent.email
-          ? `${agent.email.slice(0, 1)}***@${
-              agent.email.split("@")[1] || "domain.com"
-            }`
-          : null,
-        phone: agent.phone ? `+1 (***) ***-${agent.phone.slice(-4)}` : null,
-        brokerageAddress: "Locked - Purchase State Pack to View",
+        id: agent.id,
+        fullName: agent.fullName,
+        city: agent.city,
+        state: agent.state,
+        brokerageName: agent.brokerageName,
+        category: agent.category,
+        rating: agent.rating,
+        reviewCount: agent.reviewCount,
+        isDeliverable: agent.isDeliverable,
+        email: maskEmail(agent.email ?? ""),
+        phone: maskPhone(agent.phone ?? ""),
+        isUnlocked: false,
       });
     }
 

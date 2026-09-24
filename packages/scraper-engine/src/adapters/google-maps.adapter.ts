@@ -7,7 +7,7 @@ import type { VerifiedLeadSource } from "../types/lead.types.js";
 const NON_BUSINESS_NAMES = new Set([
   "botguard", "null", "undefined", "true", "false", "client", "maps",
   "google maps", "google", "javascript", "window", "document", "script",
-  "botguard", "bfkj", "bgdata", "preconnect", "stylesheet",
+  "bfkj", "bgdata", "preconnect", "stylesheet",
 ]);
 
 function isReasonableName(raw: string): boolean {

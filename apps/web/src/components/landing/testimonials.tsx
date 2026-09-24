@@ -103,7 +103,6 @@ function MarqueeColumn({ items, reverse = false }: { items: typeof testimonials;
   return (
     <div className="relative h-full overflow-hidden">
       <div
-        className="animate-marquee-vertical"
         style={{
           animation: "marquee-vertical 40s linear infinite",
           ...(reverse ? { animationDirection: "reverse" as const } : {}),

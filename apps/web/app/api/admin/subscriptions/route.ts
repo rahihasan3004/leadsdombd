@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const tierParam = searchParams.get("tier");
     const statusParam = searchParams.get("status");
-    const page = searchParams.get("page") ? Number(searchParams.get("page")) : undefined;
-    const limit = searchParams.get("limit") ? Number(searchParams.get("limit")) : undefined;
+    const page = Math.max(1, Number(searchParams.get("page") || "1"));
+    const limit = Math.min(Math.max(Number(searchParams.get("limit") || "20"), 1), 100);
     const includeBreakdown = searchParams.get("includeBreakdown") === "true";
 
     let tier: SubscriptionTier | undefined;

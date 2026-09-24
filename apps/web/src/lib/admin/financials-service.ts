@@ -2,6 +2,7 @@ import { db } from "@fine-leads/database";
 import { generateTxnRef } from "@fine-leads/utils";
 import type { Prisma, WalletTransactionType } from "@fine-leads/database";
 import type { PurchaseStatus } from "@fine-leads/database";
+import crypto from "crypto";
 
 const REFUND_REF_CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -135,30 +136,34 @@ export async function getFinancialKPIs() {
 }
 
 export async function refundPurchase(purchaseId: string, adminId: string) {
-  const purchase = await db.leadPurchase.findUnique({
-    where: { id: purchaseId },
-    include: {
-      user: { select: { id: true } },
-    },
-  });
-
-  if (!purchase) {
-    throw new Error("Purchase not found");
-  }
-
-  if (purchase.status === "REFUNDED") {
-    throw new Error("Purchase is already refunded");
-  }
-
-  if (purchase.status !== "COMPLETED") {
-    throw new Error("Only completed purchases can be refunded");
-  }
-
   const result = await db.$transaction(async (tx) => {
-    await tx.leadPurchase.update({
+    const purchase = await tx.leadPurchase.findUnique({
       where: { id: purchaseId },
-      data: { status: "REFUNDED" },
+      include: {
+        user: { select: { id: true } },
+      },
     });
+
+    if (!purchase) {
+      throw new Error("Purchase not found");
+    }
+
+    if (purchase.status === "REFUNDED") {
+      throw new Error("Purchase is already refunded");
+    }
+
+    if (purchase.status !== "COMPLETED") {
+      throw new Error("Only completed purchases can be refunded");
+    }
+
+    const updated = await tx.leadPurchase.updateMany({
+      where: { id: purchaseId, status: "COMPLETED" },
+      data: { status: "REFUNDED", refundedAt: new Date() },
+    });
+
+    if (updated.count === 0) {
+      throw new Error("Purchase is already refunded or ineligible");
+    }
 
     const user = await tx.user.update({
       where: { id: purchase.userId },

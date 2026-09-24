@@ -31,6 +31,10 @@ export default function SettingsPage() {
   const [name, setName] = useState(user?.name ?? "");
   const [nameLoading, setNameLoading] = useState(false);
 
+  useEffect(() => {
+    if (user?.name) setName(user.name);
+  }, [user?.name]);
+
   const [newEmail, setNewEmail] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
 

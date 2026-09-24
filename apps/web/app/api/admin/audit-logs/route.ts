@@ -13,8 +13,8 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get("action") ?? undefined;
     const resource = searchParams.get("resource") ?? undefined;
     const search = searchParams.get("search") ?? undefined;
-    const page = searchParams.get("page") ? Number(searchParams.get("page")) : undefined;
-    const limit = searchParams.get("limit") ? Number(searchParams.get("limit")) : undefined;
+    const page = Math.max(1, Number(searchParams.get("page") || "1"));
+    const limit = Math.min(Math.max(Number(searchParams.get("limit") || "20"), 1), 100);
 
     const result = await getAdminAuditLogs({ action, resource, search, page, limit });
     return NextResponse.json(result);

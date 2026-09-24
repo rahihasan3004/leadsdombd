@@ -26,7 +26,7 @@ export function PasswordInput({
         type="button"
         onClick={() => setShow(!show)}
         className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-700 cursor-pointer"
-        tabIndex={-1}
+        aria-label="Toggle password visibility"
       >
         {show ? (
           <EyeOff className="h-4 w-4" />

@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
     const city = searchParams.get("city") ?? undefined;
     const isDeliverable = searchParams.get("isDeliverable") ?? undefined;
     const dataSource = searchParams.get("dataSource") ?? undefined;
-    const page = searchParams.get("page") ? Number(searchParams.get("page")) : undefined;
-    const limit = searchParams.get("limit") ? Number(searchParams.get("limit")) : undefined;
+    const page = Math.max(1, Number(searchParams.get("page") || "1"));
+    const limit = Math.min(Math.max(Number(searchParams.get("limit") || "20"), 1), 100);
 
     const result = await getAdminAgents({
       q,

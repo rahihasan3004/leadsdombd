@@ -66,7 +66,7 @@ export function StateVaults() {
             </div>
 
             <Link
-              href="/dashboard"
+              href="/dashboard/search"
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#14A800] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#108A00] transition-colors shadow-none cursor-pointer"
             >
               <Download className="h-3.5 w-3.5" />

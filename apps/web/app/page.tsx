@@ -21,9 +21,7 @@ export default function HomePage() {
         <LandingNavbar />
       </Suspense>
       <main className="flex-1">
-        <Suspense fallback={<SectionSkeleton />}>
-          <HeroSection />
-        </Suspense>
+        <HeroSection />
         <BentoFeatures />
         <FeatureMatrix />
         <Testimonials />

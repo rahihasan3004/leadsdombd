@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Copy,
   Check,
@@ -178,6 +178,15 @@ function AttrRow({
 }
 
 export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps) {
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+
   if (!agent || !open) return null;
 
   const fullAddress = [
@@ -221,6 +230,9 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="agent-modal-title"
         className="bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg p-6 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
@@ -235,7 +247,7 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
 
         {/* Header */}
         <div className="pr-8">
-          <h2 className="text-lg font-bold text-surface-950 dark:text-white">
+          <h2 id="agent-modal-title" className="text-lg font-bold text-surface-950 dark:text-white">
             {agent.fullName}
           </h2>
           <p className="text-xs text-surface-500 mt-0.5">

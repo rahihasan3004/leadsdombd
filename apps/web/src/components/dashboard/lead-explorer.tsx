@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Search, Lock, Star, Phone, Mail, MapPin } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { LEAD_STATES } from "@fine-leads/utils";
 
 export interface LeadRow {
@@ -61,6 +62,7 @@ function StarRating({ rating }: { rating: number }) {
 export function LeadExplorer({ leads = [] }: LeadExplorerProps) {
   const [activeState, setActiveState] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
 
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
@@ -204,6 +206,7 @@ export function LeadExplorer({ leads = [] }: LeadExplorerProps) {
                   {lead.locked ? (
                     <button
                       type="button"
+                      onClick={() => router.push("/dashboard/search")}
                       className="inline-flex items-center gap-1 rounded-lg border-0 bg-[#14A800]/5 px-3 py-1.5 text-xs font-semibold text-[#14A800] hover:bg-[#14A800]/10 transition-colors cursor-pointer shadow-none"
                     >
                       <Lock className="h-3 w-3" />

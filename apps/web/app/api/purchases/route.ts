@@ -61,7 +61,8 @@ export async function POST(req: Request) {
     });
     const finalAmount = Math.round(leadCount * PRICE_PER_LEAD * 100) / 100;
 
-    const successUrl = `${baseUrl || ""}/dashboard?purchase=success`;
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+    const successUrl = `${appUrl}/dashboard?purchase=success`;
 
     return NextResponse.json({ url: successUrl });
   } catch (err: unknown) {
