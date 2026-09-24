@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { Button } from "@fine-leads/ui";
 import { cn } from "@fine-leads/utils";
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Logo } from "@/components/logo";
 
 const navLinks = [
@@ -17,15 +17,19 @@ const navLinks = [
 
 export function LandingNavbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <header
       className={cn(
         "sticky top-0 z-50 w-full",
-        "border-b border-white/10 bg-white/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60",
-        "dark:bg-surface-950/80 dark:supports-[backdrop-filter]:bg-surface-950/60 dark:border-surface-800"
+        "bg-white/95 backdrop-blur-md border-b border-neutral-100 shadow-xs"
       )}
     >
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
@@ -36,7 +40,7 @@ export function LandingNavbar() {
             <Link
               key={link.href}
               href={link.href}
-              className="text-sm font-medium text-surface-600 hover:text-surface-900 transition-colors"
+              className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
             >
               {link.label}
             </Link>
@@ -56,7 +60,7 @@ export function LandingNavbar() {
             <>
               <Link
                 href="/login"
-                className="text-sm font-medium text-surface-600 hover:text-surface-900 transition-colors"
+                className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
               >
                 Log in
               </Link>
@@ -72,7 +76,7 @@ export function LandingNavbar() {
         </div>
 
         <button
-          className="md:hidden p-3 rounded-lg hover:bg-neutral-100 text-surface-600"
+          className="md:hidden p-3 rounded-lg hover:bg-neutral-100 text-neutral-600"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label="Toggle menu"
         >
@@ -80,52 +84,72 @@ export function LandingNavbar() {
         </button>
       </div>
 
-      {mobileOpen && (
-        <div className="md:hidden border-t border-surface-200 bg-white px-6 pb-6 pt-4">
-          <nav className="flex flex-col gap-4">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-sm font-medium text-surface-600 hover:text-surface-900 transition-colors"
+      {mounted && (
+        <>
+          {mobileOpen && (
+            <div className="md:hidden fixed inset-0 z-[60] bg-black/20 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          )}
+          <div
+            className={cn(
+              "md:hidden fixed top-0 right-0 z-[70] h-full w-80 bg-white border-l border-neutral-100 shadow-2xl transition-transform duration-300 ease-in-out",
+              mobileOpen ? "translate-x-0" : "translate-x-full"
+            )}
+          >
+            <div className="flex items-center justify-between p-6 border-b border-neutral-100">
+              <span className="text-base font-semibold text-neutral-900">Menu</span>
+              <button
+                className="p-2 rounded-lg hover:bg-neutral-100 text-neutral-600"
                 onClick={() => setMobileOpen(false)}
+                aria-label="Close menu"
               >
-                {link.label}
-              </Link>
-            ))}
-            <hr className="border-surface-200" />
-            {isLoggedIn ? (
-              <Button
-                asChild
-                variant="default"
-                className="rounded-full bg-surface-900 px-5 text-white hover:bg-surface-800 w-full"
-              >
-                <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
-                  Go to Dashboard →
-                </Link>
-              </Button>
-            ) : (
-              <>
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <nav className="flex flex-col gap-2 p-6">
+              {navLinks.map((link) => (
                 <Link
-                  href="/login"
-                  className="text-sm font-medium text-surface-600 hover:text-surface-900 transition-colors"
+                  key={link.href}
+                  href={link.href}
+                  className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors py-3"
                   onClick={() => setMobileOpen(false)}
                 >
-                  Log in
+                  {link.label}
                 </Link>
+              ))}
+              <hr className="border-neutral-100 my-4" />
+              {isLoggedIn ? (
                 <Button
                   asChild
                   variant="default"
-                  className="rounded-full bg-surface-900 px-5 text-white hover:bg-surface-800 w-full"
+                  className="w-full rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium py-3"
                 >
-                  <Link href="/register" onClick={() => setMobileOpen(false)}>
-                    Get Started
+                  <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
+                    Go to Dashboard →
                   </Link>
                 </Button>
-              </>
-            )}
-          </nav>
-        </div>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors py-3"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Log in
+                  </Link>
+                  <Button
+                    asChild
+                    variant="default"
+                    className="w-full rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium py-3"
+                  >
+                    <Link href="/register" onClick={() => setMobileOpen(false)}>
+                      Get Started
+                    </Link>
+                  </Button>
+                </>
+              )}
+            </nav>
+          </div>
+        </>
       )}
     </header>
   );

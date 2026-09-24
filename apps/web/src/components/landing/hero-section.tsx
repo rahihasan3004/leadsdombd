@@ -488,7 +488,9 @@ export function HeroSection() {
 
         <div className="relative mt-8">
           <div className="[mask-image:linear-gradient(to_bottom,black_40%,transparent_100%)] md:[mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)]">
-            <DashboardMockup />
+            <div className="aspect-[16/10] overflow-hidden rounded-xl border border-neutral-200/80 shadow-md bg-white origin-top transform scale-[0.7] sm:scale-100 w-[640px] md:w-full">
+              <DashboardMockup />
+            </div>
           </div>
           <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#FAFAFA] via-[#FAFAFA]/80 to-transparent pointer-events-none z-10" />
         </div>
