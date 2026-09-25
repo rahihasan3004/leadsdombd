@@ -66,6 +66,7 @@ export default function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics>(EMPTY_METRICS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [liveBalance, setLiveBalance] = useState<number>(0);
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const userName = session?.user?.name ?? session?.user?.email?.split("@")[0] ?? "User";
@@ -112,6 +113,17 @@ export default function DashboardPage() {
       setPurchaseCancelled(true);
       window.history.replaceState({}, "", "/dashboard");
     }
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/user/profile", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.walletBalance !== undefined) {
+          setLiveBalance(Number(data.walletBalance));
+        }
+      })
+      .catch((err) => console.error("Error fetching live profile balance:", err));
   }, []);
 
   useEffect(() => {
@@ -207,14 +219,15 @@ export default function DashboardPage() {
           iconBg="bg-blue-50"
           iconColor="text-[#465FFF]"
         />
-        <KpiCard
-          label="Available Balance"
-          value={loading ? "—" : walletFormatted}
-          icon={Wallet}
-          iconBg="bg-blue-50"
-          iconColor="text-[#465FFF]"
-          action={{ label: "+ Top Up", href: "/dashboard/billing" }}
-        />
+        <div className="bg-white rounded-2xl border-0 shadow-none p-6">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Available Balance</span>
+            <span className="text-xs text-blue-600 font-medium">+ Top Up</span>
+          </div>
+          <h3 className="text-3xl font-bold tracking-tight text-slate-900 mt-2">
+            {formatCurrency(liveBalance || metrics?.availableBalance || 0)}
+          </h3>
+        </div>
         <KpiCard
           label="Delivered Files"
           value={loading ? "—" : deliveredFilesFormatted}

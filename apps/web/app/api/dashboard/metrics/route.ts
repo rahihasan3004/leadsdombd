@@ -56,6 +56,7 @@ export async function GET() {
       return NextResponse.json({
         totalLeads: 0,
         availableBalance,
+        walletBalance: availableBalance,
         deliveredFiles: completedExports,
         deliverability: 100,
         monthlyTrends: DEFAULT_MONTHLY_TRENDS,
@@ -109,6 +110,7 @@ export async function GET() {
       return NextResponse.json({
         totalLeads: 0,
         availableBalance,
+        walletBalance: availableBalance,
         deliveredFiles: completedExports,
         deliverability: 100,
         monthlyTrends: DEFAULT_MONTHLY_TRENDS,
@@ -221,6 +223,7 @@ export async function GET() {
     return NextResponse.json({
       totalLeads: totalLeadsInVault,
       availableBalance,
+      walletBalance: availableBalance,
       deliveredFiles: completedExports,
       deliverability: 100,
       monthlyTrends,
@@ -232,6 +235,7 @@ export async function GET() {
     return NextResponse.json({
       totalLeads: 0,
       availableBalance: 0,
+      walletBalance: 0,
       deliveredFiles: 0,
       deliverability: 100,
       monthlyTrends: DEFAULT_MONTHLY_TRENDS,
