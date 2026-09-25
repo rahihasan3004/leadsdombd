@@ -36,7 +36,7 @@ export async function GET() {
       },
       select: { walletBalance: true },
     });
-    const availableBalance = Number(dbUser?.walletBalance ?? 0);
+    const availableBalance = dbUser?.walletBalance ? Number(dbUser.walletBalance.toString()) : 0;
 
     const [purchases, completedExports] = await Promise.all([
       db.leadPurchase.findMany({

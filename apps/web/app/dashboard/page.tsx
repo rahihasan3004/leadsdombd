@@ -14,7 +14,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { KpiCard } from "@/components/dashboard/kpi-card";
-import { formatNumber, formatCurrency } from "@fine-leads/utils";
+import { formatNumber } from "@fine-leads/utils";
 
 interface MonthlyData {
   month: string;
@@ -51,6 +51,11 @@ const EMPTY_METRICS: DashboardMetrics = {
   deliverability: 100,
   monthlyTrends: [],
   recentOrders: [],
+};
+
+const formatCurrency = (val: any) => {
+  const num = typeof val === "number" ? val : Number(val?.toString?.() || val || 0);
+  return isNaN(num) ? "$0.00" : `$${num.toFixed(2)}`;
 };
 
 export default function DashboardPage() {

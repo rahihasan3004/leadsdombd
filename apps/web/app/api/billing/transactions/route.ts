@@ -15,7 +15,11 @@ export async function GET() {
       take: 50,
     });
 
-    return NextResponse.json({ transactions: transactions || [] });
+    const serializedTransactions = transactions.map((tx) => ({
+      ...tx,
+      amount: tx.amount ? Number(tx.amount.toString()) : 0,
+    }));
+    return NextResponse.json({ transactions: serializedTransactions || [] });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[TRANSACTIONS_ERROR]:", message);

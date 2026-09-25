@@ -32,6 +32,8 @@ export default function BillingPage() {
 
   const ITEMS_PER_PAGE = 5;
 
+  const metrics = { availableBalance: 0 };
+
   const fetchBillingData = useCallback(async () => {
     try {
       const res = await fetch("/api/billing/transactions");
@@ -115,12 +117,9 @@ export default function BillingPage() {
     }
   }, [selectedAmount, customAmount, fetchBillingData]);
 
-  const formatCurrency = (value?: number | string | null) => {
-    const num = Number(value ?? 0);
-    return (isNaN(num) ? 0 : num).toLocaleString("en-US", {
-      style: "currency",
-      currency: "USD",
-    });
+  const formatCurrency = (val: any) => {
+    const num = typeof val === "number" ? val : Number(val?.toString?.() || val || 0);
+    return isNaN(num) ? "$0.00" : `$${num.toFixed(2)}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -186,7 +185,7 @@ export default function BillingPage() {
             </div>
             <div className="flex items-center gap-3">
               <div className="text-3xl font-bold text-slate-900 tabular-nums">
-                {formatCurrency(data.walletBalance)}
+                {formatCurrency(data?.walletBalance ?? metrics?.availableBalance ?? 0)}
               </div>
             </div>
           </div>

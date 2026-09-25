@@ -68,7 +68,7 @@ export async function GET() {
       id: p.id,
       referenceId: p.referenceId,
       type: "PURCHASE",
-      amount: p.amountPaid,
+      amount: p.amountPaid ? Number(p.amountPaid.toString()) : 0,
       description:
         p.unlockedStates.length > 0
           ? `${p.unlockedStates.join(", ")} Pack (${p.unlockedStates.length} State${p.unlockedStates.length > 1 ? "s" : ""})`
@@ -85,9 +85,14 @@ export async function GET() {
       )
       .slice(0, 50);
 
+    const serializedTransactions = allTransactions.map((tx) => ({
+      ...tx,
+      amount: tx.amount ? Number(tx.amount.toString()) : 0,
+    }));
+
     return NextResponse.json({
-      walletBalance: user.walletBalance ?? 0,
-      transactions: allTransactions,
+      walletBalance: user.walletBalance ? Number(user.walletBalance.toString()) : 0,
+      transactions: serializedTransactions,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
