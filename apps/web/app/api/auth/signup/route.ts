@@ -103,10 +103,11 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[SIGNUP_ERROR_DETAILS]:", error);
+    const errorMessage = error instanceof Error ? error.message : (error as any)?.message || "Internal server error";
     return NextResponse.json(
-      { error: error?.message || "Internal server error" },
+      { error: errorMessage },
       { status: 500 }
     );
   }
