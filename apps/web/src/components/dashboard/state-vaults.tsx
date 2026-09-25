@@ -67,7 +67,7 @@ export function StateVaults() {
 
             <Link
               href="/dashboard/search"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#14A800] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#108A00] transition-colors shadow-none cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 shadow-none border-0 cursor-pointer"
             >
               <Download className="h-3.5 w-3.5" />
               Unlock

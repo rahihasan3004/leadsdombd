@@ -104,7 +104,7 @@ export function RecentLeadsTable({ orders = [] }: RecentLeadsTableProps) {
                   <td className="py-4 px-4 text-xs font-normal text-right">
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1 h-8 px-3 bg-surface-950 hover:bg-surface-800 text-white rounded-md text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
+                      className="inline-flex items-center gap-1 h-8 px-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-md text-xs font-semibold transition-all duration-200 shadow-none border-0 cursor-pointer"
                     >
                       <Download className="h-3 w-3" />
                       CSV

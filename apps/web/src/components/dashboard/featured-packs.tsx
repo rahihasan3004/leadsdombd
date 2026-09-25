@@ -65,7 +65,7 @@ export function FeaturedPacks({ packs = [] }: FeaturedPacksProps) {
               <button
                 type="button"
                 onClick={() => router.push(`/dashboard/search?state=${pack.state}`)}
-                className="w-full h-9 bg-surface-950 text-white rounded-md text-xs font-semibold hover:bg-surface-800 transition-colors cursor-pointer"
+                className="w-full h-9 bg-blue-600 text-white rounded-md text-xs font-semibold hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 cursor-pointer shadow-none border-0"
               >
                 Configure & Unlock
               </button>

@@ -185,7 +185,7 @@ export default function DashboardPage() {
           </span>
           <a
             href="/dashboard/search"
-            className="inline-flex items-center h-9 px-4 bg-[#465FFF] text-white rounded-xl text-xs font-semibold hover:bg-[#3B50E0] transition-colors shadow-sm"
+            className="inline-flex items-center h-9 px-4 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 shadow-none border-0"
           >
             + New Lead Search
           </a>
@@ -406,7 +406,7 @@ export default function DashboardPage() {
                       <button
                         type="button"
                         onClick={() => handleDownloadCsv(order.states)}
-                        className="inline-flex items-center gap-1.5 h-11 px-3 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-none cursor-pointer"
+                        className="inline-flex items-center gap-1.5 h-11 px-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 shadow-none border-0 cursor-pointer"
                       >
                         <Download className="h-3.5 w-3.5" />
                         Download CSV

@@ -138,10 +138,10 @@ export function OrderPanel({
                   key={qty}
                   type="button"
                   onClick={() => onQuantityChange(qty)}
-                  className={`text-xs font-semibold rounded-sm border px-3 py-1.5 transition-colors ${
+                  className={`text-xs font-semibold rounded-sm border px-3 py-1.5 transition-all duration-200 ${
                     quantity === qty
-                      ? "bg-surface-950 dark:bg-white text-white dark:text-surface-950 border-surface-950 dark:border-white"
-                      : "text-surface-500 dark:text-surface-400 border-surface-200 dark:border-surface-700 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-700 dark:hover:text-surface-200"
+                       ? "bg-blue-600 text-white border-blue-600"
+                       : "text-surface-500 dark:text-surface-400 border-surface-200 dark:border-surface-700 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-700 dark:hover:text-surface-200"
                   }`}
                 >
                   {qty.toLocaleString()}
@@ -186,7 +186,7 @@ export function OrderPanel({
         <button
           type="button"
           onClick={onCheckout}
-          className="w-full h-11 bg-surface-950 hover:bg-surface-800 dark:bg-white dark:hover:bg-surface-200 dark:text-surface-950 text-white rounded-md text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+          className="w-full h-11 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-md text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-none border-0 cursor-pointer"
         >
           Unlock &amp; Order Leads
           <ArrowRight className="h-4 w-4" />
@@ -218,40 +218,40 @@ function PackageCard({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left px-3 py-2.5 rounded-sm border transition-colors ${
+      className={`w-full text-left px-3 py-2.5 rounded-sm border transition-all duration-200 ${
         isSelected
-          ? "bg-surface-950 dark:bg-white border-surface-950 dark:border-white"
-          : "bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 hover:border-surface-300 dark:hover:border-surface-600"
+          ? "bg-blue-600 text-white border-blue-600"
+          : "bg-surface-50 dark:bg-surface-800 text-surface-600 dark:text-surface-400 border-surface-200 dark:border-surface-700 hover:border-surface-300 dark:hover:border-surface-600"
       }`}
     >
       <div className="flex items-start gap-2.5">
-        <Icon
-          className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
+      <Icon
+        className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
+          isSelected
+            ? "text-white"
+            : "text-surface-400 dark:text-surface-500"
+        }`}
+      />
+      <div className="min-w-0">
+        <p
+          className={`text-xs font-semibold ${
             isSelected
-              ? "text-white dark:text-surface-950"
+              ? "text-white"
+              : "text-surface-700 dark:text-surface-300"
+          }`}
+        >
+          {label}
+        </p>
+        <p
+          className={`text-[10px] mt-0.5 ${
+            isSelected
+              ? "text-white/80"
               : "text-surface-400 dark:text-surface-500"
           }`}
-        />
-        <div className="min-w-0">
-          <p
-            className={`text-xs font-semibold ${
-              isSelected
-                ? "text-white dark:text-surface-950"
-                : "text-surface-700 dark:text-surface-300"
-            }`}
-          >
-            {label}
-          </p>
-          <p
-            className={`text-[10px] mt-0.5 ${
-              isSelected
-                ? "text-white/60 dark:text-surface-950/60"
-                : "text-surface-400 dark:text-surface-500"
-            }`}
-          >
-            {description}
-          </p>
-        </div>
+        >
+          {description}
+        </p>
+      </div>
       </div>
     </button>
   );

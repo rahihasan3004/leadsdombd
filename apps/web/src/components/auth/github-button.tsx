@@ -27,7 +27,7 @@ export function GitHubButton({ variant = "outline" }: GitHubButtonProps) {
       <button
         onClick={handleSignIn}
         type="button"
-        className="w-full h-11 flex items-center justify-center gap-2.5 bg-white border border-surface-200 text-surface-900 hover:bg-surface-100 rounded-md text-sm font-medium transition-colors shadow-xs cursor-pointer"
+        className="w-full h-11 flex items-center justify-center gap-2.5 bg-white border border-surface-200 text-surface-900 hover:bg-surface-100 rounded-md text-sm font-medium transition-colors shadow-none cursor-pointer"
       >
         <GitHubIcon />
         Continue with GitHub
@@ -39,7 +39,7 @@ export function GitHubButton({ variant = "outline" }: GitHubButtonProps) {
     <button
       onClick={handleSignIn}
       type="button"
-      className="w-full h-11 flex items-center justify-center gap-3 bg-brand-500 hover:bg-brand-600 text-white rounded-full text-sm font-semibold transition-colors shadow-none cursor-pointer mb-6"
+      className="w-full h-11 flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full text-sm font-semibold transition-all duration-200 shadow-none border-0 cursor-pointer mb-6"
     >
       <GitHubIcon />
       Continue with GitHub

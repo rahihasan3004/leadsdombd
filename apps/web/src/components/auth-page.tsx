@@ -261,7 +261,7 @@ export function AuthPage({ mode }: AuthPageProps) {
               </div>
               <button
                 type="submit"
-                className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-brand-500 text-white shadow-none transition-colors hover:bg-brand-600"
+                className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-blue-600 text-white shadow-none transition-all duration-200 hover:bg-blue-700 active:bg-blue-800"
               >
                 Sign In →
               </button>
@@ -320,7 +320,7 @@ export function AuthPage({ mode }: AuthPageProps) {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-brand-500 text-white shadow-none transition-colors hover:bg-brand-600 disabled:opacity-60"
+                className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-blue-600 text-white shadow-none transition-all duration-200 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60"
               >
                 {isSubmitting ? "Creating account..." : "Get Lead Access →"}
               </button>

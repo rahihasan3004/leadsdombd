@@ -513,7 +513,7 @@ export function HeroSection() {
         <div className="flex items-center justify-center gap-4 mb-10">
           <Link
             href={ctaHref}
-            className="bg-[#465FFF] hover:bg-[#3B50E0] text-white rounded-full px-6 py-2.5 font-medium text-sm shadow-none transition-colors inline-flex items-center"
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 py-2.5 font-medium text-sm shadow-none border-0 transition-all duration-200 inline-flex items-center"
           >
             {isLoggedIn ? "Go to Dashboard →" : "Get started"}
           </Link>

@@ -15,7 +15,7 @@ export default function Error({
         </p>
         <button
           onClick={reset}
-          className="mt-6 inline-flex h-10 items-center justify-center rounded-md bg-brand-600 px-6 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
+            className="mt-6 inline-flex h-10 items-center justify-center rounded-md bg-blue-600 px-6 text-sm font-medium text-white hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 shadow-none border-0"
         >
           Try Again
         </button>

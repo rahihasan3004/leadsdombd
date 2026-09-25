@@ -271,7 +271,7 @@ export function LeadDetailModal({ agent, open, onClose }: LeadDetailModalProps) 
             <button
               type="button"
               onClick={handleMasterCopy}
-              className="w-full h-11 bg-[#14A800] hover:bg-[#108A00] text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer border-0 shadow-none my-4"
+              className="w-full h-11 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-sm rounded-xl transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer border-0 shadow-none my-4"
             >
               {masterCopied ? (
                 <>

@@ -18,7 +18,7 @@ export function SpotlightCard() {
       </p>
       <Link
         href="/dashboard/search?state=TX"
-        className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#14A800] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#108A00] transition-colors shadow-none"
+        className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 shadow-none border-0"
       >
         Run Agent Discovery
         <ArrowRight className="h-3.5 w-3.5" />

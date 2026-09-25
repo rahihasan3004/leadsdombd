@@ -182,7 +182,7 @@ export function ForgotPasswordForm() {
   const otpBoxClass =
     "w-12 h-12 text-center text-lg font-bold tabular-nums bg-white border border-surface-200 rounded-md text-surface-950 focus:border-surface-950 focus:ring-1 focus:ring-surface-950 transition-all outline-none";
   const btnClass =
-    "w-full h-11 bg-[#465FFF] hover:bg-[#3B50E0] text-white font-semibold rounded-xl shadow-none transition-colors flex items-center justify-center cursor-pointer disabled:opacity-50";
+    "w-full h-11 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl shadow-none border-0 transition-all duration-200 flex items-center justify-center cursor-pointer disabled:opacity-50";
 
   return (
     <div className="w-full max-w-[400px] sm:max-w-[420px] flex flex-col items-center">

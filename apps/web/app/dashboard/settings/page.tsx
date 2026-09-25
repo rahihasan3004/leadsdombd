@@ -296,7 +296,7 @@ export default function SettingsPage() {
                   <Button
                     onClick={handleSaveName}
                     disabled={nameLoading}
-                    className="shrink-0 bg-[#465FFF] hover:bg-[#3B50E0] text-white border-0 shadow-none"
+                    className="shrink-0 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-0 shadow-none"
                   >
                     {nameLoading ? "Saving..." : "Save Name"}
                   </Button>
@@ -458,7 +458,7 @@ export default function SettingsPage() {
                 <Button
                   onClick={handleUpdatePassword}
                   disabled={passwordLoading || !currentPassword || !newPassword || !confirmPassword}
-                  className="w-full bg-[#465FFF] hover:bg-[#3B50E0] text-white border-0 shadow-none"
+                  className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-0 shadow-none"
                 >
                   {passwordLoading ? "Updating..." : "Update Password"}
                 </Button>
@@ -529,7 +529,7 @@ export default function SettingsPage() {
             <Button
               onClick={handleVerifyEmailChange}
               disabled={otpLoading}
-              className="w-full bg-[#14A800] hover:bg-[#108A00] text-white border-0 shadow-none"
+              className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-0 shadow-none"
             >
               {otpLoading ? "Verifying..." : "Verify & Update Email"}
             </Button>
@@ -573,7 +573,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={handleSendDeleteOtp}
                 disabled={dangerConfirm !== "DELETE" || deleteOtpLoading || deleteOtpSent}
-                className="mb-3 bg-[#14A800] hover:bg-[#108A00] text-white border-0 shadow-none"
+                className="mb-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-0 shadow-none"
               >
                 {deleteOtpSent ? "Code Sent" : deleteOtpLoading ? "Sending..." : "Send Deletion Code"}
               </Button>

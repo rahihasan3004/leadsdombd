@@ -30,7 +30,7 @@ export default function TermsPage() {
         <div className="flex flex-row items-center justify-center gap-1.5 sm:gap-3 my-6 w-full overflow-x-auto no-scrollbar py-1">
           <Link 
             href="/terms" 
-            className="text-[11px] sm:text-xs px-3 sm:px-4 py-1.5 rounded-full font-medium whitespace-nowrap transition-all bg-slate-900 text-white shadow-xs"
+            className="text-[11px] sm:text-xs px-3 sm:px-4 py-1.5 rounded-full font-medium whitespace-nowrap transition-all bg-blue-600 text-white shadow-none border-0"
           >
             Terms of Service
           </Link>

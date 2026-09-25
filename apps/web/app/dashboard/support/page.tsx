@@ -133,7 +133,7 @@ export default function SupportPage() {
           <button
             type="submit"
             disabled={loading}
-            className="bg-[#465FFF] hover:bg-[#3b51db] text-white font-medium rounded-xl px-6 py-2.5 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+            className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-xl px-6 py-2.5 transition-all duration-200 disabled:opacity-50 inline-flex items-center gap-2 shadow-none border-0"
           >
             {loading && (
               <svg

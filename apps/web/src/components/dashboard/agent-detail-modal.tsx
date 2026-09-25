@@ -260,7 +260,7 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
           <button
             type="button"
             onClick={handleCopyAllInfo}
-            className="w-full py-2.5 px-4 rounded-xl bg-[#465FFF] hover:bg-[#3B50E0] text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-sm transition-colors duration-150 cursor-pointer"
+            className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-none border-0 transition-all duration-150 cursor-pointer"
           >
             <Copy className="h-4 w-4" />
             <span>Copy business info</span>

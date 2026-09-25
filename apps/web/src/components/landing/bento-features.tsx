@@ -136,7 +136,7 @@ function Card1() {
           </div>
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-sm bg-[#465FFF] hover:bg-[#3B50E0] text-white pl-4 pr-5 py-2.5 text-xs font-semibold transition-colors shadow-none"
+            className="inline-flex items-center gap-2 rounded-sm bg-blue-600 hover:bg-blue-700 text-white pl-4 pr-5 py-2.5 text-xs font-semibold transition-all duration-200 shadow-none border-0"
           >
             Unlock Territory
           </button>
@@ -350,7 +350,7 @@ function Card4() {
         <div className="mt-6 flex flex-wrap items-center gap-2.5">
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-sm bg-[#465FFF] hover:bg-[#3B50E0] text-white px-4 py-2 text-xs font-semibold transition-colors shadow-none"
+            className="inline-flex items-center gap-2 rounded-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-xs font-semibold transition-all duration-200 shadow-none border-0"
           >
             <Download className="h-3.5 w-3.5" />
             Download CSV

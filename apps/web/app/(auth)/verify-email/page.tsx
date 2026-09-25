@@ -153,7 +153,7 @@ function VerifyEmailContent() {
               type="button"
               onClick={handleSubmit}
               disabled={isLoading}
-              className="w-full h-11 bg-surface-950 hover:bg-surface-800 text-white rounded-md text-sm font-semibold transition-colors shadow-xs disabled:opacity-60"
+              className="w-full h-11 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-md text-sm font-semibold transition-all duration-200 shadow-none border-0 disabled:opacity-60"
             >
               {isLoading ? "Verifying..." : "Verify & Continue"}
             </button>

@@ -134,12 +134,12 @@ export function USMap({
                     }
                   }
                 }}
-                className={`text-[11px] font-medium rounded-sm border px-2.5 py-1 transition-colors ${
+                className={`text-[11px] font-medium rounded-sm border px-2.5 py-1 transition-all duration-200 ${
                   (label === "Select All" && allSelected) ||
                   (label !== "Select All" &&
                     label !== "Clear All" &&
                     REGIONS[label]?.every((c) => selectedSet.has(c)))
-                    ? "bg-surface-950 dark:bg-white text-white dark:text-surface-950 border-surface-950 dark:border-white"
+                    ? "bg-blue-600 text-white border-blue-600"
                     : "text-surface-500 dark:text-surface-400 border-surface-200 dark:border-surface-700 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-700 dark:hover:text-surface-200"
                 }`}
               >

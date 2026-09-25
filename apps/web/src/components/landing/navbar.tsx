@@ -48,7 +48,7 @@ export function LandingNavbar() {
             <Button
               asChild
               variant="default"
-              className="rounded-full bg-[#465FFF] hover:bg-[#3B50E0] text-white font-medium transition-colors shadow-none px-5"
+              className="rounded-full bg-blue-600 hover:bg-blue-700 text-white font-medium transition-all duration-200 shadow-none border-0 px-5"
             >
               <Link href="/dashboard">Go to Dashboard →</Link>
             </Button>
@@ -63,7 +63,7 @@ export function LandingNavbar() {
               <Button
                 asChild
                 variant="default"
-                className="rounded-full bg-[#465FFF] hover:bg-[#3B50E0] text-white font-medium transition-colors shadow-none px-5"
+                className="rounded-full bg-blue-600 hover:bg-blue-700 text-white font-medium transition-all duration-200 shadow-none border-0 px-5"
               >
                 <Link href="/register">Get Started</Link>
               </Button>

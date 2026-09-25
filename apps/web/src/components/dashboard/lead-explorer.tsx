@@ -102,7 +102,7 @@ export function LeadExplorer({ leads = [] }: LeadExplorerProps) {
               onClick={() => setActiveState(s.code)}
               className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
                 activeState === s.code
-                  ? "bg-[#14A800] text-white"
+                  ? "bg-blue-600 text-white"
                   : "bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:bg-slate-800"
               }`}
             >

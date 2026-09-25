@@ -216,9 +216,9 @@ export function LeadSearch({ agents = [], matchCount, totalRecords = TOTAL_RECOR
 
           <button
             onClick={() => setVerifiedOnly(!verifiedOnly)}
-            className={`inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-md border transition-colors ${
+            className={`inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-md border transition-all duration-200 ${
               verifiedOnly
-                ? "bg-surface-950 dark:bg-white text-white dark:text-surface-950 border-surface-950 dark:border-white"
+                ? "bg-blue-600 text-white border-blue-600"
                 : "bg-surface-50 dark:bg-surface-800 text-surface-600 dark:text-surface-400 border-surface-200 dark:border-surface-700 hover:border-surface-300"
             }`}
           >
@@ -266,7 +266,7 @@ export function LeadSearch({ agents = [], matchCount, totalRecords = TOTAL_RECOR
             <Button
               variant="default"
               size="sm"
-              className="h-8 px-4 bg-surface-950 hover:bg-surface-800 dark:bg-white dark:hover:bg-surface-200 dark:text-surface-950 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs"
+              className="h-8 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-md text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 shadow-none border-0"
             >
               Unlock &amp; Export Leads
               <ArrowRight className="h-3.5 w-3.5" />

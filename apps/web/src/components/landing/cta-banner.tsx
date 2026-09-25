@@ -56,7 +56,7 @@ export function CTABanner() {
           </p>
           <Link
             href={ctaHref}
-            className="inline-flex items-center justify-center px-7 py-3 rounded-full bg-white text-neutral-900 font-semibold text-sm hover:bg-neutral-100 hover:scale-[1.02] transition-all duration-200 relative z-10 shadow-none"
+            className="inline-flex items-center justify-center px-7 py-3 rounded-full bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 hover:scale-[1.02] transition-all duration-200 relative z-10 shadow-none border-0"
           >
             {isLoggedIn ? "Go to Dashboard →" : "Get Started →"}
           </Link>

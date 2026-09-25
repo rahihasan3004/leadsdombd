@@ -117,7 +117,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full h-11 bg-[#465FFF] hover:bg-[#3B50E0] text-white font-semibold rounded-xl shadow-none transition-colors flex items-center justify-center mt-2 cursor-pointer disabled:opacity-60"
+        className="w-full h-11 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl shadow-none border-0 transition-all duration-200 flex items-center justify-center mt-2 cursor-pointer disabled:opacity-60"
       >
         {isLoading ? (
           <>

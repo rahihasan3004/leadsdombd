@@ -253,7 +253,7 @@ export default function ListsPage() {
             </p>
             <a
               href="/dashboard/search"
-              className="mt-5 inline-flex items-center gap-1.5 h-9 px-4 bg-slate-950 hover:bg-slate-800 text-white rounded-md text-xs font-semibold transition-colors"
+              className="mt-5 inline-flex items-center gap-1.5 h-9 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-md text-xs font-semibold transition-all duration-200 shadow-none border-0"
             >
               Order Leads Now
               <ChevronRight className="h-3.5 w-3.5" />
@@ -292,7 +292,7 @@ export default function ListsPage() {
                 <button
                   type="button"
                   onClick={() => handleDownloadCsv(selectedPurchase.unlockedStates)}
-                  className="px-4 py-2.5 rounded-xl bg-[#465FFF] hover:bg-[#3B50E0] text-white text-xs font-semibold shadow-none transition-colors flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold shadow-none border-0 transition-all duration-200 flex items-center gap-2 cursor-pointer"
                 >
                   <Download className="h-3.5 w-3.5" /> Download Full CSV
                 </button>
@@ -436,9 +436,9 @@ export default function ListsPage() {
                     key={page}
                     type="button"
                     onClick={() => setLeadPage(page - 1)}
-                    className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors shadow-none ${
+                    className={`w-8 h-8 rounded-lg text-xs font-medium transition-all duration-200 shadow-none border-0 ${
                       leadPage === page - 1
-                        ? "bg-[#465FFF] text-white"
+                        ? "bg-blue-600 text-white"
                         : "border border-slate-200 text-slate-700 hover:bg-slate-50"
                     }`}
                   >
@@ -482,7 +482,7 @@ export default function ListsPage() {
             </div>
             <a
               href="/dashboard/search"
-              className="px-4 py-2.5 rounded-xl bg-[#465FFF] hover:bg-[#3B50E0] text-white text-xs font-semibold shadow-none transition-colors flex items-center gap-2"
+              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold shadow-none border-0 transition-all duration-200 flex items-center gap-2"
             >
               + Order Leads
             </a>
@@ -574,7 +574,7 @@ export default function ListsPage() {
                             e.stopPropagation();
                             handleSelectPurchase(purchase);
                           }}
-                          className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-[#465FFF] hover:bg-[#3B50E0] text-white font-semibold text-xs shadow-none transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-none border-0 transition-all duration-200 cursor-pointer"
                         >
                           View Leads
                           <ArrowRight className="h-3 w-3" />
@@ -623,11 +623,11 @@ export default function ListsPage() {
                 key={page}
                 type="button"
                 onClick={() => setOrderPage(page - 1)}
-                className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors shadow-none ${
-                  orderPage === page - 1
-                    ? "bg-[#465FFF] text-white"
-                    : "border border-slate-200 text-slate-700 hover:bg-slate-50"
-                }`}
+                    className={`w-8 h-8 rounded-lg text-xs font-medium transition-all duration-200 shadow-none border-0 ${
+                      orderPage === page - 1
+                        ? "bg-blue-600 text-white"
+                        : "border border-slate-200 text-slate-700 hover:bg-slate-50"
+                    }`}
               >
                 {page}
               </button>

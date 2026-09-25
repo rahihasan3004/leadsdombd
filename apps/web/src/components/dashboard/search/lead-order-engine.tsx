@@ -234,7 +234,7 @@ export function LeadOrderEngine() {
               type="button"
               onClick={handleCheckout}
               disabled={!isFormValid || submitting}
-              className="w-full py-3.5 rounded-xl bg-[#465FFF] hover:bg-[#3B50E0] text-white font-bold text-sm shadow-sm transition-all duration-200 block text-center disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-none border-0 transition-all duration-200 block text-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? "Processing..." : "Unlock & Export Leads →"}
             </button>

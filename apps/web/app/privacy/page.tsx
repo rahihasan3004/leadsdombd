@@ -36,7 +36,7 @@ export default function PrivacyPage() {
           </Link>
           <Link 
             href="/privacy" 
-            className="text-[11px] sm:text-xs px-3 sm:px-4 py-1.5 rounded-full font-medium whitespace-nowrap transition-all bg-slate-900 text-white shadow-xs"
+            className="text-[11px] sm:text-xs px-3 sm:px-4 py-1.5 rounded-full font-medium whitespace-nowrap transition-all bg-blue-600 text-white shadow-none border-0"
           >
             Privacy Policy
           </Link>

@@ -244,7 +244,7 @@ export default function BillingPage() {
               type="button"
               onClick={handleAddFunds}
               disabled={loading || (!selectedAmount && !customAmount)}
-               className="w-full py-3.5 rounded-xl bg-[#465FFF] hover:bg-[#3B50E0] text-white font-bold text-sm shadow-sm transition-colors block text-center disabled:opacity-50"
+               className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-none border-0 transition-all duration-200 block text-center disabled:opacity-50"
             >
               {loading ? "Processing..." : "Add Funds to Wallet →"}
             </button>
@@ -402,9 +402,9 @@ export default function BillingPage() {
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all duration-200 ${
                   currentPage === page
-                    ? "bg-[#465FFF] text-white border-[#465FFF]"
+                    ? "bg-blue-600 text-white border-blue-600"
                     : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                 }`}
               >

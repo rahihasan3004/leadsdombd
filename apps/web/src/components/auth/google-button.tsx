@@ -32,7 +32,7 @@ export function GoogleButton({ variant = "default" }: GoogleButtonProps) {
   }
 
   return (
-    <button onClick={handleSignIn} type="button" className="w-full h-11 flex items-center justify-center gap-3 bg-brand-500 hover:bg-brand-600 text-white rounded-full text-sm font-semibold transition-colors shadow-none cursor-pointer mb-6">
+    <button onClick={handleSignIn} type="button" className="w-full h-11 flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full text-sm font-semibold transition-all duration-200 shadow-none border-0 cursor-pointer mb-6">
       <GoogleIcon />
       Continue with Google
     </button>
