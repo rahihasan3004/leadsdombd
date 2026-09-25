@@ -27,6 +27,7 @@ export default function BillingPage() {
     walletBalance: 0,
     transactions: [],
   });
+  const [liveBalance, setLiveBalance] = useState<number | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -36,13 +37,20 @@ export default function BillingPage() {
 
   const fetchBillingData = useCallback(async () => {
     try {
-      const res = await fetch("/api/billing/transactions");
-      if (res.ok) {
-        const json = await res.json();
+      const [txRes, profileRes] = await Promise.all([
+        fetch("/api/billing/transactions"),
+        fetch("/api/user/profile"),
+      ]);
+      if (profileRes.ok) {
+        const profileJson = await profileRes.json();
+        setLiveBalance(Number(profileJson.walletBalance ?? 0));
+      }
+      if (txRes.ok) {
+        const json = await txRes.json();
         setData(json);
         setError(null);
       } else {
-        const json = await res.json().catch(() => ({}));
+        const json = await txRes.json().catch(() => ({}));
         setError(json.error || "Failed to load billing data");
       }
     } catch {
@@ -102,10 +110,9 @@ export default function BillingPage() {
           return;
         }
         setSuccessMessage(json.message || "Funds added successfully.");
-        setData((prev) => ({
-          ...prev,
-          walletBalance: json.newBalance,
-        }));
+        if (json.newBalance != null) {
+          setLiveBalance(Number(json.newBalance));
+        }
         await fetchBillingData();
       } else {
         setError(json.error || "Failed to add funds");
@@ -185,7 +192,7 @@ export default function BillingPage() {
             </div>
             <div className="flex items-center gap-3">
               <div className="text-3xl font-bold text-slate-900 tabular-nums">
-                {formatCurrency(data?.walletBalance ?? metrics?.availableBalance ?? 0)}
+                {formatCurrency(liveBalance ?? data?.walletBalance ?? 0)}
               </div>
             </div>
           </div>

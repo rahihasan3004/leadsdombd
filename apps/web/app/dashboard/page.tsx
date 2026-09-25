@@ -37,6 +37,7 @@ interface RecentOrder {
 
 interface DashboardMetrics {
   totalLeads: number;
+  availableBalance: number;
   walletBalance: number;
   deliveredFiles: number;
   deliverability: number;
@@ -46,6 +47,7 @@ interface DashboardMetrics {
 
 const EMPTY_METRICS: DashboardMetrics = {
   totalLeads: 0,
+  availableBalance: 0,
   walletBalance: 0,
   deliveredFiles: 0,
   deliverability: 100,
@@ -124,7 +126,7 @@ export default function DashboardPage() {
   });
 
   const totalLeadsFormatted = formatNumber(metrics.totalLeads);
-  const walletFormatted = formatCurrency(metrics.walletBalance);
+  const walletFormatted = formatCurrency(metrics.availableBalance ?? 0);
   const deliveredFilesFormatted = `${metrics.deliveredFiles} File${metrics.deliveredFiles === 1 ? "" : "s"}`;
   const verifiedCount = metrics.totalLeads;
   const verifiedFormatted = `${formatNumber(verifiedCount)} Valid`;

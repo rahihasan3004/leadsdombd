@@ -3,6 +3,27 @@ import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
 import { verifyPassword, hashPassword } from "@fine-leads/auth";
 
+export async function GET() {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { walletBalance: true },
+    });
+
+    return NextResponse.json({
+      walletBalance: Number(user?.walletBalance?.toString() || 0),
+    });
+  } catch (error) {
+    console.error("Profile fetch error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
 export async function PATCH(request: Request) {
   try {
     const session = await auth();
