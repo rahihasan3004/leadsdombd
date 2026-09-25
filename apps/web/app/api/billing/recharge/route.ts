@@ -11,6 +11,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const { amount = 100, type = "WALLET_TOPUP", unlockedStates } = body;
 
+    const amountNumber = Math.max(1, Number(amount) || 10);
+    const customPriceInCents = Math.round(amountNumber * 100);
+
     const WALLET_TOPUP_URL = "https://leadsdom.lemonsqueezy.com/checkout/buy/4b07cd28-6666-4d91-bb67-6eec061a302b";
     const LEAD_PURCHASE_URL = "https://leadsdom.lemonsqueezy.com/checkout/buy/4b07cd28-6666-4d91-bb67-6eec061a302b";
 
@@ -21,8 +24,9 @@ export async function POST(req: NextRequest) {
     if (session.user.name) queryParams.set("checkout[name]", session.user.name);
     queryParams.set("checkout[custom][user_id]", session.user.id);
     queryParams.set("checkout[custom][type]", type);
-    queryParams.set("checkout[custom][amount]", String(amount));
-    queryParams.set("checkout[custom_price]", String(Math.round(Number(amount) * 100)));
+    queryParams.set("checkout[custom][amount]", String(amountNumber));
+    queryParams.set("checkout[custom_price]", String(customPriceInCents));
+    queryParams.set("checkout[price]", String(customPriceInCents));
     if (unlockedStates) {
       queryParams.set("checkout[custom][unlocked_states]", JSON.stringify(unlockedStates));
     }

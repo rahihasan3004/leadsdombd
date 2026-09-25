@@ -39,49 +39,59 @@ export async function POST(req: NextRequest) {
     console.log(`[LS_WEBHOOK_SUCCESS]: Event: ${eventName}, User: ${userEmail}, Amount: ${attributes.total_usd || attributes.total}`);
 
     if (eventName === "order_created") {
-      const totalCents = attributes.total_usd ?? attributes.total ?? (Number(customData.amount || 100) * 100);
-      const paidAmount = Number(totalCents) / 100;
+      const rawTotal = attributes.total ?? attributes.total_usd;
+      const totalCents = rawTotal !== undefined ? Number(rawTotal) : Number(customData.amount || 100) * 100;
+      const paidAmount = totalCents / 100;
       const orderId = String(attributes.first_order_item?.order_id || body.data?.id || Date.now());
 
+      if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
+        console.error(`[WEBHOOK_INVALID_AMOUNT]: ${paidAmount} for ${userEmail}`);
+        return NextResponse.json({ received: true }, { status: 200 });
+      }
+
       await db.$transaction(async (tx) => {
-        const targetUser = await tx.user.findFirst({
-          where: {
-            OR: [
-              ...(userId ? [{ id: String(userId) }] : []),
-              ...(userEmail ? [{ email: String(userEmail).trim().toLowerCase() }] : []),
-            ],
-          },
-        });
+        let targetUser: { id: string; email: string } | null = null;
+        if (userEmail) {
+          targetUser = await tx.user.findUnique({
+            where: { email: String(userEmail).trim().toLowerCase() },
+            select: { id: true, email: true },
+          });
+        }
+        if (!targetUser && userId) {
+          targetUser = await tx.user.findUnique({
+            where: { id: String(userId) },
+            select: { id: true, email: true },
+          });
+        }
 
         if (!targetUser) {
           console.error(`[WEBHOOK_USER_NOT_FOUND]: ${userEmail}`);
           return;
         }
 
-        if (paidAmount > 0) {
-          const updatedUser = await tx.user.update({
-            where: { id: targetUser.id },
-            data: {
-              walletBalance: {
-                increment: paidAmount,
-              },
+        const updatedUser = await tx.user.update({
+          where: { id: targetUser.id },
+          data: {
+            walletBalance: {
+              increment: paidAmount,
             },
-          });
+          },
+          select: { id: true, walletBalance: true },
+        });
 
-          await tx.walletTransaction.create({
-            data: {
-              userId: targetUser.id,
-              amount: paidAmount,
-              type: "TOPUP",
-              status: "COMPLETED",
-              balanceAfter: updatedUser.walletBalance,
-              description: `Wallet top-up via Lemon Squeezy (Order #${orderId})`,
-              referenceId: `ls_order_${orderId}`,
-            },
-          });
+        await tx.walletTransaction.create({
+          data: {
+            userId: targetUser.id,
+            amount: paidAmount,
+            type: "TOPUP",
+            status: "COMPLETED",
+            balanceAfter: updatedUser.walletBalance,
+            description: `Wallet top-up via Lemon Squeezy (Order #${orderId})`,
+            referenceId: `ls_order_${orderId}`,
+          },
+        });
 
-          console.log(`[WALLET_CREDITED]: Added $${paidAmount} to ${targetUser.email}. New Balance: $${updatedUser.walletBalance}`);
-        }
+        console.log(`[WALLET_CREDITED]: Added $${paidAmount} to ${targetUser.email}. New Balance: $${updatedUser.walletBalance}`);
       });
     }
 
