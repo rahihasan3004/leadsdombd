@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
               status: "COMPLETED",
               balanceAfter: updatedUser.walletBalance,
               description: `Wallet top-up via Lemon Squeezy (Order #${orderId})`,
+              referenceId: `ls_order_${orderId}`,
             },
           });
 
