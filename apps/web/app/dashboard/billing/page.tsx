@@ -158,7 +158,6 @@ export default function BillingPage() {
       case "RECHARGE":
         return { amountClass: "text-emerald-600" };
       case "PURCHASE":
-      case "CHARGE":
         return { amountClass: "text-slate-900" };
       case "REFUND":
         return { amountClass: "text-emerald-600" };
@@ -340,7 +339,7 @@ export default function BillingPage() {
                         </div>
                       </td>
                       <td className="py-2 px-4 whitespace-nowrap text-xs text-slate-700">
-                        {tx.type === "TOPUP" || tx.type === "RECHARGE" ? "Top-up" : tx.type === "PURCHASE" || tx.type === "CHARGE" ? "Purchase" : tx.type === "REFUND" ? "Refund" : tx.type}
+                        {tx.type === "TOPUP" || tx.type === "RECHARGE" ? "Top-up" : tx.type === "PURCHASE" ? "Purchase" : tx.type === "REFUND" ? "Refund" : tx.type}
                       </td>
                       <td className="py-2 px-4 text-slate-700 text-xs max-w-xs truncate">
                         {tx.description}

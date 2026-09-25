@@ -116,7 +116,7 @@ const STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructiv
 
 const TXN_TYPE_LABELS: Record<string, string> = {
   RECHARGE: "Recharge",
-  CHARGE: "Charge",
+  PURCHASE: "Purchase",
   REFUND: "Refund",
   BONUS: "Bonus",
   ADJUSTMENT: "Adjustment",

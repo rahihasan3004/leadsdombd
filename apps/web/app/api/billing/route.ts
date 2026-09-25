@@ -67,7 +67,7 @@ export async function GET() {
     const purchaseTransactions = leadPurchases.map((p) => ({
       id: p.id,
       referenceId: p.referenceId,
-      type: "CHARGE",
+      type: "PURCHASE",
       amount: p.amountPaid,
       description:
         p.unlockedStates.length > 0

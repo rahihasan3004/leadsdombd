@@ -89,7 +89,7 @@ interface KPIs {
 
 const TX_TYPE_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "success" | "warning" | "outline"> = {
   RECHARGE: "success",
-  CHARGE: "secondary",
+  PURCHASE: "secondary",
   REFUND: "warning",
   BONUS: "success",
   ADJUSTMENT: "outline",
@@ -431,7 +431,7 @@ export default function AdminTransactionsPage() {
               <SelectContent>
                 <SelectItem value="ALL">All Types</SelectItem>
                 <SelectItem value="RECHARGE">Recharge</SelectItem>
-                <SelectItem value="CHARGE">Charge</SelectItem>
+                <SelectItem value="PURCHASE">Purchase</SelectItem>
                 <SelectItem value="REFUND">Refund</SelectItem>
                 <SelectItem value="BONUS">Bonus</SelectItem>
                 <SelectItem value="ADJUSTMENT">Adjustment</SelectItem>
@@ -499,12 +499,12 @@ export default function AdminTransactionsPage() {
                       <TableCell className="text-sm">
                         <span
                           className={
-                            tx.type === "CHARGE"
+                            tx.type === "PURCHASE"
                               ? "text-red-600"
                               : "text-emerald-600"
                           }
                         >
-                          {tx.type === "CHARGE" ? "-" : "+"}
+                          {tx.type === "PURCHASE" ? "-" : "+"}
                           {formatCurrency(tx.amount)}
                         </span>
                       </TableCell>

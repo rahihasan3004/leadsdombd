@@ -58,7 +58,7 @@ function StatusBadge({ status }: { status: string }) {
   const colorMap: Record<string, "success" | "warning" | "destructive" | "secondary" | "outline"> = {
     COMPLETED: "success",
     RECHARGE: "success",
-    CHARGE: "secondary",
+    PURCHASE: "secondary",
     REFUND: "warning",
     BONUS: "success",
     ADJUSTMENT: "secondary",
@@ -347,10 +347,10 @@ export default async function AdminPage() {
                       <TableCell className="text-sm">
                         <span
                           className={
-                            tx.type === "CHARGE" ? "text-red-600" : "text-emerald-600"
+                            tx.type === "PURCHASE" ? "text-red-600" : "text-emerald-600"
                           }
                         >
-                           {tx.type === "CHARGE" ? "-" : "+"}
+                           {tx.type === "PURCHASE" ? "-" : "+"}
                            {formatCurrency(Number(tx.amount))}
                         </span>
                       </TableCell>

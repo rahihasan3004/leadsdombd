@@ -5,7 +5,7 @@ import { requireAdminApi } from "@/lib/admin-guard";
 import { getAdminTransactions, getFinancialKPIs } from "@/lib/admin/financials-service";
 import type { WalletTransactionType } from "@fine-leads/database";
 
-const VALID_TYPES: WalletTransactionType[] = ["RECHARGE", "CHARGE", "REFUND", "BONUS", "ADJUSTMENT"];
+const VALID_TYPES: WalletTransactionType[] = ["RECHARGE", "PURCHASE", "REFUND", "BONUS", "ADJUSTMENT"];
 
 export async function GET(request: NextRequest) {
   const adminCheck = await requireAdminApi();

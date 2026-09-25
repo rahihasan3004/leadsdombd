@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
           data: {
             userId: targetUser.id,
             amount: paidAmount,
-            type: "TOPUP",
+            type: "RECHARGE",
             status: "COMPLETED",
             balanceAfter: updatedUser.walletBalance,
             description: `Wallet top-up via Lemon Squeezy (Order #${orderId})`,
