@@ -106,6 +106,12 @@ export async function POST(request: Request) {
           });
 
           if (targetUser && paidAmount > 0) {
+            const orderId =
+              (attributes as any).first_order_item?.order_id ||
+              (eventData as any).data?.id ||
+              (eventData as any).id ||
+              "N/A";
+
             const updatedUser = await tx.user.update({
               where: { id: targetUser.id },
               data: {
@@ -123,7 +129,7 @@ export async function POST(request: Request) {
                 type: "TOPUP",
                 status: "COMPLETED",
                 balanceAfter: updatedUser.walletBalance,
-                description: `Wallet top-up via Lemon Squeezy (Order #${attributes.first_order_item?.order_id || eventData.data?.id})`,
+                description: `Wallet top-up via Lemon Squeezy (Order #${orderId})`,
               },
             });
 
