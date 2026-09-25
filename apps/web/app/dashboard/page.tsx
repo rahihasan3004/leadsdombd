@@ -126,7 +126,7 @@ export default function DashboardPage() {
   });
 
   const totalLeadsFormatted = formatNumber(metrics.totalLeads);
-  const walletFormatted = formatCurrency(metrics.availableBalance ?? 0);
+  const walletFormatted = formatCurrency(metrics?.availableBalance ?? 0);
   const deliveredFilesFormatted = `${metrics.deliveredFiles} File${metrics.deliveredFiles === 1 ? "" : "s"}`;
   const verifiedCount = metrics.totalLeads;
   const verifiedFormatted = `${formatNumber(verifiedCount)} Valid`;

@@ -27,16 +27,11 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    const dbUser = await db.user.findFirst({
-      where: {
-        OR: [
-          { id: session.user.id },
-          ...(session.user.email ? [{ email: session.user.email }] : []),
-        ],
-      },
+    const user = await db.user.findUnique({
+      where: { id: session.user.id },
       select: { walletBalance: true },
     });
-    const availableBalance = dbUser?.walletBalance ? Number(dbUser.walletBalance.toString()) : 0;
+    const availableBalance = user?.walletBalance ? Number(user.walletBalance.toString()) : 0;
 
     const [purchases, completedExports] = await Promise.all([
       db.leadPurchase.findMany({
