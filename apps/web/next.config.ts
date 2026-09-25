@@ -22,7 +22,7 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["@fine-leads/ui", "lucide-react"],
   },
-  serverExternalPackages: ["@prisma/client", "@fine-leads/database", "bcryptjs"],
+  serverExternalPackages: ["@prisma/client", "bcryptjs"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
