@@ -1,6 +1,7 @@
 import { db } from "@fine-leads/database";
 import { generateTxnRef } from "@fine-leads/utils";
 import type { Prisma } from "@fine-leads/database";
+import type { PrismaClient } from "@fine-leads/database";
 
 export interface RefundMetadata {
   [key: string]: string;
@@ -14,19 +15,19 @@ export async function refundLeadPurchase(
   purchaseId: string,
   amount: number,
   reason: string,
-  tx?: Prisma.Client
+  tx?: unknown
 ) {
   if (tx) {
-    return executeRefund(tx, userId, purchaseId, amount, reason);
+    return executeRefund(tx as PrismaClient, userId, purchaseId, amount, reason);
   }
 
   return db.$transaction(async (innerTx) => {
-    return executeRefund(innerTx, userId, purchaseId, amount, reason);
+    return executeRefund(innerTx as PrismaClient, userId, purchaseId, amount, reason);
   });
 }
 
 async function executeRefund(
-  client: Prisma.Client,
+  client: PrismaClient,
   userId: string,
   purchaseId: string,
   amount: number,

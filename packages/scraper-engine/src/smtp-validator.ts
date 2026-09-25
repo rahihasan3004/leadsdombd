@@ -82,6 +82,7 @@ const RFC5322_REGEX =
 
 export type SmtpValidationStatus =
   | "deliverable"
+  | "validated"
   | "undeliverable"
   | "catch-all"
   | "disposable"
@@ -183,8 +184,8 @@ async function resolveMxViaDoH(domain: string): Promise<MxRecord[]> {
     for (const answer of data.Answer) {
       const parts = answer.data.split(/\s+/);
       if (parts.length < 2) continue;
-      const priority = parseInt(parts[0], 10);
-      const host = parts[1].replace(/\.$/, "");
+      const priority = parseInt(parts[0]!, 10);
+      const host = parts[1]!.replace(/\.$/, "");
       if (!isNaN(priority) && host.length > 0) {
         records.push({ host, priority });
       }

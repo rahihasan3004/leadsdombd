@@ -328,7 +328,6 @@ model Agent {
   @@index([category])
   @@index([state, category])
   @@unique([googlePlaceId])
-  @@index([email])
 }
 
 model AgentActivity {

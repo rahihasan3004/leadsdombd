@@ -468,7 +468,7 @@ async function extractListings(page: Page, location: LocationSpec): Promise<Goog
   );
 
   const mapped: GoogleMapsPlaceResult[] = [];
-  for (const card of results) {
+  for (const card of (results as GoogleMapsPlaceResult[])) {
     if (!isReasonableName(card.name)) continue;
 
     card.website = cleanGoogleRedirectUrl(card.website);

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-guard";
 import { updateUser, deleteUser, getUserDetail } from "@/lib/admin/users-service";
 import type { AdminUser } from "@/lib/admin-guard";
+import type { UserRole } from "@fine-leads/database";
 
 export async function GET(
   _request: NextRequest,
@@ -44,7 +45,12 @@ export async function PATCH(
       }
     }
 
-    const { role, organizationId, walletBalanceAdjustment, balanceReason } = updateFields;
+    const { role, organizationId, walletBalanceAdjustment, balanceReason } = updateFields as {
+      role?: UserRole;
+      organizationId?: string;
+      walletBalanceAdjustment?: number;
+      balanceReason?: string;
+    };
 
     if (walletBalanceAdjustment !== undefined && typeof walletBalanceAdjustment !== "number") {
       return NextResponse.json({ error: "walletBalanceAdjustment must be a number" }, { status: 400 });

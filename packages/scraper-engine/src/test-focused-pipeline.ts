@@ -65,7 +65,7 @@ async function main() {
     if (emailResult.candidates.length > 0) {
       emailFound = true;
       for (let j = 0; j < Math.min(emailResult.candidates.length, 5); j++) {
-        const candidate = emailResult.candidates[j];
+        const candidate = emailResult.candidates[j]!;
         console.log(`  candidate[${j}]: ${candidate.email} (${candidate.classification}, confidence: ${candidate.confidence})`);
       }
     } else {
@@ -125,7 +125,7 @@ async function main() {
       rating: 4.5,
       reviewCount: 42,
       scrapedAt: new Date().toISOString(),
-      email: emailFound ? undefined : TEST_EMAIL,
+      email: emailFound ? "" : TEST_EMAIL,
       emailStatus: smtpResult.isDeliverable ? "validated" : smtpResult.status,
       googlePlaceId: TEST_PLACE_ID,
       googleMapsLink: `https://www.google.com/maps/place/?q=place_id:${TEST_PLACE_ID}`,

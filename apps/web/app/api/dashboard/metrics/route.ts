@@ -144,7 +144,7 @@ export async function GET() {
       };
     });
 
-    const recentOrders = (() => {
+    const recentOrders = await (async () => {
       const recentStateSet = new Set<string>();
       for (const p of recentPurchases) {
         const raw = p.unlockedStates || [];
@@ -156,7 +156,7 @@ export async function GET() {
       const recentStateCache = new Map<string, number>();
 
       if (recentStatesArr.length > 0) {
-        const rows = db.$queryRawSync<{ state: string; cnt: bigint }[]>`
+        const rows = await db.$queryRaw<{ state: string; cnt: bigint }[]>`
           SELECT state, COUNT(*)::int AS cnt
           FROM "Agent"
           WHERE state = ANY(${recentStatesArr}::text[])

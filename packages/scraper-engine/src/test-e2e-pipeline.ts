@@ -55,7 +55,7 @@ async function main() {
 
   console.log(`[step-1] Leads found: ${records.length}`);
   for (let i = 0; i < records.length; i++) {
-    const r = records[i];
+    const r = records[i]!;
     console.log(`  [${i + 1}] ${r.companyName || "(no name)"}`);
     console.log(`      placeId: ${r.googlePlaceId}`);
     console.log(`      address: ${r.address}, ${r.city}, ${r.state} ${r.zipCode}`);
@@ -91,7 +91,7 @@ async function main() {
   }> = [];
 
   for (let i = 0; i < records.length; i++) {
-    const record = records[i];
+    const record = records[i]!;
     if (!record.website) {
       console.log(`  [${i + 1}] ${record.companyName}: no website — skipping email crawl`);
       console.log();
@@ -112,7 +112,7 @@ async function main() {
       }
 
       for (let j = 0; j < emailResult.candidates.length; j++) {
-        const candidate = emailResult.candidates[j];
+        const candidate = emailResult.candidates[j]!;
         console.log(`      candidate[${j}]: ${candidate.email}`);
         console.log(`          classification: ${candidate.classification} | confidence: ${candidate.confidence}`);
         console.log(`          sourceUrl:      ${candidate.sourceUrl}`);
@@ -126,7 +126,7 @@ async function main() {
       let finalStatus = "";
 
       for (let j = 0; j < emailResult.candidates.length; j++) {
-        const candidate = emailResult.candidates[j];
+        const candidate = emailResult.candidates[j]!;
         console.log();
         console.log(`  [step-3] SMTP validating candidate[${j}]: ${candidate.email}...`);
 
@@ -233,7 +233,7 @@ async function main() {
     console.log("  (no rows found)");
   } else {
     for (let i = 0; i < latestAgents.length; i++) {
-      const a = latestAgents[i];
+      const a = latestAgents[i]!;
       console.log(`  [${i + 1}] Agent ID:      ${a.id}`);
       console.log(`      googlePlaceId: ${a.googlePlaceId ?? "(none)"}`);
       console.log(`      fullName:      ${a.fullName}`);
