@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
           where: {
             OR: [
               ...(userId ? [{ id: String(userId) }] : []),
-              ...(userEmail ? [{ email: { equals: String(userEmail).trim(), mode: "insensitive" } }] : []),
+              ...(userEmail ? [{ email: String(userEmail).trim().toLowerCase() }] : []),
             ],
           },
         });
