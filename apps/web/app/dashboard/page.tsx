@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, Link } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   X,
@@ -66,7 +66,7 @@ export default function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics>(EMPTY_METRICS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [liveBalance, setLiveBalance] = useState<number>(0);
+  const [liveBalance, setLiveBalance] = useState<number | null>(null);
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const userName = session?.user?.name ?? session?.user?.email?.split("@")[0] ?? "User";
@@ -221,11 +221,14 @@ export default function DashboardPage() {
         />
         <div className="bg-white rounded-2xl border-0 shadow-none p-6">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Available Balance</span>
-            <span className="text-xs text-blue-600 font-medium">+ Top Up</span>
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Wallet className="h-5 w-5" />
+            </div>
+            <Link href="/dashboard/billing" className="text-xs text-blue-600 font-medium hover:underline">+ Top Up</Link>
           </div>
-          <h3 className="text-3xl font-bold tracking-tight text-slate-900 mt-2">
-            {formatCurrency(liveBalance || metrics?.availableBalance || 0)}
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">AVAILABLE BALANCE</span>
+          <h3 className="text-3xl font-bold tracking-tight text-slate-900 mt-1">
+            {loading || liveBalance === null ? "—" : formatCurrency(liveBalance || metrics?.availableBalance || 0)}
           </h3>
         </div>
         <KpiCard
