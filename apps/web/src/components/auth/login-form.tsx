@@ -7,6 +7,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Checkbox } from "@fine-leads/ui";
 import { PasswordInput } from "./password-input";
+import { Loader2 } from "lucide-react";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -14,6 +15,7 @@ export function LoginForm() {
   const errorParam = searchParams.get("error");
   const [error, setError] = useState("");
   const verifiedFired = useRef(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (verifiedFired.current) return;
@@ -37,6 +39,7 @@ export function LoginForm() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
@@ -54,6 +57,8 @@ export function LoginForm() {
       router.push("/dashboard");
       router.refresh();
     }
+
+    setIsLoading(false);
   }
 
   return (
@@ -111,9 +116,17 @@ export function LoginForm() {
 
       <button
         type="submit"
-        className="w-full h-11 bg-[#465FFF] hover:bg-[#3B50E0] text-white font-semibold rounded-xl shadow-none transition-colors flex items-center justify-center mt-2 cursor-pointer"
+        disabled={isLoading}
+        className="w-full h-11 bg-[#465FFF] hover:bg-[#3B50E0] text-white font-semibold rounded-xl shadow-none transition-colors flex items-center justify-center mt-2 cursor-pointer disabled:opacity-60"
       >
-        Log In
+        {isLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Logging in...
+          </>
+        ) : (
+          "Log In"
+        )}
       </button>
 
     </form>

@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@fine-leads/ui";
 import { PasswordInput } from "./password-input";
+import { Loader2 } from "lucide-react";
 
 const signupSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -489,7 +490,14 @@ export function RegisterForm() {
         disabled={isSubmitting}
         className="w-full h-11 bg-[#465FFF] hover:bg-[#3B50E0] text-white font-semibold rounded-xl shadow-none transition-colors flex items-center justify-center mt-2 cursor-pointer disabled:opacity-60"
       >
-        {isSubmitting ? "Creating account..." : "Create account"}
+        {isSubmitting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Creating account...
+          </>
+        ) : (
+          "Create account"
+        )}
       </button>
     </form>
   );

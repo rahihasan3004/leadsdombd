@@ -44,6 +44,17 @@ export async function GET() {
       }),
     ]);
 
+    if (purchases.length === 0) {
+      return NextResponse.json({
+        totalLeads: 0,
+        walletBalance,
+        deliveredFiles: completedExports,
+        deliverability: 100,
+        monthlyTrends: DEFAULT_MONTHLY_TRENDS,
+        recentOrders: [],
+      });
+    }
+
     const recentPurchases = await db.leadPurchase.findMany({
       where: { userId, status: "COMPLETED" },
       orderBy: { createdAt: "desc" },
