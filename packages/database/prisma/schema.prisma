@@ -60,6 +60,7 @@ enum ExportFormat {
 
 enum WalletTransactionType {
   RECHARGE
+  TOPUP
   CHARGE
   REFUND
   BONUS

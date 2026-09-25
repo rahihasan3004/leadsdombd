@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
     queryParams.set("checkout[custom][user_id]", session.user.id);
     queryParams.set("checkout[custom][type]", type);
     queryParams.set("checkout[custom][amount]", String(amount));
+    queryParams.set("checkout[custom_price]", String(Math.round(Number(amount) * 100)));
     if (unlockedStates) {
       queryParams.set("checkout[custom][unlocked_states]", JSON.stringify(unlockedStates));
     }

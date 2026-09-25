@@ -91,26 +91,42 @@ export async function POST(request: Request) {
 
       if (eventName === "order_created") {
         if (type === "WALLET_TOPUP") {
-          const topupAmount = Math.round(amount * 100) / 100;
+          const userEmail = eventData.data?.attributes?.user_email;
+          const totalCents = eventData.data?.attributes?.total_usd || eventData.data?.attributes?.total || (Number(customData.amount) * 100);
+          const paidAmount = Number(totalCents) / 100;
 
-          if (topupAmount > 0 && userId) {
-            const user = await tx.user.update({
-              where: { id: userId },
-              data: { walletBalance: { increment: topupAmount } },
-              select: { id: true, walletBalance: true },
+          const targetUser = await tx.user.findFirst({
+            where: {
+              OR: [
+                ...(userId ? [{ id: String(userId) }] : []),
+                ...(userEmail ? [{ email: String(userEmail) }] : []),
+              ],
+            },
+          });
+
+          if (targetUser && paidAmount > 0) {
+            const updatedUser = await tx.user.update({
+              where: { id: targetUser.id },
+              data: {
+                walletBalance: {
+                  increment: paidAmount,
+                },
+              },
             });
 
             await tx.walletTransaction.create({
               data: {
                 referenceId: generateTxnRef(),
-                userId,
-                type: "RECHARGE",
-                amount: topupAmount,
-                balanceAfter: user.walletBalance,
-                description: `Wallet Top-Up via Lemon Squeezy (+$${topupAmount.toFixed(2)})`,
+                userId: targetUser.id,
+                amount: paidAmount,
+                type: "TOPUP",
                 status: "COMPLETED",
+                balanceAfter: updatedUser.walletBalance,
+                description: `Wallet top-up via Lemon Squeezy (Order #${eventData.data?.attributes?.first_order_item?.order_id || eventData.data?.id})`,
               },
             });
+
+            console.log(`[WALLET_CREDITED_SUCCESS]: Added $${paidAmount} to user ${targetUser.email}. New Balance: $${updatedUser.walletBalance}`);
           }
         } else if (type === "LEAD_PURCHASE") {
           if (targetUnlockedStates.length > 0 && userId) {
