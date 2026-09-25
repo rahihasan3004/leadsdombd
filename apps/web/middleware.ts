@@ -1,8 +1,14 @@
-import { auth } from "@fine-leads/auth";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export default auth((req) => {
-  const isLoggedIn = !!req.auth?.user;
+export function middleware(req: NextRequest) {
+  const sessionToken =
+    req.cookies.get("authjs.session-token")?.value ||
+    req.cookies.get("__Secure-authjs.session-token")?.value ||
+    req.cookies.get("next-auth.session-token")?.value ||
+    req.cookies.get("__Secure-next-auth.session-token")?.value;
+
+  const isLoggedIn = !!sessionToken;
   const { pathname } = req.nextUrl;
 
   const isAuthRoute =
@@ -12,7 +18,8 @@ export default auth((req) => {
     pathname.startsWith("/verify-email");
 
   const isProtectedRoute =
-    pathname.startsWith("/dashboard") || pathname.startsWith("/admin");
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/admin");
 
   if (isProtectedRoute && !isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
@@ -25,7 +32,7 @@ export default auth((req) => {
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [
