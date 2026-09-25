@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { PrismaPlugin } from "@prisma/nextjs-monorepo-workaround-plugin";
 
 const isDev = process.env.NODE_ENV === "development";
 const scriptSrc = isDev
@@ -23,6 +24,12 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["@fine-leads/ui", "lucide-react"],
   },
   serverExternalPackages: ["@prisma/client", "bcryptjs"],
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.plugins = [...config.plugins, new PrismaPlugin()];
+    }
+    return config;
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "lh3.googleusercontent.com" },

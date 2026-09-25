@@ -2,6 +2,8 @@ import { handlers } from "@fine-leads/auth";
 import { checkRateLimit, getClientIp } from "@fine-leads/utils";
 import { NextRequest, NextResponse } from "next/server";
 
+export const runtime = "nodejs";
+
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
