@@ -91,12 +91,40 @@ export async function GET(request: Request) {
     const limit = Math.min(MAX_LIMIT, Math.max(1, rawLimit));
     const skip = (page - 1) * limit;
 
-    const purchases = await db.leadPurchase.findMany({
-      where: { userId: session.user.id, status: "COMPLETED" },
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: limit,
-    });
+    let purchases: any[] = [];
+    let totalPurchases = 0;
+
+    try {
+      purchases = await db.leadPurchase.findMany({
+        where: { userId: session.user.id, status: "COMPLETED" },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      });
+
+      totalPurchases = await db.leadPurchase.count({
+        where: { userId: session.user.id, status: "COMPLETED" },
+      });
+    } catch (err) {
+      console.error("Purchase fetch error:", err);
+      return NextResponse.json(
+        { error: "Failed to fetch purchases" },
+        { status: 500 },
+      );
+    }
+
+    if (purchases.length === 0) {
+      return NextResponse.json({
+        purchases: [],
+        leads: [],
+        pagination: {
+          total: 0,
+          pages: 0,
+          currentPage: page,
+          limit,
+        },
+      });
+    }
 
     const purchasedStates: string[] = purchases.flatMap((p) => p.unlockedStates || []);
     const uniquePurchasedStates = Array.from(new Set(purchasedStates));
@@ -104,21 +132,23 @@ export async function GET(request: Request) {
 
     const stateQuery = expandStateQuery(uniquePurchasedStates);
 
-    const leads = stateQuery.length > 0
-      ? await db.agent.findMany({
-          where: {
-            state: { in: stateQuery },
-            email: { not: null },
-            isDeliverable: true,
-          },
-          orderBy: { rating: "desc" },
-          take: limit,
-        })
-      : [];
-
-    const totalPurchases = await db.leadPurchase.count({
-      where: { userId: session.user.id, status: "COMPLETED" },
-    });
+    let leads: any[] = [];
+    try {
+      leads = stateQuery.length > 0
+        ? await db.agent.findMany({
+            where: {
+              state: { in: stateQuery },
+              email: { not: null },
+              isDeliverable: true,
+            },
+            orderBy: { rating: "desc" },
+            take: limit,
+          })
+        : [];
+    } catch (err) {
+      console.error("Lead fetch error:", err);
+      leads = [];
+    }
 
     return NextResponse.json({
       purchases,
