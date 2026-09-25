@@ -50,48 +50,47 @@ export async function POST(req: NextRequest) {
       }
 
       await db.$transaction(async (tx) => {
-        let targetUser: { id: string; email: string } | null = null;
-        if (userEmail) {
-          targetUser = await tx.user.findUnique({
-            where: { email: String(userEmail).trim().toLowerCase() },
-            select: { id: true, email: true },
-          });
-        }
-        if (!targetUser && userId) {
-          targetUser = await tx.user.findUnique({
-            where: { id: String(userId) },
-            select: { id: true, email: true },
-          });
-        }
+        const targetUser = await tx.user.findFirst({
+          where: {
+            OR: [
+              ...(userId ? [{ id: String(userId) }] : []),
+              ...(userEmail ? [
+                { email: String(userEmail).trim().toLowerCase() },
+                { email: String(userEmail).trim() },
+              ] : []),
+            ],
+          },
+        });
 
         if (!targetUser) {
-          console.error(`[WEBHOOK_USER_NOT_FOUND]: ${userEmail}`);
+          console.error(`[WEBHOOK_USER_NOT_FOUND]: email ${userEmail}`);
           return;
         }
 
-        const updatedUser = await tx.user.update({
-          where: { id: targetUser.id },
-          data: {
-            walletBalance: {
-              increment: paidAmount,
+        if (paidAmount > 0) {
+          const updatedUser = await tx.user.update({
+            where: { id: targetUser.id },
+            data: {
+              walletBalance: {
+                increment: paidAmount,
+              },
             },
-          },
-          select: { id: true, walletBalance: true },
-        });
+          });
 
-        await tx.walletTransaction.create({
-          data: {
-            userId: targetUser.id,
-            amount: paidAmount,
-            type: "RECHARGE",
-            status: "COMPLETED",
-            balanceAfter: updatedUser.walletBalance,
-            description: `Wallet top-up via Lemon Squeezy (Order #${orderId})`,
-            referenceId: `ls_order_${orderId}`,
-          },
-        });
+          await tx.walletTransaction.create({
+            data: {
+              userId: targetUser.id,
+              amount: paidAmount,
+              type: "RECHARGE",
+              status: "COMPLETED",
+              balanceAfter: updatedUser.walletBalance,
+              description: `Wallet top-up via Lemon Squeezy (Order #${orderId})`,
+              referenceId: `ls_order_${orderId}_${Date.now()}`,
+            },
+          });
 
-        console.log(`[WALLET_CREDITED]: Added $${paidAmount} to ${targetUser.email}. New Balance: $${updatedUser.walletBalance}`);
+          console.log(`[WALLET_CREDITED_SUCCESS]: Added $${paidAmount} to ${targetUser.email}. New Balance: $${updatedUser.walletBalance}`);
+        }
       });
     }
 

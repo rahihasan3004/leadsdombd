@@ -27,12 +27,16 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    const user = await db.user.findUnique({
-      where: { id: userId },
+    const dbUser = await db.user.findFirst({
+      where: {
+        OR: [
+          { id: session.user.id },
+          ...(session.user.email ? [{ email: session.user.email }] : []),
+        ],
+      },
       select: { walletBalance: true },
     });
-
-    const walletBalance = user?.walletBalance ?? 0;
+    const availableBalance = Number(dbUser?.walletBalance ?? 0);
 
     const [purchases, completedExports] = await Promise.all([
       db.leadPurchase.findMany({
@@ -47,7 +51,7 @@ export async function GET() {
     if (purchases.length === 0) {
       return NextResponse.json({
         totalLeads: 0,
-        walletBalance,
+        availableBalance,
         deliveredFiles: completedExports,
         deliverability: 100,
         monthlyTrends: DEFAULT_MONTHLY_TRENDS,
@@ -100,7 +104,7 @@ export async function GET() {
     if (allPurchaseStatesArray.length === 0) {
       return NextResponse.json({
         totalLeads: 0,
-        walletBalance,
+        availableBalance,
         deliveredFiles: completedExports,
         deliverability: 100,
         monthlyTrends: DEFAULT_MONTHLY_TRENDS,
@@ -212,7 +216,7 @@ export async function GET() {
 
     return NextResponse.json({
       totalLeads: totalLeadsInVault,
-      walletBalance,
+      availableBalance,
       deliveredFiles: completedExports,
       deliverability: 100,
       monthlyTrends,
@@ -223,7 +227,7 @@ export async function GET() {
     console.error("[DASHBOARD_METRICS_ERROR]:", message);
     return NextResponse.json({
       totalLeads: 0,
-      walletBalance: 0,
+      availableBalance: 0,
       deliveredFiles: 0,
       deliverability: 100,
       monthlyTrends: DEFAULT_MONTHLY_TRENDS,
