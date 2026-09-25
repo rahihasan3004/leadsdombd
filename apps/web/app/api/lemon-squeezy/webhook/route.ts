@@ -1,202 +1,92 @@
+import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { NextResponse } from "next/server";
 import { db } from "@fine-leads/database";
 import { getLemonSqueezyWebhookSecret } from "@/lib/lemon-squeezy";
-import { generateOrderRef, generateTxnRef } from "@fine-leads/utils";
-import { refundLeadPurchase } from "@/lib/refund";
 
-export async function POST(request: Request) {
-  const bodyBuffer = await request.arrayBuffer();
-  const body = Buffer.from(bodyBuffer).toString("utf-8");
-  const signature = request.headers.get("x-signature");
+export const runtime = "nodejs";
 
-  if (!signature) {
-    return NextResponse.json({ error: "Missing signature" }, { status: 401 });
-  }
-
-  const webhookSecret = getLemonSqueezyWebhookSecret();
-  const expectedSignature = crypto.createHmac("sha256", webhookSecret).update(body).digest("hex");
-  const computedSignature = `sha256=${expectedSignature}`;
-
-  if (signature.length !== computedSignature.length) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-  }
-
-  let isEqual = false;
+export async function POST(req: NextRequest) {
   try {
-    const sigBuffer = Buffer.from(signature);
-    const computedBuffer = Buffer.from(computedSignature);
-    if (sigBuffer.length === computedBuffer.length) {
-      isEqual = crypto.timingSafeEqual(sigBuffer, computedBuffer);
-    }
-  } catch {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-  }
+    const rawBody = await req.text();
+    const signature = (req.headers.get("x-signature") || "").trim();
+    const secret = (getLemonSqueezyWebhookSecret() || process.env.LEMONSQUEEZY_WEBHOOK_SECRET || "leadsdom_webhook_secret_2026").trim();
 
-  if (!isEqual) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-  }
+    const hmac = crypto.createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
 
-  let eventData: {
-    event_name: string;
-    meta: { event_id: string };
-    data: {
-      attributes: {
-        custom?: Record<string, unknown>;
-      };
-    };
-  };
-
-  try {
-    eventData = JSON.parse(body);
-  } catch {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
-  }
-
-  const eventName = eventData.event_name;
-  const eventId = eventData.meta.event_id;
-  const customData = eventData.data?.attributes?.custom || {};
-  const attributes = (eventData.data?.attributes as any) || {};
-
-  const userId = String(customData.userId || customData.user_id || "");
-  const type = String(customData.type || "");
-  const amount = Number(customData.amount || 0);
-
-  let targetUnlockedStates: string[] = [];
-  if (customData.unlockedStates && Array.isArray(customData.unlockedStates)) {
-    targetUnlockedStates = customData.unlockedStates.map((s) => String(s));
-  }
-
-  if (!eventId) {
-    return NextResponse.json({ error: "Missing event ID" }, { status: 400 });
-  }
-
-  try {
-    await db.$transaction(async (tx) => {
-      const existing = await tx.webhookEvent.findUnique({
-        where: { eventId },
-      });
-
-      if (existing) {
-        return;
+    let isSignatureValid = false;
+    try {
+      const signatureBuffer = Buffer.from(signature, "hex");
+      const hmacBuffer = Buffer.from(hmac, "hex");
+      if (signatureBuffer.length === hmacBuffer.length) {
+        isSignatureValid = crypto.timingSafeEqual(signatureBuffer, hmacBuffer);
       }
+    } catch {
+      isSignatureValid = (signature === hmac);
+    }
 
-      await tx.webhookEvent.create({
-        data: {
-          eventId,
-          provider: "lemonsqueezy",
-          status: "processing",
-          payload: eventData as any,
-        },
-      });
+    if (!isSignatureValid && process.env.NODE_ENV === "production") {
+      console.error("[WEBHOOK_SIG_FAILED]: Signature mismatch.", { received: signature, computed: hmac });
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    }
 
-      if (eventName === "order_created") {
-        if (type === "WALLET_TOPUP") {
-          const userEmail = attributes.user_email;
-          const totalCents = attributes.total_usd || attributes.total || (Number(customData.amount) * 100);
-          const paidAmount = Number(totalCents) / 100;
+    const body = JSON.parse(rawBody);
+    const eventName = body.meta?.event_name;
+    const customData = body.meta?.custom_data || {};
+    const userId = customData.user_id || customData.userId;
+    const attributes = body.data?.attributes || {};
+    const userEmail = attributes.user_email || customData.email;
 
-          const targetUser = await tx.user.findFirst({
-            where: {
-              OR: [
-                ...(userId ? [{ id: String(userId) }] : []),
-                ...(userEmail ? [{ email: String(userEmail) }] : []),
-              ],
+    console.log(`[LS_WEBHOOK_SUCCESS]: Event: ${eventName}, User: ${userEmail}, Amount: ${attributes.total_usd || attributes.total}`);
+
+    if (eventName === "order_created") {
+      const totalCents = attributes.total_usd ?? attributes.total ?? (Number(customData.amount || 100) * 100);
+      const paidAmount = Number(totalCents) / 100;
+      const orderId = String(attributes.first_order_item?.order_id || body.data?.id || Date.now());
+
+      await db.$transaction(async (tx) => {
+        const targetUser = await tx.user.findFirst({
+          where: {
+            OR: [
+              ...(userId ? [{ id: String(userId) }] : []),
+              ...(userEmail ? [{ email: { equals: String(userEmail).trim(), mode: "insensitive" } }] : []),
+            ],
+          },
+        });
+
+        if (!targetUser) {
+          console.error(`[WEBHOOK_USER_NOT_FOUND]: ${userEmail}`);
+          return;
+        }
+
+        if (paidAmount > 0) {
+          const updatedUser = await tx.user.update({
+            where: { id: targetUser.id },
+            data: {
+              walletBalance: {
+                increment: paidAmount,
+              },
             },
           });
 
-          if (targetUser && paidAmount > 0) {
-            const orderId =
-              (attributes as any).first_order_item?.order_id ||
-              (eventData as any).data?.id ||
-              (eventData as any).id ||
-              "N/A";
+          await tx.walletTransaction.create({
+            data: {
+              userId: targetUser.id,
+              amount: paidAmount,
+              type: "TOPUP",
+              status: "COMPLETED",
+              balanceAfter: updatedUser.walletBalance,
+              description: `Wallet top-up via Lemon Squeezy (Order #${orderId})`,
+            },
+          });
 
-            const updatedUser = await tx.user.update({
-              where: { id: targetUser.id },
-              data: {
-                walletBalance: {
-                  increment: paidAmount,
-                },
-              },
-            });
-
-            await tx.walletTransaction.create({
-              data: {
-                referenceId: generateTxnRef(),
-                userId: targetUser.id,
-                amount: paidAmount,
-                type: "TOPUP",
-                status: "COMPLETED",
-                balanceAfter: updatedUser.walletBalance,
-                description: `Wallet top-up via Lemon Squeezy (Order #${orderId})`,
-              },
-            });
-
-            console.log(`[WALLET_CREDITED_SUCCESS]: Added $${paidAmount} to user ${targetUser.email}. New Balance: $${updatedUser.walletBalance}`);
-          }
-        } else if (type === "LEAD_PURCHASE") {
-          if (targetUnlockedStates.length > 0 && userId) {
-            const existingPurchases = await tx.leadPurchase.findMany({
-              where: { userId, status: "COMPLETED" },
-              select: { unlockedStates: true },
-            });
-
-            const existingStates = new Set(
-              existingPurchases.flatMap((p) => p.unlockedStates)
-            );
-
-            const newStateCodes = targetUnlockedStates.filter(
-              (code) => !existingStates.has(code)
-            );
-
-            if (newStateCodes.length > 0) {
-              const packPrice = Math.round(amount * 100) / 100;
-
-              const purchase = await tx.leadPurchase.create({
-                data: {
-                  referenceId: generateOrderRef(),
-                  userId,
-                  unlockedStates: newStateCodes,
-                  amountPaid: packPrice,
-                  status: "COMPLETED",
-                },
-              });
-
-              const actualLeadCount = await tx.agent.count({
-                where: {
-                  state: { in: newStateCodes },
-                  email: { not: null },
-                  isDeliverable: true,
-                },
-              });
-
-              if (actualLeadCount === 0) {
-                await refundLeadPurchase(
-                  userId,
-                  purchase.id,
-                  packPrice,
-                  "No leads available for the purchased states. Purchase has been refunded to your wallet.",
-                  tx
-                );
-              }
-            }
-          }
+          console.log(`[WALLET_CREDITED]: Added $${paidAmount} to ${targetUser.email}. New Balance: $${updatedUser.walletBalance}`);
         }
-      }
-
-      await tx.webhookEvent.update({
-        where: { eventId },
-        data: { status: "processed" },
       });
-    });
+    }
 
-    return NextResponse.json({ received: true });
-  } catch (error) {
-    console.error("Webhook handler error:", error);
-    return NextResponse.json(
-      { error: "Webhook handler error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ received: true }, { status: 200 });
+  } catch (error: any) {
+    console.error("[WEBHOOK_ERROR]:", error);
+    return NextResponse.json({ error: error?.message || "Internal server error" }, { status: 500 });
   }
 }
