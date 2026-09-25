@@ -97,6 +97,17 @@ export async function GET() {
 
     const allPurchaseStatesArray = Array.from(allPurchaseStates);
 
+    if (allPurchaseStatesArray.length === 0) {
+      return NextResponse.json({
+        totalLeads: 0,
+        walletBalance,
+        deliveredFiles: completedExports,
+        deliverability: 100,
+        monthlyTrends: DEFAULT_MONTHLY_TRENDS,
+        recentOrders: [],
+      });
+    }
+
     const allStatesLeadCount =
       allPurchaseStatesArray.length > 0
         ? await db.agent.count({
@@ -210,9 +221,13 @@ export async function GET() {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[DASHBOARD_METRICS_ERROR]:", message);
-    return NextResponse.json(
-      { error: "Failed to load dashboard metrics" },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      totalLeads: 0,
+      walletBalance: 0,
+      deliveredFiles: 0,
+      deliverability: 100,
+      monthlyTrends: DEFAULT_MONTHLY_TRENDS,
+      recentOrders: [],
+    });
   }
 }
