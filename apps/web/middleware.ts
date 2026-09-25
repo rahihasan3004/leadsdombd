@@ -1,54 +1,31 @@
-import { getToken } from "next-auth/jwt";
+import { auth } from "@fine-leads/auth";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 
-const publicAuthRoutes = [
-  "/login",
-  "/register",
-  "/forgot-password",
-  "/verify-email",
-];
-
-export async function middleware(req: NextRequest) {
+export default auth((req) => {
+  const isLoggedIn = !!req.auth?.user;
   const { pathname } = req.nextUrl;
-  const token = await getToken({
-    req,
-    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
-  });
 
-  const isAuthenticated = !!token;
-  const userRole = token?.role as string | undefined;
+  const isAuthRoute =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/verify-email");
 
-  if (
-    isAuthenticated &&
-    publicAuthRoutes.some((route) => pathname.startsWith(route))
-  ) {
-    const redirectUrl =
-      userRole === "ADMIN" || userRole === "SUPER_ADMIN"
-        ? "/admin"
-        : "/dashboard";
-    return NextResponse.redirect(new URL(redirectUrl, req.url));
-  }
+  const isProtectedRoute =
+    pathname.startsWith("/dashboard") || pathname.startsWith("/admin");
 
-  if (pathname.startsWith("/admin")) {
-    if (!isAuthenticated) {
-      const loginUrl = new URL("/login", req.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
-    }
-  }
-
-  if (pathname.startsWith("/dashboard") && !isAuthenticated) {
-    const loginUrl = new URL("/login", req.url);
+  if (isProtectedRoute && !isLoggedIn) {
+    const loginUrl = new URL("/login", req.nextUrl.origin);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
+  if (isAuthRoute && isLoggedIn) {
+    return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin));
+  }
+
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: [
