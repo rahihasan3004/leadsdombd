@@ -56,6 +56,7 @@ export async function POST(request: Request) {
   const eventName = eventData.event_name;
   const eventId = eventData.meta.event_id;
   const customData = eventData.data?.attributes?.custom || {};
+  const attributes = (eventData.data?.attributes as any) || {};
 
   const userId = String(customData.userId || customData.user_id || "");
   const type = String(customData.type || "");
@@ -91,8 +92,8 @@ export async function POST(request: Request) {
 
       if (eventName === "order_created") {
         if (type === "WALLET_TOPUP") {
-          const userEmail = eventData.data?.attributes?.user_email;
-          const totalCents = eventData.data?.attributes?.total_usd || eventData.data?.attributes?.total || (Number(customData.amount) * 100);
+          const userEmail = attributes.user_email;
+          const totalCents = attributes.total_usd || attributes.total || (Number(customData.amount) * 100);
           const paidAmount = Number(totalCents) / 100;
 
           const targetUser = await tx.user.findFirst({
@@ -122,7 +123,7 @@ export async function POST(request: Request) {
                 type: "TOPUP",
                 status: "COMPLETED",
                 balanceAfter: updatedUser.walletBalance,
-                description: `Wallet top-up via Lemon Squeezy (Order #${eventData.data?.attributes?.first_order_item?.order_id || eventData.data?.id})`,
+                description: `Wallet top-up via Lemon Squeezy (Order #${attributes.first_order_item?.order_id || eventData.data?.id})`,
               },
             });
 
