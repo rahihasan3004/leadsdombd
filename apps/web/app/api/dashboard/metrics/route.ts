@@ -1,3 +1,7 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
@@ -27,8 +31,13 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    const user = await db.user.findUnique({
-      where: { id: session.user.id },
+    const user = await db.user.findFirst({
+      where: {
+        OR: [
+          ...(session.user.id ? [{ id: session.user.id }] : []),
+          ...(session.user.email ? [{ email: session.user.email }] : []),
+        ],
+      },
       select: { walletBalance: true },
     });
     const availableBalance = user?.walletBalance ? Number(user.walletBalance.toString()) : 0;
