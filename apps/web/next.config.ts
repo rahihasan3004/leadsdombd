@@ -13,11 +13,16 @@ const connectSrc = isDev
 const nextConfig: NextConfig = {
   env: {
     AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID || "",
+    AUTH_GOOGLE_SECRET:
+      process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET || "",
+    AUTH_SECRET: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "",
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || "",
   },
   transpilePackages: ["@fine-leads/ui", "@fine-leads/utils", "@fine-leads/auth", "@fine-leads/database", "recharts"],
   experimental: {
     optimizePackageImports: ["@fine-leads/ui", "lucide-react"],
   },
+  serverExternalPackages: ["@prisma/client", "@fine-leads/database", "bcryptjs"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
