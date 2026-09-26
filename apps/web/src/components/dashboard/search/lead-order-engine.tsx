@@ -65,6 +65,17 @@ export function LeadOrderEngine() {
     [],
   );
 
+  const handleQuantityInputChange = useCallback(
+    (val: string) => {
+      const num = parseInt(val, 10) || 0;
+      const clamped = Math.max(0, Math.min(num, 50000));
+      const finalVal = clamped > 0 ? String(clamped) : "";
+      setQuantityInput(finalVal);
+      setQuantity(clamped);
+    },
+    [],
+  );
+
   const handleToggleState = (code: string) => {
     setSelectedStates((prev) => {
       const next = prev.includes(code) ? prev.filter((s) => s !== code) : [...prev, code];
@@ -187,7 +198,7 @@ export function LeadOrderEngine() {
             quantity={quantity}
             quantityInput={quantityInput}
             onQuantityChange={handleQuantityChange}
-            onQuantityInputChange={setQuantityInput}
+            onQuantityInputChange={handleQuantityInputChange}
             totalAvailable={totalAvailable}
             minQuantity={minQuantity}
             selectedStatesCount={selectedStates.length}
