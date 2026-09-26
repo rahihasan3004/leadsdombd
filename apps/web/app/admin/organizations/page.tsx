@@ -111,5 +111,6 @@ export default function AdminOrganizationsPage() {
         </div>
       </CardContent>
     </Card>
+  </div>
   );
 }

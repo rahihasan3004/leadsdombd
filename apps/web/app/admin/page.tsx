@@ -372,5 +372,6 @@ export default async function AdminPage() {
         </CardContent>
       </Card>
     </div>
+    </div>
   );
 }

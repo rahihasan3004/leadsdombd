@@ -369,6 +369,5 @@ export function LeadSearch({ agents = [], matchCount, totalRecords = TOTAL_RECOR
           </div>
         )}
       </div>
-    </div>
   );
 }
