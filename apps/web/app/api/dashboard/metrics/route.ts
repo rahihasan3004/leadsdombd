@@ -5,7 +5,6 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
-import { LEAD_STATES } from "@fine-leads/utils";
 
 function getMonthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -42,7 +41,12 @@ export async function GET() {
     });
     const availableBalance = user?.walletBalance ? Number(user.walletBalance.toString()) : 0;
 
-    const [purchases, completedExports] = await Promise.all([
+    const [
+      purchases,
+      completedExportsCount,
+      totalUnlockedLeads,
+      deliverableUnlockedLeads,
+    ] = await Promise.all([
       db.leadPurchase.findMany({
         where: { userId, status: "COMPLETED" },
         orderBy: { createdAt: "asc" },
@@ -50,43 +54,28 @@ export async function GET() {
       db.leadExport.count({
         where: { userId, status: "COMPLETED" },
       }),
+      db.unlockedLead.count({ where: { userId } }),
+      db.unlockedLead.count({
+        where: {
+          userId,
+          agent: { isDeliverable: true },
+        },
+      }),
     ]);
 
-    if (purchases.length === 0) {
-      return NextResponse.json({
-        totalLeads: 0,
-        availableBalance,
-        walletBalance: availableBalance,
-        deliveredFiles: completedExports,
-        deliverability: 100,
-        monthlyTrends: DEFAULT_MONTHLY_TRENDS,
-        recentOrders: [],
-      });
-    }
+    const totalLeads =
+      totalUnlockedLeads > 0
+        ? totalUnlockedLeads
+        : purchases.reduce((sum, p) => sum + p.leadCount, 0);
 
-    const recentPurchases = await db.leadPurchase.findMany({
-      where: { userId, status: "COMPLETED" },
-      orderBy: { createdAt: "desc" },
-      take: 3,
-    });
+    const deliveredFiles = purchases.length + completedExportsCount;
 
-    const unlockedStates = Array.from(
-      new Set(purchases.flatMap((p) => p.unlockedStates || []))
-    );
-
-    const totalLeadsInVault =
-      unlockedStates.length > 0
-        ? await db.agent.count({
-            where: {
-              state: { in: unlockedStates },
-              isDeliverable: true,
-              email: { not: null },
-            },
-          })
-        : 0;
+    const deliverability =
+      totalUnlockedLeads > 0
+        ? Math.round((deliverableUnlockedLeads / totalUnlockedLeads) * 100)
+        : 100;
 
     const monthlyBuckets = new Map<string, { leads: number; orders: number }>();
-
     for (let i = 11; i >= 0; i--) {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
@@ -94,77 +83,43 @@ export async function GET() {
       monthlyBuckets.set(getMonthKey(d), { leads: 0, orders: 0 });
     }
 
-    const monthKeys = Array.from(monthlyBuckets.keys());
-
-    const allPurchaseStates = new Set<string>();
-    for (const purchase of purchases) {
-      const raw = purchase.unlockedStates || [];
-      for (const s of raw) {
-        allPurchaseStates.add(s.toUpperCase());
-      }
-    }
-
-    const allPurchaseStatesArray = Array.from(allPurchaseStates);
-
-    if (allPurchaseStatesArray.length === 0) {
-      return NextResponse.json({
-        totalLeads: 0,
-        availableBalance,
-        walletBalance: availableBalance,
-        deliveredFiles: completedExports,
-        deliverability: 100,
-        monthlyTrends: DEFAULT_MONTHLY_TRENDS,
-        recentOrders: [],
-      });
-    }
-
-    const allStatesLeadCount =
-      allPurchaseStatesArray.length > 0
-        ? await db.agent.count({
-            where: {
-              state: { in: allPurchaseStatesArray },
-              isDeliverable: true,
-              email: { not: null },
-            },
-          })
-        : 0;
-
-    const stateLeadCountCache = new Map<string, number>();
-    if (allPurchaseStatesArray.length > 0) {
-      const perStateRows = await db.$queryRaw<
-        { state: string; cnt: bigint }[]
-      >`
-        SELECT state, COUNT(*)::int AS cnt
-        FROM "Agent"
-        WHERE state = ANY(${allPurchaseStatesArray}::text[])
-          AND isDeliverable = true
-          AND email IS NOT NULL
-        GROUP BY state
-      `;
-      for (const row of perStateRows) {
-        stateLeadCountCache.set(row.state, Number(row.cnt));
-      }
-    }
-
     for (const purchase of purchases) {
       const key = getMonthKey(new Date(purchase.createdAt));
       if (monthlyBuckets.has(key)) {
-        const stateCodes = (purchase.unlockedStates || []).map((s: string) => s.toUpperCase());
-        const matching = stateCodes.filter((s: string) => LEAD_STATES.some((ls) => ls.code === s));
-        const finalCodes = matching.length > 0 ? matching : stateCodes;
+        monthlyBuckets.get(key)!.orders += 1;
+      }
+    }
 
-        const leadCount = finalCodes.length > 0
-          ? finalCodes.reduce((sum, code) => sum + (stateLeadCountCache.get(code) || 0), 0)
-          : 0;
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
+    twelveMonthsAgo.setDate(1);
+    twelveMonthsAgo.setHours(0, 0, 0, 0);
 
-        const bucket = monthlyBuckets.get(key);
-        if (bucket) {
-          bucket.leads += leadCount;
-          bucket.orders += 1;
+    const unlockedLeads = await db.unlockedLead.findMany({
+      where: {
+        userId,
+        createdAt: { gte: twelveMonthsAgo },
+      },
+      select: { createdAt: true },
+    });
+
+    if (unlockedLeads.length > 0) {
+      for (const ul of unlockedLeads) {
+        const key = getMonthKey(new Date(ul.createdAt));
+        if (monthlyBuckets.has(key)) {
+          monthlyBuckets.get(key)!.leads += 1;
+        }
+      }
+    } else if (purchases.length > 0) {
+      for (const purchase of purchases) {
+        const key = getMonthKey(new Date(purchase.createdAt));
+        if (monthlyBuckets.has(key)) {
+          monthlyBuckets.get(key)!.leads += purchase.leadCount;
         }
       }
     }
 
+    const monthKeys = Array.from(monthlyBuckets.keys());
     const monthlyTrends = monthKeys.map((key) => {
       const [year, month] = key.split("-").map(Number);
       const d = new Date(year, month - 1, 1);
@@ -176,56 +131,60 @@ export async function GET() {
       };
     });
 
-    const recentOrders = await (async () => {
-      const recentStateSet = new Set<string>();
-      for (const p of recentPurchases) {
-        const raw = p.unlockedStates || [];
-        for (const s of raw) {
-          recentStateSet.add(s.toUpperCase());
-        }
+    const recentPurchases = await db.leadPurchase.findMany({
+      where: { userId, status: "COMPLETED" },
+      orderBy: { createdAt: "desc" },
+      take: 3,
+    });
+
+    const recentStateSet = new Set<string>();
+    for (const p of recentPurchases) {
+      const raw = p.unlockedStates || [];
+      for (const s of raw) {
+        recentStateSet.add(s.toUpperCase());
       }
-      const recentStatesArr = Array.from(recentStateSet);
-      const recentStateCache = new Map<string, number>();
+    }
+    const recentStatesArr = Array.from(recentStateSet);
+    const recentStateCache = new Map<string, number>();
 
-      if (recentStatesArr.length > 0) {
-        const rows = await db.$queryRaw<{ state: string; cnt: bigint }[]>`
-          SELECT state, COUNT(*)::int AS cnt
-          FROM "Agent"
-          WHERE state = ANY(${recentStatesArr}::text[])
-            AND isDeliverable = true
-            AND email IS NOT NULL
-          GROUP BY state
-        `;
-        for (const row of rows) {
-          recentStateCache.set(row.state, Number(row.cnt));
-        }
+    if (recentStatesArr.length > 0) {
+      const rows = await db.$queryRaw<{ state: string; cnt: bigint }[]>`
+        SELECT state, COUNT(*)::int AS cnt
+        FROM "Agent"
+        WHERE state = ANY(${recentStatesArr}::text[])
+          AND isDeliverable = true
+          AND email IS NOT NULL
+        GROUP BY state
+      `;
+      for (const row of rows) {
+        recentStateCache.set(row.state, Number(row.cnt));
       }
+    }
 
-      return recentPurchases.map((p) => {
-        const codes = (p.unlockedStates || []).map((s: string) => s.toUpperCase());
-        const quantity =
-          codes.length > 0
-            ? codes.reduce((sum, code) => sum + (recentStateCache.get(code) || 0), 0)
-            : 0;
+    const recentOrders = recentPurchases.map((p) => {
+      const codes = (p.unlockedStates || []).map((s: string) => s.toUpperCase());
+      const quantity =
+        codes.length > 0
+          ? codes.reduce((sum, code) => sum + (recentStateCache.get(code) || 0), 0)
+          : 0;
 
-        return {
-          id: p.id,
-          orderId: p.referenceId || `#LD-${p.id.slice(0, 4).toUpperCase()}`,
-          date: p.createdAt.toISOString().split("T")[0],
-          states: p.unlockedStates?.join(", ") || "—",
-          category: "Real Estate Agents",
-          quantity,
-          status: "Delivered",
-        };
-      });
-    })();
+      return {
+        id: p.id,
+        orderId: p.referenceId || `#LD-${p.id.slice(0, 4).toUpperCase()}`,
+        date: p.createdAt.toISOString().split("T")[0],
+        states: p.unlockedStates?.join(", ") || "—",
+        category: "Real Estate Agents",
+        quantity,
+        status: "Delivered",
+      };
+    });
 
     return NextResponse.json({
-      totalLeads: totalLeadsInVault,
+      totalLeads,
       availableBalance,
       walletBalance: availableBalance,
-      deliveredFiles: completedExports,
-      deliverability: 100,
+      deliveredFiles,
+      deliverability,
       monthlyTrends,
       recentOrders,
     });

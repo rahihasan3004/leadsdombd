@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   X,
@@ -14,6 +13,7 @@ import {
 } from "lucide-react";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { formatNumber } from "@fine-leads/utils";
+import { useQuery } from "@tanstack/react-query";
 
 interface MonthlyData {
   month: string;
@@ -30,9 +30,6 @@ interface RecentOrder {
   quantity: number;
   status: string;
 }
-
-
-
 
 interface DashboardMetrics {
   totalLeads: number;
@@ -62,59 +59,32 @@ const formatCurrency = (val: any) => {
 export default function DashboardPage() {
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [purchaseCancelled, setPurchaseCancelled] = useState(false);
-  const [metrics, setMetrics] = useState<DashboardMetrics>(EMPTY_METRICS);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [liveBalance, setLiveBalance] = useState<number | null>(null);
-  const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const userName = session?.user?.name ?? session?.user?.email?.split("@")[0] ?? "User";
 
-  const fetchMetrics = useCallback(async () => {
-    if (sessionStatus !== "authenticated") return;
-    setLoading(true);
-    setError(null);
-    try {
+  const { data: metrics = EMPTY_METRICS, isLoading, error, refetch } = useQuery({
+    queryKey: ["dashboard", "metrics"],
+    enabled: sessionStatus === "authenticated",
+    queryFn: async () => {
       const res = await fetch("/api/dashboard/metrics", {
         cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to fetch dashboard metrics");
-      const data: DashboardMetrics = await res.json();
-      setMetrics(data);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(message);
-      setMetrics(EMPTY_METRICS);
-    } finally {
-      setLoading(false);
-    }
-  }, [sessionStatus]);
+      return res.json() as Promise<DashboardMetrics>;
+    },
+  });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("purchase") === "success" || params.get("checkout_success") === "true") {
       setPurchaseSuccess(true);
+      refetch();
       window.history.replaceState({}, "", "/dashboard");
     } else if (params.get("purchase") === "cancelled") {
       setPurchaseCancelled(true);
       window.history.replaceState({}, "", "/dashboard");
     }
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/user/profile", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.walletBalance !== undefined) {
-          setLiveBalance(Number(data.walletBalance));
-        }
-      })
-      .catch((err) => console.error("Error fetching live profile balance:", err));
-  }, []);
-
-  useEffect(() => {
-    fetchMetrics();
-  }, [fetchMetrics]);
+  }, [refetch]);
 
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "short",
@@ -126,8 +96,7 @@ export default function DashboardPage() {
   const totalLeadsFormatted = formatNumber(metrics.totalLeads);
   const walletFormatted = formatCurrency(metrics?.availableBalance ?? 0);
   const deliveredFilesFormatted = `${metrics.deliveredFiles} File${metrics.deliveredFiles === 1 ? "" : "s"}`;
-  const verifiedCount = metrics.totalLeads;
-  const verifiedFormatted = `${formatNumber(verifiedCount)} Valid`;
+  const deliverabilityFormatted = `${metrics.deliverability}%`;
 
   return (
     <div className="w-full p-3.5 sm:p-6 lg:p-8 space-y-6">
@@ -200,14 +169,14 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-6">
         <KpiCard
           label="Total Leads in Vault"
-          value={loading ? "—" : totalLeadsFormatted}
+          value={isLoading ? "—" : totalLeadsFormatted}
           icon={Users}
           iconBg="bg-blue-50"
           iconColor="text-[#465FFF]"
         />
         <KpiCard
           label="Available Balance"
-          value={liveBalance === null ? "—" : formatCurrency(liveBalance)}
+          value={isLoading ? "—" : walletFormatted}
           icon={Wallet}
           iconBg="bg-blue-50"
           iconColor="text-[#465FFF]"
@@ -215,14 +184,14 @@ export default function DashboardPage() {
         />
         <KpiCard
           label="Delivered Files"
-          value={loading ? "—" : deliveredFilesFormatted}
+          value={isLoading ? "—" : deliveredFilesFormatted}
           icon={FileText}
           iconBg="bg-blue-50"
           iconColor="text-[#465FFF]"
         />
         <KpiCard
           label="Vault Deliverability"
-          value="100%"
+          value={isLoading ? "—" : deliverabilityFormatted}
           icon={CheckCircle2}
           iconBg="bg-blue-50"
           iconColor="text-[#465FFF]"
@@ -247,7 +216,7 @@ export default function DashboardPage() {
           </div>
           {error ? (
             <div className="flex items-center justify-center h-[180px] text-xs text-red-500">
-              {error}
+              {error instanceof Error ? error.message : "Failed to load chart"}
             </div>
           ) : (
             <div className="flex items-end gap-2 h-[180px]">
@@ -284,7 +253,7 @@ export default function DashboardPage() {
               Vault Deliverability
             </h3>
             <p className="text-xs text-neutral-400 mt-0.5">
-              100% guaranteed active &amp; SMTP verified
+              {metrics.deliverability}% guaranteed active &amp; SMTP verified
             </p>
           </div>
           <div className="flex flex-col items-center">
@@ -304,29 +273,29 @@ export default function DashboardPage() {
                   strokeWidth="12"
                   strokeLinecap="round"
                   strokeDasharray={2 * Math.PI * 80}
-                  strokeDashoffset="0"
+                  strokeDashoffset={2 * Math.PI * 80 * (1 - metrics.deliverability / 100)}
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-end pb-1">
-                <span className="text-2xl font-bold text-neutral-900">100%</span>
+                <span className="text-2xl font-bold text-neutral-900">{metrics.deliverability}%</span>
                 <span className="inline-flex items-center text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60 mt-1">
-                  Guaranteed Active
+                  {metrics.deliverability === 100 ? "Guaranteed Active" : "Verified"}
                 </span>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4 mt-6 w-full">
               <div className="text-center">
                 <p className="text-xs font-semibold text-neutral-900">
-                  {loading ? "—" : formatNumber(metrics.totalLeads)}
+                  {isLoading ? "—" : formatNumber(metrics.totalLeads)}
                 </p>
                 <p className="text-[10px] text-neutral-400 mt-0.5">Delivered</p>
               </div>
               <div className="text-center">
-                <p className="text-xs font-semibold text-neutral-900">100% Valid</p>
+                <p className="text-xs font-semibold text-neutral-900">{metrics.deliverability}% Valid</p>
                 <p className="text-[10px] text-neutral-400 mt-0.5">Verified</p>
               </div>
               <div className="text-center">
-                <p className="text-xs font-semibold text-neutral-900">0.0%</p>
+                <p className="text-xs font-semibold text-neutral-900">{(100 - metrics.deliverability).toFixed(1)}%</p>
                 <p className="text-[10px] text-neutral-400 mt-0.5">Bounce Risk</p>
               </div>
             </div>

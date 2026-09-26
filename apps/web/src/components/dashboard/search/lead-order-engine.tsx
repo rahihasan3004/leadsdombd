@@ -147,6 +147,7 @@ export function LeadOrderEngine() {
       queryClient.invalidateQueries({ queryKey: ["purchases"] });
       queryClient.invalidateQueries({ queryKey: ["leads"] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
 
       toast.success("Purchase successful", {
         description: `${data.unlockedCount} leads unlocked. Redirecting to your vault...`,
