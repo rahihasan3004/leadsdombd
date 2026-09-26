@@ -15,7 +15,7 @@
     "dev": "tsx --watch src/index.ts",
     "start": "node dist/index.js",
     "worker": "node --env-file=\"../../.env\" --import tsx src/cli.ts",
-    "test:db": "tsx src/test-db-connection.ts",
+    "test:db": "node --env-file=\"../../.env\" --import tsx src/test-db-connection.ts",
     "db:reset-agents": "node --env-file=\"../../.env\" --import tsx src/scripts/reset-agents.ts",
     "test:e2e": "node --env-file=\"../../.env\" --import tsx src/test-e2e-pipeline.ts",
     "test:focused": "tsx src/test-focused-pipeline.ts",

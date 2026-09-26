@@ -1,6 +1,6 @@
 import { DatabaseSynchronizer } from "./db-sync.js";
 
-const DB_URL_ENV_KEYS = ["DATABASE_URL", "NEON_DATABASE_URL", "DIRECT_URL"] as const;
+const DB_URL_ENV_KEYS = ["DIRECT_URL", "DATABASE_URL", "NEON_DATABASE_URL"] as const;
 
 function resolveUrl(): string {
   for (const key of DB_URL_ENV_KEYS) {
@@ -8,8 +8,17 @@ function resolveUrl(): string {
     if (val) return val;
   }
   throw new Error(
-    "No database URL found. Set DATABASE_URL, NEON_DATABASE_URL, or DIRECT_URL.",
+    "No database URL found. Set DIRECT_URL, DATABASE_URL, or NEON_DATABASE_URL.",
   );
+}
+
+function extractHost(dbUrl: string): string {
+  try {
+    const url = new URL(dbUrl);
+    return `${url.protocol}//${url.hostname}:${url.port || "5432"}`;
+  } catch {
+    return dbUrl;
+  }
 }
 
 async function main(): Promise<void> {
@@ -20,7 +29,7 @@ async function main(): Promise<void> {
     dbUrl = resolveUrl();
   } catch (err) {
     console.error(
-      "[test-db] Failed to resolve DATABASE_URL:",
+      "[test-db] Failed to resolve database URL:",
       err instanceof Error ? err.message : String(err),
     );
     process.exit(1);
@@ -36,7 +45,10 @@ async function main(): Promise<void> {
     console.log(`[test-db] Health check: ${healthy ? "OK" : "FAILED"}`);
 
     if (!healthy) {
-      console.error("[test-db] Database health check failed.");
+      console.error(
+        `[test-db] Database health check failed. Could not connect to ${extractHost(dbUrl)}. ` +
+          "Check that the database is running and the connection string is correct.",
+      );
       process.exit(1);
     }
 
@@ -48,6 +60,9 @@ async function main(): Promise<void> {
     console.error(
       "[test-db] Connection test failed:",
       err instanceof Error ? err.message : String(err),
+    );
+    console.error(
+      `[test-db] Target host: ${extractHost(dbUrl)}`,
     );
     process.exit(1);
   } finally {

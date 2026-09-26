@@ -1,4 +1,41 @@
 import { z } from "zod";
+import { readFileSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+function loadDotEnv(): void {
+  const candidates = [
+    join(__dirname, "../../../../.env"),
+    join(__dirname, "../../../apps/web/.env"),
+    join(__dirname, "../../../.env"),
+  ];
+  for (const file of candidates) {
+    if (!existsSync(file)) continue;
+    try {
+      const content = readFileSync(file, "utf-8");
+      for (const rawLine of content.split("\n")) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith("#")) continue;
+        const eqIdx = line.indexOf("=");
+        if (eqIdx < 0) continue;
+        const key = line.slice(0, eqIdx).trim();
+        const val = line.slice(eqIdx + 1).trim().replace(/^"(.*)"$/, "$1").replace(/^'(.*)'$/, "$1");
+        if (key && !(key in process.env)) {
+          process.env[key] = val;
+        }
+      }
+    } catch {
+      // ignore .env parse errors
+    }
+    break;
+  }
+}
+
+if (!process.env.DIRECT_URL && !process.env.DATABASE_URL && !process.env.NEON_DATABASE_URL) {
+  loadDotEnv();
+}
 
 const envSchema = z.object({
   PROXY_HOST: z.string().optional(),
@@ -63,10 +100,10 @@ const envSchema = z.object({
 export type ScraperEnv = z.infer<typeof envSchema>;
 
 export function resolveDatabaseUrl(env: ScraperEnv): string {
-  const url = env.DATABASE_URL ?? env.NEON_DATABASE_URL ?? env.DIRECT_URL;
+  const url = env.DIRECT_URL ?? env.DATABASE_URL ?? env.NEON_DATABASE_URL;
   if (!url) {
     throw new Error(
-      "No database URL resolved. Set DATABASE_URL, NEON_DATABASE_URL, or DIRECT_URL.",
+      "No database URL resolved. Set DIRECT_URL, DATABASE_URL, or NEON_DATABASE_URL.",
     );
   }
   return url;

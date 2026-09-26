@@ -59,7 +59,22 @@ export class DatabaseSynchronizer {
     try {
       const result = await this.pool.query(HEALTH_CHECK);
       return result.rows.length === 1;
-    } catch {
+    } catch (err: unknown) {
+      const host =
+        (this.pool.options.connectionString &&
+          (() => {
+            try {
+              const url = new URL(this.pool.options.connectionString);
+              return `${url.hostname}:${url.port || "5432"}`;
+            } catch {
+              return "unknown";
+            }
+          })()) ||
+        "unknown";
+      console.error(
+        `[db-sync] Health check failed for host ${host}:`,
+        err instanceof Error ? err.message : String(err),
+      );
       return false;
     }
   }

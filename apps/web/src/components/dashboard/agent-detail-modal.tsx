@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import {
   Copy,
   Check,
@@ -20,15 +20,19 @@ import { toast } from "sonner";
 export interface AgentData {
   id: string;
   fullName: string;
+  firstName: string | null;
+  lastName: string | null;
   brokerageName: string | null;
   brokerageAddress: string | null;
   city: string | null;
   state: string | null;
   zipCode: string | null;
+  county: string | null;
   timezone: string | null;
   email: string | null;
   emailStatus: string | null;
   phone: string | null;
+  officePhone: string | null;
   websiteUrl: string | null;
   googlePlaceId: string | null;
   googleMapsLink: string | null;
@@ -40,6 +44,26 @@ export interface AgentData {
   scrapedAt: string | null;
   verificationScore: number | null;
   dataSource: string | null;
+  photoUrl: string | null;
+  licenseNumber: string | null;
+  licenseState: string | null;
+  licenseStatus: string | null;
+  licenseExpiry: string | null;
+  nmlsId: string | null;
+  marketArea: string | null;
+  propertyTypes: string[] | null;
+  transactionCount: number | null;
+  totalVolume: number | null;
+  averagePrice: number | null;
+  yearsExperience: number | null;
+  specializations: string[] | null;
+  bio: string | null;
+  socialProfiles: Record<string, unknown> | null;
+  lastVerifiedAt: string | null;
+  isVerified: boolean | null;
+  isDeliverable: boolean | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
 interface AgentDetailModalProps {
@@ -187,27 +211,32 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose]);
 
-  if (!agent || !open) return null;
-
-  const fullAddress = [
-    agent.brokerageAddress,
-    agent.city,
-    agent.state,
-    agent.zipCode?.slice(0, 5),
-  ]
-    .filter(Boolean)
-    .join(", ");
+  const fullAddress = useMemo(() => {
+    if (!agent) return "";
+    return [
+      agent.brokerageAddress,
+      agent.city,
+      agent.state,
+      agent.zipCode?.slice(0, 5),
+    ]
+      .filter(Boolean)
+      .join(", ");
+  }, [agent]);
 
   const handleCopyAllInfo = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
+      if (!agent) return;
       const lines = [
         agent.fullName,
         `${agent.category ?? "Real Estate Agent"} · ${agent.brokerageName ?? ""}`,
+        `${agent.firstName ?? ""} ${agent.lastName ?? ""}`.trim() ? `Name: ${agent.firstName} ${agent.lastName}` : null,
+        agent.officePhone ? `Office Phone: ${agent.officePhone}` : null,
         `Phone: ${agent.phone ?? "--"}`,
         `Email: ${agent.email ?? "--"} (${agent.emailStatus ?? "unknown"})`,
         agent.websiteUrl ? `Website: ${agent.websiteUrl}` : null,
         `Address: ${fullAddress || "--"}`,
+        agent.county ? `County: ${agent.county}` : null,
         `Timezone: ${formatTimezoneDisplay(agent.timezone)}`,
         agent.rating != null
           ? `Rating: ${agent.rating}/5.0 (${agent.reviewCount ?? 0} reviews)`
@@ -215,6 +244,26 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
         agent.googleMapsLink ? `Google Maps: ${agent.googleMapsLink}` : null,
         agent.googlePlaceId ? `Google Place ID: ${agent.googlePlaceId}` : null,
         agent.scrapedAt ? `Scraped: ${formatTimestamp(agent.scrapedAt)}` : null,
+        agent.verificationScore != null ? `Verification Score: ${agent.verificationScore}` : null,
+        agent.licenseNumber ? `License #: ${agent.licenseNumber}` : null,
+        agent.licenseState ? `License State: ${agent.licenseState}` : null,
+        agent.licenseStatus ? `License Status: ${agent.licenseStatus}` : null,
+        agent.licenseExpiry ? `License Expiry: ${formatTimestamp(agent.licenseExpiry)}` : null,
+        agent.nmlsId ? `NMLS ID: ${agent.nmlsId}` : null,
+        agent.marketArea ? `Market Area: ${agent.marketArea}` : null,
+        agent.propertyTypes?.length ? `Property Types: ${agent.propertyTypes.join(", ")}` : null,
+        agent.transactionCount != null ? `Transactions: ${agent.transactionCount}` : null,
+        agent.totalVolume != null ? `Total Volume: $${agent.totalVolume.toLocaleString()}` : null,
+        agent.averagePrice != null ? `Avg Price: $${agent.averagePrice.toLocaleString()}` : null,
+        agent.yearsExperience != null ? `Years Experience: ${agent.yearsExperience}` : null,
+        agent.specializations?.length ? `Specializations: ${agent.specializations.join(", ")}` : null,
+        agent.bio ? `Bio: ${agent.bio}` : null,
+        agent.socialProfiles && Object.keys(agent.socialProfiles).length
+          ? `Social Profiles: ${Object.keys(agent.socialProfiles).join(", ")}`
+          : null,
+        agent.lastVerifiedAt ? `Last Verified: ${formatTimestamp(agent.lastVerifiedAt)}` : null,
+        agent.isVerified ? "Verified: Yes" : null,
+        agent.isDeliverable != null ? `Deliverable: ${agent.isDeliverable ? "Yes" : "No"}` : null,
       ].filter(Boolean).join("\n");
 
       navigator.clipboard.writeText(lines).then(() => {
@@ -223,6 +272,8 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
     },
     [agent, fullAddress],
   );
+
+  if (!agent || !open) return null;
 
   return (
     <div
@@ -275,6 +326,14 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
             value={agent.phone ?? "--"}
             copyable
           />
+          {agent.officePhone && (
+            <AttrRow
+              icon={Phone}
+              label="Office Phone"
+              value={agent.officePhone}
+              copyable
+            />
+          )}
           <AttrRow
             icon={Mail}
             label="Email"
@@ -292,6 +351,19 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
           )}
         </div>
 
+        {/* Section 1b: Identity */}
+        {(agent.firstName || agent.lastName) && (
+          <div className="mt-5 space-y-4">
+            <SectionHeader icon={Hash} label="Identity" />
+            {agent.firstName && (
+              <AttrRow icon={Hash} label="First Name" value={agent.firstName} copyable />
+            )}
+            {agent.lastName && (
+              <AttrRow icon={Hash} label="Last Name" value={agent.lastName} copyable />
+            )}
+          </div>
+        )}
+
         {/* Section 2: Location */}
         <div className="mt-5">
           <SectionHeader icon={MapPin} label="Location" />
@@ -302,12 +374,91 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
             value={fullAddress || "--"}
             copyable
           />
+          {agent.county && (
+            <AttrRow icon={MapPin} label="County" value={agent.county} copyable />
+          )}
           <AttrRow
             icon={Clock}
             label="Time zone"
             value={formatTimezoneDisplay(agent.timezone)}
           />
         </div>
+
+        {/* Section 2b: License */}
+        {(agent.licenseNumber || agent.licenseState || agent.licenseStatus || agent.licenseExpiry || agent.nmlsId) && (
+          <div className="mt-5 space-y-4">
+            <SectionHeader icon={Hash} label="License" />
+            {agent.licenseNumber && (
+              <AttrRow icon={Hash} label="License #" value={agent.licenseNumber} copyable />
+            )}
+            {agent.licenseState && (
+              <AttrRow icon={MapPin} label="License State" value={agent.licenseState} />
+            )}
+            {agent.licenseStatus && (
+              <AttrRow icon={Hash} label="License Status" value={agent.licenseStatus} />
+            )}
+            {agent.licenseExpiry && (
+              <AttrRow icon={Clock} label="License Expiry" value={formatTimestamp(agent.licenseExpiry)} />
+            )}
+            {agent.nmlsId && (
+              <AttrRow icon={Hash} label="NMLS ID" value={agent.nmlsId} copyable />
+            )}
+          </div>
+        )}
+
+        {/* Section 2c: Market */}
+        {(agent.marketArea || agent.propertyTypes?.length || agent.transactionCount != null || agent.totalVolume != null || agent.averagePrice != null || agent.yearsExperience != null || agent.specializations?.length) && (
+          <div className="mt-5 space-y-4">
+            <SectionHeader icon={MapPinned} label="Market" />
+            {agent.marketArea && (
+              <AttrRow icon={MapPin} label="Market Area" value={agent.marketArea} />
+            )}
+            {agent.propertyTypes?.length && (
+              <AttrRow icon={Hash} label="Property Types" value={agent.propertyTypes.join(", ")} />
+            )}
+            {agent.transactionCount != null && (
+              <AttrRow icon={Hash} label="Transactions" value={String(agent.transactionCount)} />
+            )}
+            {agent.totalVolume != null && (
+              <AttrRow icon={Hash} label="Total Volume" value={`$${agent.totalVolume.toLocaleString()}`} />
+            )}
+            {agent.averagePrice != null && (
+              <AttrRow icon={Hash} label="Average Price" value={`$${agent.averagePrice.toLocaleString()}`} />
+            )}
+            {agent.yearsExperience != null && (
+              <AttrRow icon={Clock} label="Years Experience" value={String(agent.yearsExperience)} />
+            )}
+            {agent.specializations?.length && (
+              <AttrRow icon={Star} label="Specializations" value={agent.specializations.join(", ")} />
+            )}
+          </div>
+        )}
+
+        {/* Section 2d: Bio */}
+        {agent.bio && (
+          <div className="mt-5 space-y-4">
+            <SectionHeader icon={Hash} label="Bio" />
+            <div className="text-sm text-surface-800 dark:text-surface-200 whitespace-pre-wrap">
+              {agent.bio}
+            </div>
+          </div>
+        )}
+
+        {/* Section 2e: Social */}
+        {agent.socialProfiles && Object.keys(agent.socialProfiles).length > 0 && (
+          <div className="mt-5 space-y-4">
+            <SectionHeader icon={Globe} label="Social Profiles" />
+            {Object.entries(agent.socialProfiles).map(([platform, url]) => (
+              <AttrRow
+                key={platform}
+                icon={Globe}
+                label={platform}
+                value={String(url)}
+                href={String(url)}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Section 3: Google Maps Intelligence */}
         <div className="mt-5">
@@ -338,6 +489,36 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
             icon={Clock}
             label="Scraped"
             value={formatTimestamp(agent.scrapedAt)}
+          />
+          <AttrRow
+            icon={Hash}
+            label="Data Source"
+            value={agent.dataSource ?? "--"}
+          />
+        </div>
+
+        {/* Section 3b: Verification */}
+        <div className="mt-5 space-y-4">
+          <SectionHeader icon={Hash} label="Verification" />
+          <AttrRow
+            icon={Hash}
+            label="Verification Score"
+            value={agent.verificationScore != null ? String(agent.verificationScore) : "--"}
+          />
+          <AttrRow
+            icon={Clock}
+            label="Last Verified"
+            value={formatTimestamp(agent.lastVerifiedAt)}
+          />
+          <AttrRow
+            icon={Hash}
+            label="Verified"
+            value={agent.isVerified ? "Yes" : "No"}
+          />
+          <AttrRow
+            icon={Hash}
+            label="Deliverable"
+            value={agent.isDeliverable != null ? (agent.isDeliverable ? "Yes" : "No") : "--"}
           />
         </div>
       </div>
