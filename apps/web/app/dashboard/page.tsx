@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
   X,
@@ -220,18 +219,14 @@ export default function DashboardPage() {
           iconBg="bg-blue-50"
           iconColor="text-[#465FFF]"
         />
-        <div className="bg-white rounded-2xl border-0 shadow-none p-6">
-          <div className="flex items-center justify-between">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Wallet className="h-5 w-5" />
-            </div>
-            <Link href="/dashboard/billing" className="text-xs text-blue-600 font-medium hover:underline">+ Top Up</Link>
-          </div>
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">AVAILABLE BALANCE</span>
-          <h3 className="text-3xl font-bold tracking-tight text-slate-900 mt-1">
-            {loading || liveBalance === null ? "—" : formatCurrency(liveBalance || metrics?.availableBalance || 0)}
-          </h3>
-        </div>
+        <KpiCard
+          label="Available Balance"
+          value={liveBalance === null ? "—" : formatCurrency(liveBalance)}
+          icon={Wallet}
+          iconBg="bg-blue-50"
+          iconColor="text-[#465FFF]"
+          action={{ label: "+ Top Up", href: "/dashboard/billing" }}
+        />
         <KpiCard
           label="Delivered Files"
           value={loading ? "—" : deliveredFilesFormatted}
