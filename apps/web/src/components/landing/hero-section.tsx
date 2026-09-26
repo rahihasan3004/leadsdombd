@@ -510,21 +510,21 @@ export function HeroSection() {
           territories.
         </p>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 sm:gap-4 mb-10">
-          <Link
-            href={ctaHref}
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 py-2.5 font-medium text-sm shadow-none border-0 transition-all duration-200 inline-flex items-center"
-          >
-            {isLoggedIn ? "Go to Dashboard →" : "Get started"}
-          </Link>
-          <Link
-            href="/contact"
-            className="text-sm font-medium text-neutral-700 hover:text-black flex items-center gap-1.5 transition-colors"
-          >
-            Contact us
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+         <div className="flex flex-row items-center justify-center gap-3 sm:gap-4 mb-10">
+           <Link
+             href={ctaHref}
+             className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 py-2.5 font-medium text-sm shadow-none border-0 transition-all duration-200 inline-flex items-center w-auto"
+           >
+             {isLoggedIn ? "Go to Dashboard →" : "Get started"}
+           </Link>
+           <Link
+             href="/contact"
+             className="text-sm font-medium text-neutral-700 hover:text-black flex items-center gap-1.5 transition-colors w-auto"
+           >
+             Contact us
+             <ArrowRight className="h-3.5 w-3.5" />
+           </Link>
+         </div>
 
         <div className="relative mt-8">
           <div className="[mask-image:linear-gradient(to_bottom,black_40%,transparent_100%)] md:[mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)]">

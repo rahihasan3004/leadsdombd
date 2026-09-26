@@ -6,7 +6,6 @@ import { useSession } from "next-auth/react";
 import {
   X,
   Check,
-  Download,
   MoreVertical,
   Users,
   Wallet,
@@ -90,19 +89,6 @@ export default function DashboardPage() {
       setLoading(false);
     }
   }, [sessionStatus]);
-
-  const handleDownloadCsv = useCallback((states: string) => {
-    const stateList = states.split(",").map((s) => s.trim()).filter(Boolean);
-    stateList.forEach((stateCode) => {
-      const url = `/api/exports/stream?state=${encodeURIComponent(stateCode)}`;
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    });
-  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -345,103 +331,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div className="bg-white border-0 shadow-none rounded-2xl p-6 pb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold text-neutral-900">
-            Recent Lead Orders &amp; Batches
-          </h3>
-          <a
-            href="/dashboard/lists"
-            className="text-xs font-semibold text-neutral-900 hover:text-neutral-600 transition-colors"
-          >
-            View All in Vault &rarr;
-          </a>
-        </div>
-        <div className="w-full overflow-x-auto no-scrollbar">
-          <table className="w-full text-xs min-w-[600px]">
-            <thead>
-              <tr>
-                <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Order ID &amp; Date
-                </th>
-                <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Target States
-                </th>
-                <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Category
-                </th>
-                <th className="h-9 px-4 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Quantity
-                </th>
-                <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="h-9 px-4 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {metrics.recentOrders && metrics.recentOrders.length > 0
-                ? metrics.recentOrders.map((order) => (
-                  <tr
-                    key={order.id}
-                    className="hover:bg-neutral-50/50 transition-colors"
-                  >
-                    <td className="py-3.5 px-4">
-                      <div>
-                        <span className="font-semibold text-neutral-900 tabular-nums">
-                          {order.orderId}
-                        </span>
-                        <p className="text-neutral-400 tabular-nums mt-0.5">
-                          {order.date}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-neutral-100 border border-neutral-200/60 text-neutral-700 font-medium">
-                        {order.states}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="text-neutral-600 font-medium">
-                        {order.category}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <span className="text-neutral-900 font-bold tabular-nums">
-                        {order.quantity.toLocaleString()}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="text-emerald-600 font-semibold text-xs">
-                        {order.status || "Delivered"}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadCsv(order.states)}
-                        className="inline-flex items-center gap-1.5 h-11 px-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 shadow-none border-0 cursor-pointer"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        Download CSV
-                      </button>
-                    </td>
-                  </tr>
-                ))
-                : (
-                  <tr>
-                    <td colSpan={6} className="py-10 px-4 text-center text-sm text-neutral-400">
-                      No orders yet. Your recent lead purchases will appear here.
-                    </td>
-                  </tr>
-                )}
-            </tbody>
-          </table>
         </div>
       </div>
     </div>

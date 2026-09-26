@@ -73,7 +73,7 @@ export default function SupportPage() {
           </div>
         </div>
 
-        <div className="mt-10 bg-white dark:bg-slate-900 p-4 sm:p-8 rounded-2xl border border-slate-100">
+        <div className="mt-10 bg-white border border-slate-200 text-slate-900 rounded-xl shadow-sm p-4 sm:p-8">
           <h2 className="text-lg font-bold text-neutral-900 mb-6">
             Send us a message
           </h2>

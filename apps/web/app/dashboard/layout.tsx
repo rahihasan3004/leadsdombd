@@ -48,7 +48,7 @@ export default function DashboardLayout({
     <div className="h-screen max-h-screen w-full flex overflow-hidden bg-surface-50 dark:bg-surface-950">
       <Sidebar user={user} mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
-        <header className="h-14 shrink-0 border-b border-neutral-200 bg-white flex items-center px-4 lg:hidden">
+        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b h-14 shrink-0 flex items-center px-4 lg:hidden">
           <Button
             variant="ghost"
             size="icon"
@@ -59,7 +59,7 @@ export default function DashboardLayout({
           </Button>
           <span className="ml-3 font-semibold text-sm text-neutral-900">Dashboard</span>
         </header>
-        <main className="flex-1 overflow-y-auto bg-slate-100/90 min-h-screen">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-slate-100/90 min-h-screen pb-28 sm:pb-8">{children}</main>
       </div>
     </div>
   );
