@@ -144,7 +144,7 @@ export default function DashboardPage() {
   const verifiedFormatted = `${formatNumber(verifiedCount)} Valid`;
 
   return (
-    <div className="w-full min-h-screen bg-[#F4F7FB] p-6 md:p-8 space-y-6">
+    <div className="w-full p-3.5 sm:p-6 lg:p-8 space-y-6">
       {purchaseSuccess && (
         <div className="rounded-xl bg-emerald-50 border border-emerald-200/60 p-4 flex items-center gap-3">
           <Check className="h-5 w-5 text-emerald-600 shrink-0" />
@@ -191,7 +191,7 @@ export default function DashboardPage() {
           <p className="text-sm text-neutral-500 mb-0.5">
             Welcome back, {userName}
           </p>
-          <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-neutral-900">
             Dashboard
           </h1>
           <p className="text-xs text-neutral-500 mt-1">
@@ -211,7 +211,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-6">
         <KpiCard
           label="Total Leads in Vault"
           value={loading ? "—" : totalLeadsFormatted}
@@ -360,8 +360,8 @@ export default function DashboardPage() {
             View All in Vault &rarr;
           </a>
         </div>
-        <div className="w-full overflow-x-auto">
-          <table className="w-full text-xs">
+        <div className="w-full overflow-x-auto no-scrollbar">
+          <table className="w-full text-xs min-w-[600px]">
             <thead>
               <tr>
                 <th className="h-9 px-4 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">

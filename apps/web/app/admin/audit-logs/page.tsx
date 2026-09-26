@@ -148,7 +148,7 @@ export default function AdminAuditLogsPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-surface-950 dark:text-white">
           Audit Logs
@@ -203,9 +203,9 @@ export default function AdminAuditLogsPage() {
       </div>
 
       {isLoading && (
-      <div className="w-full overflow-x-auto">
+      <div className="w-full overflow-x-auto no-scrollbar">
         <div className="rounded-md border border-surface-200 dark:border-surface-800">
-          <Table>
+          <Table className="min-w-[600px]">
             <TableHeader>
               <TableRow>
                 <TableHead>User</TableHead>
@@ -257,9 +257,9 @@ export default function AdminAuditLogsPage() {
             </p>
           </div>
 
-          <div className="w-full overflow-x-auto">
+          <div className="w-full overflow-x-auto no-scrollbar">
             <div className="rounded-md border border-surface-200 dark:border-surface-800">
-              <Table>
+              <Table className="min-w-[600px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>User</TableHead>

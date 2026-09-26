@@ -2,7 +2,7 @@ import { Skeleton } from "@fine-leads/ui";
 
 export default function DashboardLoading() {
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-6">
       <Skeleton className="h-8 w-64" />
 
       <Skeleton className="h-16 w-full rounded-2xl" />

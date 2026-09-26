@@ -15,7 +15,7 @@ export default function RegisterPage() {
       <div className="mb-3">
         <Logo showText={false} size={56} className="w-14 h-14 object-contain transition-transform hover:scale-105" />
       </div>
-      <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900">
         Create your account
       </h1>
       <p className="text-sm text-slate-500 mt-1 mb-4">

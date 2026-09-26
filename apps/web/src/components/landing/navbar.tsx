@@ -23,9 +23,9 @@ export function LandingNavbar() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 w-full",
-        "border-b border-white/10 bg-white/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60",
-        "dark:bg-surface-950/80 dark:supports-[backdrop-filter]:bg-surface-950/60 dark:border-surface-800"
+        "sticky top-0 z-40 w-full bg-white border-b border-slate-100/80 shadow-xs",
+        "md:z-50 md:border-white/10 md:bg-white/80 md:backdrop-blur-xl md:shadow-none",
+        "md:dark:bg-surface-950/80 md:dark:border-surface-800",
       )}
     >
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">

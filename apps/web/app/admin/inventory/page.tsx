@@ -115,7 +115,7 @@ export default function InventoryPage() {
   const summary = data?.summary;
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-6">
       <div>
         <h1 className="text-xl font-bold text-surface-950 dark:text-white">
           State Inventory
@@ -125,7 +125,7 @@ export default function InventoryPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-6">
         <StatCard
           title="States Covered"
           value={summary ? `${summary.totalStatesCovered} / 51` : "—"}
@@ -173,8 +173,8 @@ export default function InventoryPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="w-full overflow-x-auto">
-            <Table>
+          <div className="w-full overflow-x-auto no-scrollbar">
+            <Table className="min-w-[600px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[180px]">State</TableHead>

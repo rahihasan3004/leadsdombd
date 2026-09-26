@@ -59,7 +59,7 @@ export default function DashboardLayout({
           </Button>
           <span className="ml-3 font-semibold text-sm text-neutral-900">Dashboard</span>
         </header>
-        <main className="flex-1 flex flex-col overflow-hidden w-full">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-slate-100/90 min-h-screen">{children}</main>
       </div>
     </div>
   );

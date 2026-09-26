@@ -284,7 +284,7 @@ export default function AdminUserDetailPage() {
   const lockedStates = availableStates.filter((s) => !data.unlockedStates.includes(s));
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.push("/admin/users")}>
           <ArrowLeft className="h-5 w-5" />
@@ -390,7 +390,7 @@ export default function AdminUserDetailPage() {
             <CardContent>
               {data.subscription ? (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                       <p className="text-sm font-medium text-surface-500">Current Tier</p>
                       <Badge
@@ -550,9 +550,9 @@ export default function AdminUserDetailPage() {
               {data.recentTransactions.length === 0 ? (
                 <p className="text-sm text-surface-400 text-center py-4">No transactions</p>
               ) : (
-                <div className="w-full overflow-x-auto">
+                <div className="w-full overflow-x-auto no-scrollbar">
                   <div className="rounded-md border border-surface-200 dark:border-surface-800">
-                    <Table>
+                    <Table className="min-w-[600px]">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Reference</TableHead>
@@ -616,9 +616,9 @@ export default function AdminUserDetailPage() {
               {data.recentPurchases.length === 0 ? (
                 <p className="text-sm text-surface-400 text-center py-4">No purchases</p>
               ) : (
-                <div className="w-full overflow-x-auto">
+                <div className="w-full overflow-x-auto no-scrollbar">
                   <div className="rounded-md border border-surface-200 dark:border-surface-800">
-                    <Table>
+                    <Table className="min-w-[600px]">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Reference</TableHead>

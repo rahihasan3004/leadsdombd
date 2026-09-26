@@ -182,7 +182,7 @@ export default function ScraperDashboardPage() {
   if (loading) {
     return (
       <div className="space-y-6 animate-pulse">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-6">
           {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i} className="border-surface-200 dark:border-surface-800">
               <CardContent className="p-6">
@@ -203,7 +203,7 @@ export default function ScraperDashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Ingested Leads"
@@ -301,8 +301,8 @@ export default function ScraperDashboardPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="w-full overflow-x-auto">
-                <Table>
+              <div className="w-full overflow-x-auto no-scrollbar">
+                <Table className="min-w-[600px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[60px]">State</TableHead>
@@ -361,8 +361,8 @@ export default function ScraperDashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="w-full overflow-x-auto">
-                <Table>
+              <div className="w-full overflow-x-auto no-scrollbar">
+                <Table className="min-w-[600px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Agent</TableHead>

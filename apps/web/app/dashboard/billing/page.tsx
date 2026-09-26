@@ -173,7 +173,7 @@ export default function BillingPage() {
   };
 
   return (
-      <div className="w-full min-h-screen bg-[#F4F7FB] p-6 pb-6 space-y-4">
+      <div className="w-full min-h-screen bg-[#F4F7FB] p-3.5 sm:p-6 lg:p-8 pb-3.5 sm:pb-6 lg:pb-8 space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
           Billing & Wallet Balance
@@ -317,8 +317,8 @@ export default function BillingPage() {
          {/* Middle: 5 Rows Table OR Empty State (Same Fixed Space) */}
         <div className="flex-1 flex flex-col justify-center my-2 overflow-hidden">
           {transactions.length > 0 ? (
-            <div className="w-full overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <div className="w-full overflow-x-auto no-scrollbar">
+            <table className="w-full text-left text-sm min-w-[600px]">
               <thead className="border-b border-slate-100 text-[11px] font-normal text-slate-400 uppercase">
                 <tr className="h-8">
                   <th className="py-2 px-4 font-medium">Transaction ID & Date</th>

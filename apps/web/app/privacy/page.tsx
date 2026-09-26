@@ -12,7 +12,7 @@ export default function PrivacyPage() {
     <div className="min-h-screen bg-white flex flex-col selection:bg-neutral-900 selection:text-white">
       <LandingNavbar />
 
-      <main className="flex-1 max-w-4xl mx-auto px-6 py-16 w-full">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-16">
         {/* Breadcrumb & Header */}
         <div className="mb-8 space-y-2">
           <div className="text-xs text-neutral-400 font-medium flex items-center gap-2">

@@ -40,9 +40,9 @@ export function CTABanner() {
   const ctaHref = isLoggedIn ? "/dashboard" : "/register";
 
   return (
-    <section className="relative overflow-hidden bg-[#FAFAFA]">
+    <section className="w-full relative overflow-hidden bg-[#FAFAFA]">
       <CrosshairGridBackground />
-      <div className="max-w-6xl mx-auto px-4 my-20 relative">
+      <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 my-20 relative">
         <div className="bg-[#0B0F17] border border-neutral-800 rounded-[28px] md:rounded-[36px] py-16 md:py-20 px-6 md:px-12 text-center relative overflow-hidden shadow-none">
           <div
             className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-neutral-800/40 via-transparent to-transparent pointer-events-none"

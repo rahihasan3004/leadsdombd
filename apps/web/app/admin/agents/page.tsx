@@ -457,7 +457,7 @@ export default function AdminAgentsPage() {
   const data = agentsQuery.data;
 
   return (
-    <div className="space-y-4">
+    <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 items-center gap-3 flex-wrap">
           <div className="relative flex-1 max-w-sm">
@@ -523,9 +523,9 @@ export default function AdminAgentsPage() {
         </div>
       )}
 
-      <div className="w-full overflow-x-auto">
+      <div className="w-full overflow-x-auto no-scrollbar">
         <div className="rounded-md border border-surface-200 dark:border-surface-800">
-          <Table>
+          <Table className="min-w-[600px]">
           <TableHeader>
             <TableRow>
               <TableHead>Agent</TableHead>
@@ -851,7 +851,8 @@ export default function AdminAgentsPage() {
                   {importFile ? "all" : ""} rows)
                 </p>
                 <div className="max-h-40 overflow-auto rounded-md border border-surface-200 dark:border-surface-800">
-                  <Table>
+                  <div className="w-full overflow-x-auto no-scrollbar">
+                  <Table className="min-w-[600px]">
                     <TableHeader>
                       <TableRow>
                         {Object.keys(importPreview[0]).slice(0, 5).map((key) => (

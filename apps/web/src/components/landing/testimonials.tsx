@@ -122,8 +122,8 @@ export function Testimonials() {
   const column3 = testimonials.slice(6, 9);
 
   return (
-    <section className="py-24 bg-[#FAFAFA]">
-      <div className="mx-auto max-w-6xl px-4">
+    <section className="w-full py-24 bg-[#FAFAFA]">
+      <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
         <div className="text-center">
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-neutral-900">
             Loved by real estate professionals
@@ -134,7 +134,7 @@ export function Testimonials() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[540px] overflow-hidden relative mt-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 h-[540px] overflow-hidden relative mt-16">
           <div
             className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#FAFAFA] to-transparent z-10"
             aria-hidden="true"

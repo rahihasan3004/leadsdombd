@@ -41,7 +41,8 @@ export default function AdminOrganizationsPage() {
   });
 
   return (
-    <Card className="border-surface-200 dark:border-surface-800">
+    <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
+      <Card className="border-surface-200 dark:border-surface-800">
       <CardHeader>
         <div className="flex items-center gap-3">
           <Building2 className="h-5 w-5 text-surface-400" />
@@ -61,7 +62,8 @@ export default function AdminOrganizationsPage() {
             </div>
           </div>
         )}
-        <Table>
+        <div className="w-full overflow-x-auto no-scrollbar">
+          <Table className="min-w-[600px]">
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>

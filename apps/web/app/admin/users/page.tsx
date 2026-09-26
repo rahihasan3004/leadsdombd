@@ -185,7 +185,7 @@ export default function AdminUsersPage() {
     roleMutation.isPending || balanceMutation.isPending || deleteMutation.isPending;
 
   return (
-    <div className="space-y-4">
+    <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-surface-400" />
@@ -215,9 +215,9 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      <div className="w-full overflow-x-auto">
+      <div className="w-full overflow-x-auto no-scrollbar">
         <div className="rounded-md border border-surface-200 dark:border-surface-800">
-          <Table>
+          <Table className="min-w-[600px]">
           <TableHeader>
             <TableRow>
               <TableHead>User</TableHead>

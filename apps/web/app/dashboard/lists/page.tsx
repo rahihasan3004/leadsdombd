@@ -323,8 +323,8 @@ export default function ListsPage() {
                   ))}
                 </div>
               ) : (
-                <div className="w-full overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <div className="w-full overflow-x-auto no-scrollbar">
+                <table className="w-full text-left text-sm min-w-[600px]">
                   <thead className="border-b border-slate-100 text-[11px] font-normal text-slate-400 uppercase tracking-wider">
                     <tr className="h-14">
                       <th className="px-4 align-middle text-left">Agent & Company</th>
@@ -468,7 +468,7 @@ export default function ListsPage() {
   }
 
   return (
-    <div className="w-full h-screen bg-[#F4F7FB] p-6 overflow-hidden flex flex-col">
+    <div className="w-full h-screen bg-[#F4F7FB] p-3.5 sm:p-6 lg:p-8 overflow-hidden flex flex-col">
       <div className="bg-white border-0 shadow-none rounded-2xl p-6 md:p-8 flex flex-col h-[calc(100vh-48px)] overflow-hidden justify-between">
         <div className="shrink-0">
           <div className="flex items-center justify-between">
@@ -510,8 +510,8 @@ export default function ListsPage() {
         </div>
 
         <div className="w-full flex-1 overflow-hidden my-2">
-          <div className="w-full overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <div className="w-full overflow-x-auto no-scrollbar">
+          <table className="w-full text-left text-sm min-w-[600px]">
             <thead className="border-b border-slate-100 text-[11px] font-normal text-slate-400 uppercase tracking-wider">
               <tr className="h-14">
                 <th className="px-4 align-middle text-left">Order ID & Date</th>

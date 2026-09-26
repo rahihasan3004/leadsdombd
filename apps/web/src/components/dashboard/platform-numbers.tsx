@@ -51,7 +51,7 @@ export function PlatformNumbers({
       <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-4">
         Your Numbers
       </h3>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-6">
         {metrics.map((m) => {
           const Icon = m.icon;
           return (
@@ -62,7 +62,7 @@ export function PlatformNumbers({
               <div className={`mb-2 inline-flex rounded-md ${m.bg} p-1.5`}>
                 <Icon className={`h-4 w-4 ${m.color}`} />
               </div>
-              <p className="text-xl font-bold text-slate-900 dark:text-white">
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white">
                 {m.value}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">

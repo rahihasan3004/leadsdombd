@@ -137,9 +137,9 @@ export function LeadOrderEngine() {
   }, [isFormValid, selectedStates, parsedQty]);
 
   return (
-    <div className="max-w-[1440px] mx-auto pt-6 md:pt-8 pb-6 md:pb-8 space-y-6">
-      <div className="px-6 sm:px-8">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+    <div className="w-full p-4 sm:p-6 lg:p-8 space-y-6">
+      <div className="px-0 sm:px-0 lg:px-0">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 tracking-tight">
           Order Real Estate Leads
         </h1>
         <p className="mt-1 text-sm text-slate-500">

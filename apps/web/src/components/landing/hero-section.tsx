@@ -495,12 +495,12 @@ export function HeroSection() {
   const ctaHref = isLoggedIn ? "/dashboard" : "/register";
 
   return (
-    <section className="relative overflow-hidden bg-[#FAFAFA] pt-16 md:pt-24 pb-12">
+    <section className="relative overflow-hidden bg-[#FAFAFA] pt-16 md:pt-24 pb-12 w-full">
       <CrosshairGridBackground />
 
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] h-[350px] rounded-full bg-gradient-to-tr from-neutral-200/50 via-slate-100/60 to-transparent blur-3xl -z-10 animate-pulse pointer-events-none [animation-duration:6s]" />
 
-      <div className="mx-auto max-w-7xl px-6 text-center">
+      <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 text-center">
         <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-neutral-900 leading-[1.08] max-w-4xl mx-auto text-center">
           Find and Unlock Top Real Estate Agents Across 50 States
         </h1>
@@ -510,7 +510,7 @@ export function HeroSection() {
           territories.
         </p>
 
-        <div className="flex items-center justify-center gap-4 mb-10">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 sm:gap-4 mb-10">
           <Link
             href={ctaHref}
             className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 py-2.5 font-medium text-sm shadow-none border-0 transition-all duration-200 inline-flex items-center"

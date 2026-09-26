@@ -11,7 +11,7 @@ export default function ContactPage() {
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
       <LandingNavbar />
-      <main className="max-w-2xl mx-auto px-6 py-16">
+      <main className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-16">
         <Link
           href="/"
           className="text-sm text-neutral-500 hover:text-neutral-900 transition-colors"
@@ -53,7 +53,7 @@ export default function ContactPage() {
           </div>
         </div>
 
-        <div className="mt-12">
+        <div className="mt-12 bg-white dark:bg-slate-900 p-4 sm:p-8 rounded-2xl border border-slate-100">
           <h2 className="text-lg font-bold text-neutral-900 mb-6">
             Send us a message
           </h2>
@@ -61,42 +61,42 @@ export default function ContactPage() {
             <div>
               <label
                 htmlFor="name"
-                className="block text-sm font-medium text-neutral-700"
+                className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5 block"
               >
                 Name
               </label>
               <input
                 id="name"
                 type="text"
-                className="mt-1 w-full px-3.5 py-2.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:border-neutral-900 transition-colors bg-white"
+                className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                 placeholder="Your name"
               />
             </div>
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-neutral-700"
+                className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5 block"
               >
                 Email
               </label>
               <input
                 id="email"
                 type="email"
-                className="mt-1 w-full px-3.5 py-2.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:border-neutral-900 transition-colors bg-white"
+                className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                 placeholder="you@company.com"
               />
             </div>
             <div>
               <label
                 htmlFor="message"
-                className="block text-sm font-medium text-neutral-700"
+                className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5 block"
               >
                 Message
               </label>
               <textarea
                 id="message"
                 rows={4}
-                className="mt-1 w-full px-3.5 py-2.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:border-neutral-900 transition-colors bg-white"
+                className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                 placeholder="How can we help?"
               />
             </div>

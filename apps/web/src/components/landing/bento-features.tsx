@@ -377,10 +377,10 @@ function Card4() {
 
 export function BentoFeatures() {
   return (
-    <section id="features" className="py-24 bg-white">
+    <section id="features" className="w-full py-24 bg-white">
       <SectionHeader />
 
-      <div className="mx-auto max-w-7xl px-4 mt-16">
+      <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 mt-16">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
           <Card1 />
           <Card2 />

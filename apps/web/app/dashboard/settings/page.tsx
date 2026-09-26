@@ -257,9 +257,9 @@ export default function SettingsPage() {
   const canDelete = dangerConfirm === "DELETE" && deleteOtp.length === 6;
 
   return (
-    <div className="w-full min-h-screen bg-[#F4F7FB] p-6 pb-6 space-y-4">
+    <div className="w-full min-h-screen bg-[#F4F7FB] p-3.5 sm:p-6 lg:p-8 pb-3.5 sm:pb-6 lg:pb-8 space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900">
           Settings
         </h1>
         <p className="mt-1.5 text-sm text-slate-500">
@@ -285,22 +285,22 @@ export default function SettingsPage() {
                 <label className="mb-1.5 block text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Full Name
                 </label>
-                <div className="flex gap-3">
-                  <Input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Your full name"
-                    className="flex-1"
-                  />
-                  <Button
-                    onClick={handleSaveName}
-                    disabled={nameLoading}
-                    className="shrink-0 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-0 shadow-none"
-                  >
-                    {nameLoading ? "Saving..." : "Save Name"}
-                  </Button>
-                </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-2">
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your full name"
+                  className="w-full bg-white border border-slate-200 text-slate-900 px-4 py-2.5 rounded-xl outline-none focus:border-blue-500"
+                />
+                <Button
+                  onClick={handleSaveName}
+                  disabled={nameLoading}
+                  className="shrink-0 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-0 shadow-none"
+                >
+                  {nameLoading ? "Saving..." : "Save Name"}
+                </Button>
+              </div>
               </div>
 
               {/* Email Address */}

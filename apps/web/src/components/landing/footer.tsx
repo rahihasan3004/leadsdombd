@@ -7,7 +7,7 @@ export function LandingFooter() {
   return (
     <footer className="w-full bg-white relative overflow-hidden border-none pt-16">
       {/* Top Content: Max-width Container */}
-      <div className="max-w-6xl mx-auto px-4 md:px-6">
+      <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-12">
           {/* Brand / Left Column */}
           <div className="space-y-3">

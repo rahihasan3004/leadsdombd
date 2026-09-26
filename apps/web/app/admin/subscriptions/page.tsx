@@ -183,8 +183,8 @@ export default function AdminSubscriptionsPage() {
   const breakdown = data?.breakdown;
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         <Card className="border-surface-200 dark:border-surface-800 border-l-4 border-l-amber-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-surface-500">
@@ -272,9 +272,9 @@ export default function AdminSubscriptionsPage() {
         </Select>
       </div>
 
-      <div className="w-full overflow-x-auto">
+      <div className="w-full overflow-x-auto no-scrollbar">
         <div className="rounded-md border border-surface-200 dark:border-surface-800">
-          <Table>
+          <Table className="min-w-[600px]">
           <TableHeader>
             <TableRow>
               <TableHead>User</TableHead>

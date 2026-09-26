@@ -85,11 +85,13 @@ function FeatureCell({
 
 export function FeatureMatrix() {
   return (
-    <section className="max-w-6xl mx-auto px-4 my-20">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border-t border-b border-neutral-200/80 divide-y sm:divide-y-0 sm:divide-x divide-neutral-200/80 bg-white">
-        {features.map((feature) => (
-          <FeatureCell key={feature.title} {...feature} />
-        ))}
+    <section className="w-full bg-white my-20">
+      <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border-t border-b border-neutral-200/80 divide-y sm:divide-y-0 sm:divide-x divide-neutral-200/80 bg-white">
+          {features.map((feature) => (
+            <FeatureCell key={feature.title} {...feature} />
+          ))}
+        </div>
       </div>
       <div className="border-t border-neutral-200/80" />
     </section>

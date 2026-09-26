@@ -101,11 +101,11 @@ export function LeadSearch({ agents = [], matchCount, totalRecords = TOTAL_RECOR
   const displayMatchCount = matchCount ?? 0;
 
   return (
-    <div className="h-full overflow-auto">
+    <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 h-full overflow-auto">
       <div className="pb-8">
-        <div className="flex items-start justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-6 gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-surface-950 dark:text-white">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-surface-950 dark:text-white">
               Search Leads
             </h1>
             <p className="mt-1 text-sm text-surface-500 dark:text-surface-400">
@@ -274,9 +274,8 @@ export function LeadSearch({ agents = [], matchCount, totalRecords = TOTAL_RECOR
           </div>
         </div>
 
-        <div className="w-full bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-md overflow-hidden shadow-2xs">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+        <div className="w-full overflow-x-auto no-scrollbar">
+          <table className="w-full min-w-[600px]">
               <thead>
                 <tr className="border-b border-surface-200 dark:border-surface-800 bg-surface-50/50 dark:bg-surface-950/50">
                   <th className={tableHeaderClasses}>Agent &amp; Title</th>

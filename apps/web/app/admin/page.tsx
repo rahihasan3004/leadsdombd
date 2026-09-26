@@ -90,8 +90,8 @@ export default async function AdminPage() {
   const { auditLogs, transactions } = recentActivity;
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-6">
         <Card className="border-surface-200 dark:border-surface-800">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-surface-500">
@@ -271,7 +271,8 @@ export default async function AdminPage() {
             <CardDescription>Latest platform activity</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
+            <div className="w-full overflow-x-auto no-scrollbar">
+            <Table className="min-w-[600px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[140px]">User</TableHead>
@@ -318,7 +319,8 @@ export default async function AdminPage() {
             <CardDescription>Latest wallet transactions</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
+            <div className="w-full overflow-x-auto no-scrollbar">
+            <Table className="min-w-[600px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[140px]">User</TableHead>

@@ -1,8 +1,8 @@
 export default function ExportsPage() {
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Lead Exports</h1>
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Lead Exports</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Download your exported agent lists.
         </p>

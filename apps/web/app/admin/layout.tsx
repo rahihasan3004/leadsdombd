@@ -18,7 +18,7 @@ export default async function AdminLayout({
       <AdminSidebar user={user} mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
         <AdminHeader onMenuClick={() => setMobileOpen(true)} />
-        <main className="flex-1 p-6 overflow-auto">{children}</main>
+        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 overflow-auto">{children}</main>
       </div>
     </div>
   );
