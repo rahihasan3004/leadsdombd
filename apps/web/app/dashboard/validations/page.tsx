@@ -7,7 +7,7 @@ export default function ValidationsPage() {
           Email and phone verification results for your leads.
         </p>
       </div>
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-12 text-center shadow-sm">
+      <div className="rounded-2xl border-0 bg-white p-12 text-center shadow-none">
         <p className="text-slate-400 dark:text-slate-500">No validations run yet. Purchase a state pack to verify leads.</p>
       </div>
     </div>

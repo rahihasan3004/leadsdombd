@@ -31,7 +31,7 @@ export function KpiCard({
   badgeColor = "bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full px-2 py-0.5 text-xs font-medium",
 }: KpiCardProps) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-3.5 sm:p-6 flex flex-col justify-between">
+    <div className="bg-white shadow-none border-0 rounded-2xl p-3.5 sm:p-6 flex flex-col justify-between">
       <div className="flex items-center justify-between w-full">
         <span className={cn("p-3 rounded-xl w-fit", iconBg, iconColor)}>
           {Icon ? <Icon className="h-5 w-5" /> : null}

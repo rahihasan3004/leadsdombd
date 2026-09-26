@@ -7,7 +7,7 @@ export default function ExportsPage() {
           Download your exported agent lists.
         </p>
       </div>
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-12 text-center shadow-sm">
+      <div className="rounded-2xl border-0 bg-white p-12 text-center shadow-none">
         <p className="text-slate-400 dark:text-slate-500">No exports yet. Search for agents and export a list.</p>
       </div>
     </div>

@@ -47,7 +47,7 @@ export default function SupportPage() {
         </p>
 
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-6">
+          <div className="rounded-xl border-0 bg-white p-4 sm:p-6">
             <h2 className="font-semibold text-neutral-900">Sales</h2>
             <p className="mt-1 text-sm text-neutral-500">
               Interested in LeadsDom for your team?
@@ -59,7 +59,7 @@ export default function SupportPage() {
               sales@leadsdom.com
             </a>
           </div>
-          <div className="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-6">
+          <div className="rounded-xl border-0 bg-white p-4 sm:p-6">
             <h2 className="font-semibold text-neutral-900">Technical Support</h2>
             <p className="mt-1 text-sm text-neutral-500">
               Need help with your account?
@@ -73,7 +73,7 @@ export default function SupportPage() {
           </div>
         </div>
 
-        <div className="mt-10 bg-white border border-slate-200/80 text-slate-900 rounded-2xl shadow-sm p-4 sm:p-8">
+        <div className="mt-10 bg-white shadow-none border-0 text-slate-900 rounded-2xl p-4 sm:p-8">
           <h2 className="text-lg font-bold text-neutral-900 mb-6">
             Send us a message
           </h2>

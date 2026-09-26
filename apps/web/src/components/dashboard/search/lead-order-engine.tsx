@@ -4,6 +4,9 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { US_STATES } from "@fine-leads/utils";
 import { Popover, PopoverTrigger, PopoverContent } from "@fine-leads/ui";
 import { Check, Search, X, ChevronDown, Lock } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 const ALL_US_STATES = US_STATES.map((s) => s.code);
 
@@ -28,6 +31,8 @@ const DATA_GUARANTEES = [
 ] as const;
 
 export function LeadOrderEngine() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(0);
   const [quantityInput, setQuantityInput] = useState("");
@@ -112,29 +117,49 @@ export function LeadOrderEngine() {
     if (!isFormValid) return;
     setSubmitting(true);
     try {
-      const res = await fetch("/api/lemon-squeezy/checkout", {
+      const res = await fetch("/api/purchases/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: "LEAD_PURCHASE",
-          unlockedStates: selectedStates,
-          amount: parsedQty * 0.019,
+          states: selectedStates,
+          quantity: parsedQty,
         }),
       });
 
       const data = await res.json();
 
-      if (res.ok && data.url) {
-        window.location.href = data.url;
-      } else {
-        console.error("Checkout error:", data.error || "Unknown error");
+      if (!res.ok) {
+        if (data.error === "INSUFFICIENT_FUNDS") {
+          toast.error("Insufficient wallet balance", {
+            description: `$${data.required.toFixed(2)} required, balance $${data.balance.toFixed(2)}. Please top up your wallet.`,
+            action: {
+              label: "Top Up Wallet",
+              onClick: () => router.push("/dashboard/billing"),
+            },
+          });
+          return;
+        }
+        toast.error(data.error || "Failed to process purchase");
+        return;
       }
+
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+
+      toast.success("Purchase successful", {
+        description: `${data.unlockedCount} leads unlocked. Redirecting to your vault...`,
+      });
+
+      router.push("/dashboard/lists");
     } catch (err) {
+      toast.error("Something went wrong. Please try again.");
       console.error("[CHECKOUT_ERROR]:", err);
     } finally {
       setSubmitting(false);
     }
-  }, [isFormValid, selectedStates, parsedQty]);
+  }, [isFormValid, selectedStates, parsedQty, router, queryClient]);
 
   return (
     <div className="w-full p-4 sm:p-6 lg:p-8 space-y-6">
@@ -148,7 +173,7 @@ export function LeadOrderEngine() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-sm space-y-7">
+        <div className="lg:col-span-7 xl:col-span-8 bg-white shadow-none border-0 rounded-2xl p-6 sm:p-8 space-y-7">
           <SectionNiche />
           <SectionStates
             selectedStates={selectedStates}
@@ -170,7 +195,7 @@ export function LeadOrderEngine() {
         </div>
 
         <div className="lg:col-span-5 xl:col-span-4 sticky top-6">
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-sm space-y-6">
+          <div className="bg-white shadow-none border-0 rounded-2xl p-6 sm:p-8 space-y-6">
             <h2 className="text-lg font-bold text-slate-900 tracking-tight">
               Order Summary
             </h2>

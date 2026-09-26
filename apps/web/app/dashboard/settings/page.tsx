@@ -271,7 +271,7 @@ export default function SettingsPage() {
         {/* Left / Main Column */}
         <div className="lg:col-span-2 space-y-6">
           {/* Card 1: Profile Information */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+          <div className="bg-white shadow-none border-0 rounded-2xl p-6">
             <h2 className="text-base font-bold text-slate-900 tracking-tight mb-1">
               Profile Information
             </h2>
@@ -350,13 +350,13 @@ export default function SettingsPage() {
 
           {/* Card 2: Security & Password */}
           {(securityLoading || !securityInfo) ? (
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+            <div className="bg-white shadow-none border-0 rounded-2xl p-6">
               <div className="h-7 w-32 bg-slate-200 rounded-md animate-pulse mb-2" />
               <div className="h-4 w-48 bg-slate-200 rounded-md animate-pulse mb-6" />
               <div className="h-24 bg-slate-200 rounded-xl animate-pulse" />
             </div>
           ) : securityInfo.isGoogleUser ? (
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+            <div className="bg-white shadow-none border-0 rounded-2xl p-6">
               <h2 className="text-base font-bold text-slate-900 tracking-tight mb-1">
                 Security
               </h2>
@@ -380,7 +380,7 @@ export default function SettingsPage() {
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+            <div className="bg-white shadow-none border-0 rounded-2xl p-6">
               <h2 className="text-base font-bold text-slate-900 tracking-tight mb-1">
                 Security & Password
               </h2>
@@ -469,7 +469,7 @@ export default function SettingsPage() {
 
         {/* Right Column: Danger Zone */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 border border-red-200">
+          <div className="bg-white shadow-none border-0 rounded-2xl p-6 border border-red-200">
             <h2 className="text-base font-bold text-red-600 tracking-tight mb-1 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
               Danger Zone

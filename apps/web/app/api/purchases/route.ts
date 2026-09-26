@@ -83,6 +83,7 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
+    const purchaseId = searchParams.get("purchaseId") || undefined;
     const page = Math.max(
       DEFAULT_PAGE,
       parseInt(searchParams.get("page") || String(DEFAULT_PAGE), 10)
@@ -113,6 +114,88 @@ export async function GET(request: Request) {
       );
     }
 
+    if (purchaseId) {
+      const purchase = await db.leadPurchase.findFirst({
+        where: { id: purchaseId, userId: session.user.id, status: "COMPLETED" },
+        include: {
+          unlockedLeads: {
+            include: {
+              agent: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  phone: true,
+                  officePhone: true,
+                  brokerageName: true,
+                  city: true,
+                  state: true,
+                  zipCode: true,
+                  county: true,
+                  category: true,
+                  rating: true,
+                  reviewCount: true,
+                  timezone: true,
+                  googlePlaceId: true,
+                  googleMapsLink: true,
+                  scrapedAt: true,
+                  verificationScore: true,
+                  dataSource: true,
+                  photoUrl: true,
+                  websiteUrl: true,
+                  brokerageAddress: true,
+                  licenseNumber: true,
+                  licenseState: true,
+                  licenseStatus: true,
+                  licenseExpiry: true,
+                  nmlsId: true,
+                  marketArea: true,
+                  propertyTypes: true,
+                  transactionCount: true,
+                  totalVolume: true,
+                  averagePrice: true,
+                  yearsExperience: true,
+                  specializations: true,
+                  bio: true,
+                  socialProfiles: true,
+                  lastVerifiedAt: true,
+                  isVerified: true,
+                  emailStatus: true,
+                  isDeliverable: true,
+                  createdAt: true,
+                  updatedAt: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!purchase) {
+        return NextResponse.json(
+          { error: "Purchase not found" },
+          { status: 404 },
+        );
+      }
+
+      const leads = (purchase.unlockedLeads || [])
+        .map((ul) => ul.agent)
+        .filter(Boolean);
+
+      return NextResponse.json({
+        purchase,
+        leads,
+        pagination: {
+          total: 1,
+          pages: 1,
+          currentPage: 1,
+          limit: leads.length,
+        },
+      });
+    }
+
     if (purchases.length === 0) {
       return NextResponse.json({
         purchases: [],
@@ -130,25 +213,63 @@ export async function GET(request: Request) {
     const uniquePurchasedStates = Array.from(new Set(purchasedStates));
     const totalAmountPaid = purchases.reduce((sum, p) => sum + Number(p.amountPaid), 0);
 
-    const stateQuery = expandStateQuery(uniquePurchasedStates);
+    const unlockedLeads = await db.unlockedLead.findMany({
+      where: { userId: session.user.id },
+      include: {
+        agent: {
+          select: {
+            id: true,
+            fullName: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            officePhone: true,
+            brokerageName: true,
+            city: true,
+            state: true,
+            zipCode: true,
+            county: true,
+            category: true,
+            rating: true,
+            reviewCount: true,
+            timezone: true,
+            googlePlaceId: true,
+            googleMapsLink: true,
+            scrapedAt: true,
+            verificationScore: true,
+            dataSource: true,
+            photoUrl: true,
+            websiteUrl: true,
+            brokerageAddress: true,
+            licenseNumber: true,
+            licenseState: true,
+            licenseStatus: true,
+            licenseExpiry: true,
+            nmlsId: true,
+            marketArea: true,
+            propertyTypes: true,
+            transactionCount: true,
+            totalVolume: true,
+            averagePrice: true,
+            yearsExperience: true,
+            specializations: true,
+            bio: true,
+            socialProfiles: true,
+            lastVerifiedAt: true,
+            isVerified: true,
+            emailStatus: true,
+            isDeliverable: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
 
-    let leads: any[] = [];
-    try {
-      leads = stateQuery.length > 0
-        ? await db.agent.findMany({
-            where: {
-              state: { in: stateQuery },
-              email: { not: null },
-              isDeliverable: true,
-            },
-            orderBy: { rating: "desc" },
-            take: limit,
-          })
-        : [];
-    } catch (err) {
-      console.error("Lead fetch error:", err);
-      leads = [];
-    }
+    const leads = unlockedLeads
+      .map((ul) => ul.agent)
+      .filter((agent): agent is NonNullable<typeof agent> => Boolean(agent));
 
     return NextResponse.json({
       purchases,

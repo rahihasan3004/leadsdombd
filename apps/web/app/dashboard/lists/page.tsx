@@ -142,12 +142,56 @@ export default function ListsPage() {
     setLeads([]);
 
     try {
-      const states = purchase.unlockedStates.join(",");
-      const res = await fetch(`/api/agents?state=${states}&limit=100`);
+      const res = await fetch(`/api/purchases?purchaseId=${encodeURIComponent(purchase.id)}`);
       if (res.ok) {
         const data = await res.json();
-        setLeads(data.agents || []);
-        setTotalLeads(data.pagination?.total || (data.agents || []).length);
+        setLeads((data.leads || []).map((agent: Record<string, unknown>) => ({
+          id: agent.id as string,
+          fullName: agent.fullName as string,
+          firstName: agent.firstName as string | undefined,
+          lastName: agent.lastName as string | undefined,
+          email: agent.email as string | undefined,
+          phone: agent.phone as string | undefined,
+          officePhone: agent.officePhone as string | undefined,
+          brokerageName: agent.brokerageName as string | undefined,
+          city: agent.city as string | undefined,
+          state: agent.state as string | undefined,
+          zipCode: agent.zipCode as string | undefined,
+          county: agent.county as string | undefined,
+          category: agent.category as string | undefined,
+          rating: agent.rating as number | undefined,
+          reviewCount: agent.reviewCount as number | undefined,
+          timezone: agent.timezone as string | undefined,
+          googlePlaceId: agent.googlePlaceId as string | undefined,
+          googleMapsLink: agent.googleMapsLink as string | undefined,
+          scrapedAt: agent.scrapedAt as string | undefined,
+          verificationScore: agent.verificationScore as number | undefined,
+          dataSource: agent.dataSource as string | undefined,
+          photoUrl: agent.photoUrl as string | undefined,
+          websiteUrl: agent.websiteUrl as string | undefined,
+          brokerageAddress: agent.brokerageAddress as string | undefined,
+          licenseNumber: agent.licenseNumber as string | undefined,
+          licenseState: agent.licenseState as string | undefined,
+          licenseStatus: agent.licenseStatus as string | undefined,
+          licenseExpiry: agent.licenseExpiry as string | undefined,
+          nmlsId: agent.nmlsId as string | undefined,
+          marketArea: agent.marketArea as string | undefined,
+          propertyTypes: agent.propertyTypes as string[] | undefined,
+          transactionCount: agent.transactionCount as number | undefined,
+          totalVolume: agent.totalVolume as number | undefined,
+          averagePrice: agent.averagePrice as number | undefined,
+          yearsExperience: agent.yearsExperience as number | undefined,
+          specializations: agent.specializations as string[] | undefined,
+          bio: agent.bio as string | undefined,
+          socialProfiles: agent.socialProfiles as Record<string, unknown> | undefined,
+          lastVerifiedAt: agent.lastVerifiedAt as string | undefined,
+          isVerified: agent.isVerified as boolean | undefined,
+          emailStatus: agent.emailStatus as string | undefined,
+          isDeliverable: agent.isDeliverable as boolean | undefined,
+          createdAt: agent.createdAt as string | undefined,
+          updatedAt: agent.updatedAt as string | undefined,
+        })));
+        setTotalLeads(data.leads?.length || 0);
       }
     } catch {
       setLeads([]);
@@ -186,9 +230,11 @@ export default function ListsPage() {
     );
   }, [leads, leadSearch]);
 
-  const handleDownloadCsv = useCallback((states: string[]) => {
+  const handleDownloadCsv = useCallback((states: string[], purchaseId?: string) => {
     states.forEach((stateCode) => {
-      const url = `/api/exports/stream?state=${encodeURIComponent(stateCode)}`;
+      const url = purchaseId
+        ? `/api/exports/stream?state=${encodeURIComponent(stateCode)}&purchaseId=${encodeURIComponent(purchaseId)}`
+        : `/api/exports/stream?state=${encodeURIComponent(stateCode)}`;
       const a = document.createElement("a");
       a.href = url;
       a.download = "";
@@ -210,13 +256,13 @@ export default function ListsPage() {
   if (loading) {
     return (
       <div className="w-full min-h-screen bg-slate-50 p-6 pb-4 space-y-4">
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-7 md:p-9 space-y-6">
+        <div className="bg-white shadow-none border-0 rounded-2xl p-7 md:p-9 space-y-6">
           <div>
             <Skeleton className="h-7 w-48" />
             <Skeleton className="h-5 w-72 mt-2" />
           </div>
           <Skeleton className="h-10 w-64 rounded-xl" />
-          <div className="w-full bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="w-full bg-white border-0 rounded-2xl overflow-hidden">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="border-b border-slate-100 px-4 py-4">
                 <Skeleton className="h-5 w-full" />
@@ -231,7 +277,7 @@ export default function ListsPage() {
   if (purchases.length === 0 && !selectedPurchase) {
     return (
       <div className="w-full min-h-screen bg-slate-50 p-6 pb-4 space-y-4">
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-7 md:p-9 space-y-6">
+        <div className="bg-white shadow-none border-0 rounded-2xl p-7 md:p-9 space-y-6">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
               My Leads Vault
@@ -268,7 +314,7 @@ export default function ListsPage() {
     return (
       <>
         <div className="w-full h-screen bg-slate-50 p-6 overflow-hidden flex flex-col">
-          <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl p-6 md:p-8 flex flex-col h-[calc(100vh-48px)] overflow-hidden justify-between">
+          <div className="bg-white shadow-none border-0 rounded-2xl p-6 md:p-8 flex flex-col h-[calc(100vh-48px)] overflow-hidden justify-between">
             <div className="shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -291,7 +337,7 @@ export default function ListsPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleDownloadCsv(selectedPurchase.unlockedStates)}
+                  onClick={() => handleDownloadCsv(selectedPurchase.unlockedStates, selectedPurchase.id)}
                   className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold shadow-none border-0 transition-all duration-200 flex items-center gap-2 cursor-pointer"
                 >
                   <Download className="h-3.5 w-3.5" /> Download Full CSV
@@ -469,7 +515,7 @@ export default function ListsPage() {
 
   return (
     <div className="w-full h-screen bg-slate-50 p-3.5 sm:p-6 lg:p-8 overflow-hidden flex flex-col">
-      <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl p-6 md:p-8 flex flex-col h-[calc(100vh-48px)] overflow-hidden justify-between">
+      <div className="bg-white shadow-none border-0 rounded-2xl p-6 md:p-8 flex flex-col h-[calc(100vh-48px)] overflow-hidden justify-between">
         <div className="shrink-0">
           <div className="flex items-center justify-between">
             <div>
@@ -583,7 +629,7 @@ export default function ListsPage() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDownloadCsv(purchase.unlockedStates);
+                            handleDownloadCsv(purchase.unlockedStates, purchase.id);
                           }}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F0F4FF] text-[#465FFF] border border-blue-100 hover:bg-blue-100/70 font-semibold text-xs shadow-none transition-colors cursor-pointer"
                         >

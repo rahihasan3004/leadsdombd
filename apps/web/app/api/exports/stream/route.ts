@@ -80,7 +80,7 @@ function formatCsvRow(agent: {
   ].join(",");
 }
 
-function createCsvStream(stateCode: string, exportId: string): ReadableStream<Uint8Array> {
+function createCsvStream(stateCode: string, exportId: string, agentIds: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
 
   return new ReadableStream({
@@ -98,6 +98,7 @@ function createCsvStream(stateCode: string, exportId: string): ReadableStream<Ui
               state: stateCode,
               email: { not: null },
               isDeliverable: true,
+              id: { in: agentIds },
             },
             select: {
               id: true,
@@ -173,6 +174,7 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const stateCodeRaw = searchParams.get("state")?.toUpperCase()?.trim();
+    const purchaseId = searchParams.get("purchaseId") || undefined;
 
     if (!stateCodeRaw) {
       return NextResponse.json({ error: "State parameter is required" }, { status: 400 });
@@ -195,29 +197,73 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Invalid state code" }, { status: 400 });
     }
 
-    const purchases = await db.leadPurchase.findMany({
-      where: { userId: session.user.id, status: "COMPLETED" },
-      select: { unlockedStates: true },
-    });
+    let agentIds: string[] = [];
 
-    const unlockedStates = new Set(
-      purchases.flatMap((p) => p.unlockedStates).map((s) => s.toUpperCase())
-    );
+    if (purchaseId) {
+      const purchase = await db.leadPurchase.findFirst({
+        where: { id: purchaseId, userId: session.user.id, status: "COMPLETED" },
+        include: {
+          unlockedLeads: {
+            where: {
+              agent: {
+                state: stateCode,
+                email: { not: null },
+                isDeliverable: true,
+              },
+            },
+            select: { agentId: true },
+          },
+        },
+      });
 
-    if (!unlockedStates.has(stateCode)) {
+      if (!purchase) {
+        return NextResponse.json(
+          { error: "Purchase not found or not authorized" },
+          { status: 403 }
+        );
+      }
+
+      agentIds = (purchase.unlockedLeads || []).map((ul) => ul.agentId);
+    } else {
+      const purchases = await db.leadPurchase.findMany({
+        where: { userId: session.user.id, status: "COMPLETED" },
+        select: { unlockedStates: true },
+      });
+
+      const unlockedStates = new Set(
+        purchases.flatMap((p) => p.unlockedStates).map((s) => s.toUpperCase())
+      );
+
+      if (!unlockedStates.has(stateCode)) {
+        return NextResponse.json(
+          { error: "You have not purchased this state" },
+          { status: 403 }
+        );
+      }
+
+      const unlockedLeads = await db.unlockedLead.findMany({
+        where: {
+          userId: session.user.id,
+          agent: {
+            state: stateCode,
+            email: { not: null },
+            isDeliverable: true,
+          },
+        },
+        select: { agentId: true },
+      });
+
+      agentIds = unlockedLeads.map((ul) => ul.agentId);
+    }
+
+    if (agentIds.length === 0) {
       return NextResponse.json(
-        { error: "You have not purchased this state" },
-        { status: 403 }
+        { error: "No unlocked leads available for this state" },
+        { status: 404 }
       );
     }
 
-    const agentCount = await db.agent.count({
-      where: {
-        state: stateCode,
-        email: { not: null },
-        isDeliverable: true,
-      },
-    });
+    const agentCount = agentIds.length;
 
     const exportRecord = await db.leadExport.create({
       data: {
@@ -225,14 +271,18 @@ export async function GET(req: Request) {
         format: "CSV",
         agentCount,
         status: "PROCESSING",
-        searchQuery: { state: stateCode, exportedAt: new Date().toISOString() },
+        searchQuery: {
+          state: stateCode,
+          exportedAt: new Date().toISOString(),
+          purchaseId: purchaseId || null,
+        },
       },
     });
 
     const stateName = validState.name.toLowerCase().replace(/\s+/g, "-");
     const filename = `leadsdom-export-${stateName}-${Date.now()}.csv`;
 
-    const stream = createCsvStream(stateCode, exportRecord.id);
+    const stream = createCsvStream(stateCode, exportRecord.id, agentIds);
 
     return new NextResponse(stream, {
       headers: {

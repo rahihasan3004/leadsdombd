@@ -126,6 +126,7 @@ model User {
   leadExports      LeadExport[]
   purchases        LeadPurchase[]
   walletTransactions WalletTransaction[]
+  unlockedLeads    UnlockedLead[]
 
   @@index([organizationId])
   @@index([email])
@@ -315,6 +316,7 @@ model Agent {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   agentActivities   AgentActivity[]
+  unlockedBy        UnlockedLead[]
 
   @@index([state])
   @@index([licenseState, licenseNumber])
@@ -341,6 +343,23 @@ model AgentActivity {
   createdAt DateTime @default(now())
 
   @@index([agentId, createdAt])
+}
+
+model UnlockedLead {
+  id         String   @id @default(cuid())
+  userId     String
+  agentId    String
+  purchaseId String
+  createdAt  DateTime @default(now())
+
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent      Agent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  purchase   LeadPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, agentId])
+  @@index([userId])
+  @@index([agentId])
+  @@index([purchaseId])
 }
 
 model AuditLog {
@@ -379,11 +398,13 @@ model LeadPurchase {
   state           String?
   unlockedStates  String[]
   amountPaid      Decimal          @default(0) @db.Decimal(12, 2)
+  leadCount       Int             @default(0)
   status          PurchaseStatus @default(COMPLETED)
   stripeSessionId String?
   refundedAt      DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+  unlockedLeads   UnlockedLead[]
 
   @@index([userId])
   @@index([userId, createdAt])

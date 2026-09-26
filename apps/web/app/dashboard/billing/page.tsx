@@ -185,7 +185,7 @@ export default function BillingPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 md:p-6 flex flex-col justify-between space-y-4">
+        <div className="lg:col-span-8 bg-white shadow-none border-0 rounded-2xl p-5 md:p-6 flex flex-col justify-between space-y-4">
           <div className="space-y-1">
             <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
               Available Wallet Balance
@@ -260,7 +260,7 @@ export default function BillingPage() {
           </div>
         </div>
 
-        <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 md:p-6 flex flex-col justify-between space-y-4">
+        <div className="lg:col-span-4 bg-white shadow-none border-0 rounded-2xl p-5 md:p-6 flex flex-col justify-between space-y-4">
           <div className="space-y-4">
             <div className="text-lg font-bold text-slate-900 mb-1">
               Custom Territory Feeds
@@ -295,7 +295,7 @@ export default function BillingPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 flex flex-col justify-between min-h-[300px]">
+      <div className="bg-white shadow-none border-0 rounded-2xl p-6 flex flex-col justify-between min-h-[300px]">
         {error && (
           <div className="mb-4 rounded-xl bg-red-50 border border-red-200/60 p-4 flex items-center gap-3">
             <span className="text-xs font-medium text-red-600 flex-1">{error}</span>
