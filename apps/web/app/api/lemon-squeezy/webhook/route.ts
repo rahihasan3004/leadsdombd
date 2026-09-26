@@ -85,8 +85,8 @@ export async function POST(req: NextRequest) {
           await tx.leadPurchase.create({
             data: {
               userId: targetUser.id,
-              unlockedStates,
-              amountPaid,
+              unlockedStates: Array.isArray(unlockedStates) ? unlockedStates : JSON.parse(unlockedStates || "[]"),
+              amountPaid: paidAmount,
               status: "COMPLETED",
               referenceId: `lp_${orderId}`,
             },
