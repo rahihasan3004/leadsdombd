@@ -78,3 +78,5 @@ export { runContinuous } from "./runner.js";
 export type { RunnerConfig } from "./runner.js";
 
 export { GoogleMapsAdapter } from "./adapters/google-maps.adapter.js";
+export { GoogleMapsCdpAdapter } from "./adapters/google-maps-cdp.adapter.js";
+export { createGoogleMapsAdapter } from "./adapters/index.js";

@@ -15,8 +15,8 @@ export interface VerifiedLeadPayload {
   googleMainCategory: string;
   googleSubcategories: string;
   website: string;
-  rating: number;
-  reviewCount: number;
+  rating: number | null;
+  reviewCount: number | null;
   scrapedAt: string;
   email: string;
   emailStatus: string;

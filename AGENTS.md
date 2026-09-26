@@ -91,3 +91,17 @@ All API routes under `app/api/` follow REST conventions:
 - `GET /api/lists` — get user saved lists
 - `POST /api/auth/signup` — register new user
 - `/api/auth/[...nextauth]` — Auth.js route handler
+
+### Scraper Engine (Google Maps Adapters)
+The scraper engine supports multiple adapter variants for Google Maps data
+extraction, selectable via the environment variable `SCRAPER_ENGINE_VARIANT`:
+- **`dom`** (default) — Traditional DOM-based extraction from rendered page content.
+- **`cdp`** — Protocol-level CDP network interception with in-flight circuit-breaker
+  DOM fallback. This variant activates the **Akkhar-Magic** architecture, which
+  intercepts Google Maps internal RPC response payloads directly off the wire
+  via Chrome DevTools Protocol, bypassing presentation-layer DOM fragility.
+- **`hybrid`** — Alias for `cdp`, same Akkhar-Magic architecture.
+
+The CDP architecture is inspired by and adapted from
+[**Akkhar-Magic**](https://github.com/akkhar-labs/akkhar-magic)
+(`akkhar-labs/akkhar-magic`), developed by Akkhar-Labs (Rahat Hasan).

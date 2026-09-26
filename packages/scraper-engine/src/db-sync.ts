@@ -17,8 +17,14 @@ INSERT INTO "Agent" (
   "isVerified", "verificationScore", "licenseStatus", "updatedAt"
 ) VALUES (gen_random_uuid(), $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25, NOW())
 ON CONFLICT ("googlePlaceId") DO UPDATE SET
-  rating = EXCLUDED.rating,
-  "reviewCount" = EXCLUDED."reviewCount",
+  rating = CASE
+    WHEN EXCLUDED.rating IS NOT NULL AND EXCLUDED.rating > 0 THEN EXCLUDED.rating
+    ELSE "Agent".rating
+  END,
+  "reviewCount" = CASE
+    WHEN EXCLUDED."reviewCount" IS NOT NULL AND EXCLUDED."reviewCount" > 0 THEN EXCLUDED."reviewCount"
+    ELSE "Agent"."reviewCount"
+  END,
   "scrapedAt" = EXCLUDED."scrapedAt",
   "emailStatus" = EXCLUDED."emailStatus",
   "websiteUrl" = EXCLUDED."websiteUrl",

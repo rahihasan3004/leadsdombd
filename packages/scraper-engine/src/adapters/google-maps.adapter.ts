@@ -26,8 +26,8 @@ function isReasonableName(raw: string): boolean {
 
 function hasBusinessSignal(result: GoogleMapsPlaceResult): boolean {
   let signals = 0;
-  if (result.rating > 0 && result.rating <= 5.0) signals++;
-  if (result.reviewCount > 0) signals++;
+  if (result.rating !== null && result.rating > 0 && result.rating <= 5.0) signals++;
+  if (result.reviewCount !== null && result.reviewCount > 0) signals++;
   if (result.mainCategory && result.mainCategory.length > 1) signals++;
   if (result.address && result.address.length > 5) signals++;
   if (result.website && result.website.length > 10) signals++;
@@ -51,7 +51,7 @@ const BROKERAGE_DELIMITERS = [
 
 const TITLE_SUFFIXES = /,?\s*(realtor|real estate agent|real estate broker|broker|agent|associate broker|team lead|sales associate|licensed salesperson|owner|principal|founder|partner|director|managing broker|designated broker|broker associate)\b\.?\s*/i;
 
-function parseNameAndBrokerage(raw: string): ParsedAgentName {
+export function parseNameAndBrokerage(raw: string): ParsedAgentName {
   const trimmed = raw.trim();
   let personPart = trimmed;
   let brokeragePart = "";
@@ -112,8 +112,8 @@ interface GoogleMapsPlaceResult {
   zipCode: string;
   phone: string;
   website: string;
-  rating: number;
-  reviewCount: number;
+  rating: number | null;
+  reviewCount: number | null;
   mainCategory: string;
   subcategories: string[];
   mapsLink: string;
@@ -144,7 +144,7 @@ const US_CITY_COORDS: Record<string, [number, number]> = {
   "washington": [38.9072, -77.0369],
 };
 
-function getCityCenter(city: string, state: string): [number, number] | null {
+export function getCityCenter(city: string, state: string): [number, number] | null {
   const key = `${city}, ${state}`.toLowerCase();
   if (US_CITY_COORDS[key]) return US_CITY_COORDS[key];
   const cityKey = city.toLowerCase();
@@ -152,7 +152,7 @@ function getCityCenter(city: string, state: string): [number, number] | null {
   return null;
 }
 
-function buildSearchUrl(category: string, location: LocationSpec): string {
+export function buildSearchUrl(category: string, location: LocationSpec): string {
   const cityPart = location.city ? `${location.city}, ` : "";
   const query = `${category} in ${cityPart}${location.state}`;
   if (location.city) {
@@ -164,14 +164,14 @@ function buildSearchUrl(category: string, location: LocationSpec): string {
   return `https://www.google.com/maps/search/${encodeURIComponent(query)}?hl=en`;
 }
 
-function buildPlaceUrl(placeId: string): string {
+export function buildPlaceUrl(placeId: string): string {
   return `https://www.google.com/maps/place/?q=place_id:${placeId}`;
 }
 
-const CHROME_UA =
+export const CHROME_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
-async function handleConsent(page: Page): Promise<void> {
+export async function handleConsent(page: Page): Promise<void> {
   const consentSelectors = [
     'button[aria-label*="Accept all"]',
     'button[aria-label*="Accept"]',
@@ -198,7 +198,7 @@ async function handleConsent(page: Page): Promise<void> {
   }
 }
 
-async function scrollFeed(page: Page, scrollCount: number): Promise<void> {
+export async function scrollFeed(page: Page, scrollCount: number): Promise<void> {
   const feed = page.locator('div[role="feed"]');
   try {
     await feed.waitFor({ state: "visible", timeout: 10000 });
@@ -221,8 +221,8 @@ interface ExtractedCard {
   address: string;
   phone: string;
   website: string;
-  rating: number;
-  reviewCount: number;
+  rating: number | null;
+  reviewCount: number | null;
   mainCategory: string;
   subcategories: string[];
 }
@@ -262,7 +262,7 @@ function filterBusinessUrl(raw: string): string {
   }
 }
 
-async function extractListings(page: Page, location: LocationSpec): Promise<GoogleMapsPlaceResult[]> {
+export async function extractListings(page: Page, location: LocationSpec): Promise<GoogleMapsPlaceResult[]> {
   const blockedDomainsArr = JSON.stringify([...BLOCKED_DOMAINS]);
 
   const results = await page.evaluate(
@@ -306,36 +306,103 @@ async function extractListings(page: Page, location: LocationSpec): Promise<Goog
         return name;
       };
 
+      var parseAbbreviatedNumber = function(str) {
+        var s = str.replace(/,/g, "").trim();
+        var num = parseFloat(s);
+        if (isNaN(num)) return 0;
+        if (/[Kk]/.test(s)) num *= 1000;
+        else if (/[Mm]/.test(s)) num *= 1000000;
+        else if (/[Bb]/.test(s)) num *= 1000000000;
+        return Math.round(num);
+      };
+
       var extractRatingStars = function(card) {
-        var rating = 0;
-        var reviewCount = 0;
-        var ratingEl = card.querySelector('[aria-label*="stars"], [aria-label*="Stars"], [role="img"][aria-label*="star"]');
-        if (ratingEl) {
-          var label = ratingEl.getAttribute("aria-label") || "";
-          var starMatch = label.match(/(\\d+(?:\\.\\d+)?)\\s*(?:stars?|Stars?)/);
-          if (starMatch && starMatch[1]) rating = parseFloat(starMatch[1]);
-        }
+        var rating = null;
+        var reviewCount = null;
+        var cardText = card.textContent || "";
 
-        var text = card.textContent || "";
-
-        var combinedMatch = text.match(/(\\d+(?:\\.\\d+)?)\\s*\\((\\d[\\d,]*)\\)/);
-        if (combinedMatch && combinedMatch[1] && combinedMatch[2]) {
-          if (!rating) rating = parseFloat(combinedMatch[1]);
-          reviewCount = parseInt(combinedMatch[2].replace(/,/g, ""), 10);
-        }
-
-        if (!reviewCount) {
-          var reviewMatch = text.match(/\\((\\d[\\d,]+)\\)/);
-          if (reviewMatch && reviewMatch[1]) {
-            var count = parseInt(reviewMatch[1].replace(/,/g, ""), 10);
-            if (count > 0) reviewCount = count;
+        // 1. Dedicated ARIA review label (e.g. <span role="img" aria-label="42 reviews">)
+        var reviewEls = card.querySelectorAll('[aria-label*="review" i], [role="img"][aria-label*="review" i]');
+        for (var ri = 0; ri < reviewEls.length; ri++) {
+          var rl = (reviewEls[ri].getAttribute("aria-label") || "").trim();
+          var rn = rl.match(/^([\\d,]+\.?[\\d]*[KkMmBb]?)\\s*(?:reviews?|ratings?)/i);
+          if (rn && rn[1]) {
+            var p = parseAbbreviatedNumber(rn[1]);
+            if (p > 0 && p < 10000000) { reviewCount = p; break; }
           }
         }
 
-        if (!reviewCount) {
-          var revWordMatch = text.match(/(\\d[\\d,]+)\\s*(?:reviews?|ratings?)/i);
-          if (revWordMatch && revWordMatch[1]) {
-            reviewCount = parseInt(revWordMatch[1].replace(/,/g, ""), 10);
+        // 2. ARIA rating label (combined or dedicated)
+        var starEl = card.querySelector('[aria-label*="star" i], [role="img"][aria-label*="star" i]');
+        if (starEl) {
+          var sl = starEl.getAttribute("aria-label") || "";
+          var sm = sl.match(/(\\d+(?:\\.\\d+)?)\\s*(?:star|stars)/i);
+          if (sm && sm[1]) {
+            var pr = parseFloat(sm[1]);
+            if (pr > 0 && pr <= 5.0) rating = pr;
+          }
+          if (reviewCount === null) {
+            var rs = sl.match(/([\\d,]+\.?[\\d]*[KkMmBb]?)\\s*(?:reviews?|ratings?)/i);
+            if (rs && rs[1]) {
+              var p2 = parseAbbreviatedNumber(rs[1]);
+              if (p2 > 0 && p2 < 10000000) reviewCount = p2;
+            }
+          }
+        }
+
+        // 3. Text pattern fallback (only for fields still missing)
+        if (rating === null || reviewCount === null) {
+
+          // 3a. Combined: "5.0 · 1.2K reviews" or "5.0 (42)"
+          var cm = cardText.match(/(\\d+(?:\\.\\d+)?)\\s*[·•]\\s*([\\d,]+\.?[\\d]*[KkMmBb]?)\\s*(?:reviews?|ratings?)?/);
+          if (!cm) {
+            cm = cardText.match(/(\\d+(?:\\.\\d+)?)\\s*\\(([\\d,]+\.?[\\d]*[KkMmBb]?)\\)/);
+          }
+          if (cm) {
+            if (rating === null && cm[1]) {
+              var p3 = parseFloat(cm[1]);
+              if (p3 > 0 && p3 <= 5.0) rating = p3;
+            }
+            if (reviewCount === null && cm[2]) {
+              var p4 = parseAbbreviatedNumber(cm[2]);
+              if (p4 > 0 && p4 < 10000000) reviewCount = p4;
+            }
+          }
+
+          // 3b. Parentheses only: (42) or (1.2K)
+          if (reviewCount === null) {
+            var pm = cardText.match(/\\(([\\d,]+\.?[\\d]*[KkMmBb]?)\\)/);
+            if (pm && pm[1]) {
+              var p5 = parseAbbreviatedNumber(pm[1]);
+              if (p5 > 0 && p5 < 10000000) reviewCount = p5;
+            }
+          }
+
+          // 3c. Middle-dot / bullet separated
+          if (reviewCount === null) {
+            var dm = cardText.match(/[·•]\\s*([\\d,]+\.?[\\d]*[KkMmBb]?)\\s*(?:reviews?|ratings?)?/i);
+            if (dm && dm[1]) {
+              var p6 = parseAbbreviatedNumber(dm[1]);
+              if (p6 > 0 && p6 < 10000000) reviewCount = p6;
+            }
+          }
+
+          // 3d. Word-anchored: "42 reviews" / "1.2K ratings"
+          if (reviewCount === null) {
+            var wm = cardText.match(/([\\d,]+\.?[\\d]*[KkMmBb]?)\\s+(?:reviews?|ratings?)/i);
+            if (wm && wm[1]) {
+              var p7 = parseAbbreviatedNumber(wm[1]);
+              if (p7 > 0 && p7 < 10000000) reviewCount = p7;
+            }
+          }
+
+          // 3e. Rating in text
+          if (rating === null) {
+            var tm = cardText.match(/(\\d+(?:\\.\\d+)?)\\s*(?:star|stars)/i);
+            if (tm && tm[1]) {
+              var p8 = parseFloat(tm[1]);
+              if (p8 > 0 && p8 <= 5.0) rating = p8;
+            }
           }
         }
 

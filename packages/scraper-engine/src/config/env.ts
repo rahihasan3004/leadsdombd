@@ -85,6 +85,10 @@ const envSchema = z.object({
     .default("15000")
     .transform(Number)
     .pipe(z.number().int().min(1000).max(60000)),
+  SCRAPER_ENGINE_VARIANT: z
+    .enum(["dom", "cdp", "hybrid"])
+    .optional()
+    .default("dom"),
   LOG_LEVEL: z
     .enum(["trace", "debug", "info", "warn", "error", "fatal"])
     .optional()

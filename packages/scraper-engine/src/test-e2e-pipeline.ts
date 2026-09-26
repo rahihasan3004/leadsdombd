@@ -1,9 +1,11 @@
-import { GoogleMapsAdapter } from "./adapters/google-maps.adapter.js";
+import { createGoogleMapsAdapter } from "./adapters/index.js";
 import {
   EmailFinder,
   SmtpValidator,
   DatabaseSynchronizer,
   createResilientFetcherFromEnv,
+  SourceAdapter,
+  getEnv,
 } from "./index.js";
 
 async function main() {
@@ -45,7 +47,7 @@ async function main() {
   console.log(`[step-1] GoogleMapsAdapter searching "${CATEGORY}" in ${CITY}, ${STATE} (limit: ${LIMIT})...`);
   console.log();
 
-  const adapter = new GoogleMapsAdapter();
+  const adapter = createGoogleMapsAdapter(getEnv().SCRAPER_ENGINE_VARIANT);
   const records = await collectRecords(adapter, {
     category: CATEGORY,
     location: { city: CITY, state: STATE },
@@ -261,10 +263,10 @@ async function main() {
 }
 
 async function collectRecords(
-  adapter: GoogleMapsAdapter,
-  params: Parameters<GoogleMapsAdapter["search"]>[0],
+  adapter: SourceAdapter,
+  params: Parameters<SourceAdapter["search"]>[0],
 ) {
-  const results: Awaited<ReturnType<GoogleMapsAdapter["search"]>> extends AsyncIterable<infer T> ? T[] : never[] = [];
+  const results: Awaited<ReturnType<SourceAdapter["search"]>> extends AsyncIterable<infer T> ? T[] : never[] = [];
 
   for await (const record of adapter.search(params)) {
     results.push(record as never);

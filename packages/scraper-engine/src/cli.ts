@@ -3,7 +3,7 @@ import { getEnv } from "./config/env.js";
 import type { SourceAdapter } from "./crawler.js";
 import { US_STATES } from "./crawler.js";
 import { MASTER_CATEGORIES } from "./config/categories.js";
-import { GoogleMapsAdapter } from "./adapters/google-maps.adapter.js";
+import { createGoogleMapsAdapter } from "./adapters/index.js";
 
 async function main(): Promise<void> {
   const env = getEnv();
@@ -56,7 +56,7 @@ async function main(): Promise<void> {
 
     sourceAdapter = new SourceAdapterClass();
   } else {
-    sourceAdapter = new GoogleMapsAdapter();
+    sourceAdapter = createGoogleMapsAdapter(env.SCRAPER_ENGINE_VARIANT);
   }
 
   const config: RunnerConfig = {

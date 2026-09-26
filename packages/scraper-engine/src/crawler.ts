@@ -119,8 +119,8 @@ export interface RawBusinessRecord {
   googleMainCategory: string;
   googleSubcategories: string;
   website: string;
-  rating: number;
-  reviewCount: number;
+  rating: number | null;
+  reviewCount: number | null;
   scrapedAt: string;
   googlePlaceId: string;
   googleMapsLink: string;
@@ -235,8 +235,8 @@ export abstract class SourceAdapter {
       googleMainCategory: raw.googleMainCategory ?? "",
       googleSubcategories: raw.googleSubcategories ?? "",
       website: this.normalizeUrl(raw.website ?? ""),
-      rating: typeof raw.rating === "number" ? raw.rating : 0,
-      reviewCount: typeof raw.reviewCount === "number" ? raw.reviewCount : 0,
+      rating: typeof raw.rating === "number" ? raw.rating : null,
+      reviewCount: typeof raw.reviewCount === "number" ? raw.reviewCount : null,
       scrapedAt: raw.scrapedAt ?? new Date().toISOString(),
       googlePlaceId: raw.googlePlaceId ?? "",
       googleMapsLink: raw.googleMapsLink ?? "",
