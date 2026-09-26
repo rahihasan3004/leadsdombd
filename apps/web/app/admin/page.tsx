@@ -310,16 +310,17 @@ export default async function AdminPage() {
                 )}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card className="border-surface-200 dark:border-surface-800">
-          <CardHeader>
-            <CardTitle className="text-base">Recent Transactions</CardTitle>
-            <CardDescription>Latest wallet transactions</CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="w-full overflow-x-auto no-scrollbar">
+      <Card className="border-surface-200 dark:border-surface-800">
+        <CardHeader>
+          <CardTitle className="text-base">Recent Transactions</CardTitle>
+          <CardDescription>Latest wallet transactions</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="w-full overflow-x-auto no-scrollbar">
             <Table className="min-w-[600px]">
               <TableHeader>
                 <TableRow>
@@ -367,9 +368,9 @@ export default async function AdminPage() {
                 )}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

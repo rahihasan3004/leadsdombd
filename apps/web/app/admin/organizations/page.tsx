@@ -107,7 +107,8 @@ export default function AdminOrganizationsPage() {
               ))
             )}
           </TableBody>
-        </Table>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );

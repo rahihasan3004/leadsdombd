@@ -886,7 +886,8 @@ export default function AdminAgentsPage() {
                   </Table>
                 </div>
               </div>
-            )}
+            </div>
+          )}
           </div>
           <DialogFooter>
             <Button
