@@ -21,7 +21,7 @@ export interface AgentUpdateData {
   zipCode?: string;
   isDeliverable?: boolean;
   verificationScore?: number;
-  licenseNumber?: string;
+  googlePlaceId?: string;
 }
 
 export interface CsvImportRow {
@@ -190,9 +190,8 @@ if (!row.fullName?.trim()) {
         state: row.state?.trim().toUpperCase() || null,
         city: row.city?.trim() || null,
         brokerageName: row.brokerageName?.trim() || null,
-        licenseNumber: row.licenseNumber?.trim() || null,
-        zipCode: row.zipCode?.trim() || null,
         googlePlaceId: row.googlePlaceId?.trim() || null,
+        zipCode: row.zipCode?.trim() || null,
         dataSource: "BULK_IMPORT",
         isVerified: true,
         isDeliverable: true,

@@ -57,7 +57,7 @@ interface AgentRow {
   city: string | null;
   brokerageName: string | null;
   isDeliverable: boolean;
-  licenseNumber: string | null;
+  googlePlaceId: string | null;
   verificationScore: number;
   dataSource: string | null;
   createdAt: string;
@@ -133,9 +133,9 @@ function CsvColumnHint() {
         <span>state</span>
         <span>city</span>
         <span>brokerageName</span>
-        <span>licenseNumber</span>
-        <span>zipCode</span>
         <span>googlePlaceId</span>
+        <span>zipCode</span>
+        <span>dataSource</span>
       </div>
     </div>
   );
@@ -195,7 +195,7 @@ export default function AdminAgentsPage() {
         "zipCode",
         "isDeliverable",
         "verificationScore",
-        "licenseNumber",
+        "googlePlaceId",
       ];
       for (const field of allowedFields) {
         if (field in data) {
@@ -287,16 +287,16 @@ export default function AdminAgentsPage() {
 
   const openEditDialog = useCallback((agent: AgentRow) => {
     setEditingAgent(agent);
-    setEditForm({
-      fullName: agent.fullName || "",
-      email: agent.email || "",
-      phone: agent.phone || "",
-      brokerageName: agent.brokerageName || "",
-      city: agent.city || "",
-      state: agent.state || "",
-      licenseNumber: agent.licenseNumber || "",
-      isDeliverable: agent.isDeliverable,
-    });
+      setEditForm({
+        fullName: agent.fullName || "",
+        email: agent.email || "",
+        phone: agent.phone || "",
+        brokerageName: agent.brokerageName || "",
+        city: agent.city || "",
+        state: agent.state || "",
+        googlePlaceId: agent.googlePlaceId || "",
+        isDeliverable: agent.isDeliverable,
+      });
     setEditOpen(true);
   }, []);
 
@@ -564,9 +564,9 @@ export default function AdminAgentsPage() {
                       <span className="font-medium text-sm text-surface-950 dark:text-white">
                         {agent.fullName}
                       </span>
-                      {agent.licenseNumber && (
+                      {agent.googlePlaceId && (
                         <span className="text-xs text-surface-400">
-                          Lic: {agent.licenseNumber}
+                          Place: {agent.googlePlaceId}
                         </span>
                       )}
                     </div>
@@ -716,11 +716,11 @@ export default function AdminAgentsPage() {
             </div>
             <div>
               <label className="text-sm font-medium text-surface-700 dark:text-surface-300">
-                License Number
+                Google Place ID
               </label>
               <Input
-                value={String(editForm.licenseNumber ?? "")}
-                onChange={handleEditFieldChange("licenseNumber")}
+                value={String(editForm.googlePlaceId ?? "")}
+                onChange={handleEditFieldChange("googlePlaceId")}
                 className="mt-1"
               />
             </div>

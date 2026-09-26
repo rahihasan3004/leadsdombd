@@ -16,8 +16,9 @@ import {
   Tag,
   Compass,
   Briefcase,
-  Award,
   Calendar,
+  Hash,
+  Server,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -237,7 +238,8 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
         [agent.city, agent.state, agent.zipCode?.slice(0, 5)].filter(Boolean).join(", ") || null,
         agent.timezone ? `Timezone: ${formatTimezoneDisplay(agent.timezone)}` : null,
         agent.brokerageName ? `Brokerage: ${agent.brokerageName}` : null,
-        [agent.licenseNumber, agent.licenseState].filter(Boolean).join(" • ") || null,
+        agent.googlePlaceId ? `Google Place ID: ${agent.googlePlaceId}` : null,
+        agent.dataSource ? `Data Source: ${agent.dataSource}` : null,
         agent.rating != null ? `Rating: ${agent.rating.toFixed(1)} (${agent.reviewCount ?? 0} reviews)` : null,
         agent.scrapedAt ? `Scraped: ${formatTimestamp(agent.scrapedAt)}` : null,
         agent.googleMapsLink ? `Google Maps: ${agent.googleMapsLink}` : null,
@@ -358,9 +360,9 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
           />
         </div>
 
-        {(agent.brokerageName || agent.licenseNumber || agent.licenseState) && (
+        {(agent.brokerageName || agent.googlePlaceId || agent.dataSource) && (
           <div className="mt-5 space-y-1">
-            <SectionHeader icon={Briefcase} label="Brokerage & Licensing" />
+            <SectionHeader icon={Briefcase} label="Brokerage & Source" />
             {agent.brokerageName && (
               <AttrRow
                 icon={Briefcase}
@@ -368,12 +370,19 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
                 value={agent.brokerageName}
               />
             )}
-            {(agent.licenseNumber || agent.licenseState) && (
+            {agent.googlePlaceId && (
               <AttrRow
-                icon={Award}
-                label="License"
-                value={[agent.licenseNumber, agent.licenseState].filter(Boolean).join(" • ")}
-                copyable={!!agent.licenseNumber}
+                icon={Hash}
+                label="Google Place ID"
+                value={agent.googlePlaceId}
+                copyable
+              />
+            )}
+            {agent.dataSource && (
+              <AttrRow
+                icon={Server}
+                label="Data Source"
+                value={agent.dataSource}
               />
             )}
           </div>

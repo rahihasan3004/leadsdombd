@@ -48,7 +48,7 @@ export async function PATCH(
       "zipCode",
       "isDeliverable",
       "verificationScore",
-      "licenseNumber",
+      "googlePlaceId",
     ];
 
     const data: Record<string, unknown> = {};

@@ -15,8 +15,8 @@ const CSV_HEADERS = [
   "Timezone",
   "Website",
   "100% Deliverable Email",
-  "License Number",
-  "License State",
+  "Google Place ID",
+  "Data Source",
   "Brokerage Name",
   "Review Count",
   "Star Rating",
@@ -62,8 +62,8 @@ function formatCsvRow(agent: {
   timezone: string | null;
   websiteUrl: string | null;
   email: string | null;
-  licenseNumber: string | null;
-  licenseState: string | null;
+  googlePlaceId: string | null;
+  dataSource: string | null;
   rating: number | null;
   reviewCount: number | null;
   scrapedAt: Date | null;
@@ -80,8 +80,8 @@ function formatCsvRow(agent: {
     escapeCsvField(agent.timezone),
     escapeCsvField(agent.websiteUrl),
     escapeCsvField(agent.email),
-    escapeCsvField(agent.licenseNumber),
-    escapeCsvField(agent.licenseState),
+    escapeCsvField(agent.googlePlaceId),
+    escapeCsvField(agent.dataSource ?? "SCRAPER_ENGINE"),
     escapeCsvField(agent.brokerageName),
     escapeCsvField(agent.reviewCount),
     escapeCsvField(agent.rating != null ? agent.rating.toFixed(1) : null),
@@ -122,8 +122,8 @@ function createCsvStream(stateCode: string, exportId: string, agentIds: string[]
               timezone: true,
               websiteUrl: true,
               email: true,
-              licenseNumber: true,
-              licenseState: true,
+              googlePlaceId: true,
+              dataSource: true,
               rating: true,
               reviewCount: true,
               scrapedAt: true,
