@@ -30,49 +30,35 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    const user = await db.user.findFirst({
-      where: {
-        OR: [
-          ...(session.user.id ? [{ id: session.user.id }] : []),
-          ...(session.user.email ? [{ email: session.user.email }] : []),
-        ],
-      },
+    const user = await db.user.findUnique({
+      where: { id: userId },
       select: { walletBalance: true },
     });
-    const availableBalance = user?.walletBalance ? Number(user.walletBalance.toString()) : 0;
+    const availableBalance = user ? Number(user.walletBalance) : 0;
 
     const [
       purchases,
-      completedExportsCount,
-      totalUnlockedLeads,
       deliverableUnlockedLeads,
+      totalLeads,
+      deliveredFiles,
     ] = await Promise.all([
       db.leadPurchase.findMany({
         where: { userId, status: "COMPLETED" },
         orderBy: { createdAt: "asc" },
       }),
-      db.leadExport.count({
-        where: { userId, status: "COMPLETED" },
-      }),
-      db.unlockedLead.count({ where: { userId } }),
       db.unlockedLead.count({
         where: {
           userId,
           agent: { isDeliverable: true },
         },
       }),
+      db.unlockedLead.count({ where: { userId } }),
+      db.leadPurchase.count({ where: { userId, status: "COMPLETED" } }),
     ]);
 
-    const totalLeads =
-      totalUnlockedLeads > 0
-        ? totalUnlockedLeads
-        : purchases.reduce((sum, p) => sum + p.leadCount, 0);
-
-    const deliveredFiles = purchases.length + completedExportsCount;
-
     const deliverability =
-      totalUnlockedLeads > 0
-        ? Math.round((deliverableUnlockedLeads / totalUnlockedLeads) * 100)
+      totalLeads > 0
+        ? Math.round((deliverableUnlockedLeads / totalLeads) * 100)
         : 100;
 
     const monthlyBuckets = new Map<string, { leads: number; orders: number }>();

@@ -6,23 +6,22 @@ import { LEAD_STATES } from "@fine-leads/utils";
 
 const CSV_HEADERS = [
   "Company Name",
-  "Email",
-  "Email Status",
-  "Phone Number",
-  "Website",
+  "Direct Phone Number",
+  "Real Estate Category",
   "Physical Address",
   "City",
   "State",
   "Zip Code",
   "Timezone",
-  "Category",
-  "Google Rating",
+  "Website",
+  "100% Deliverable Email",
+  "License Number",
+  "License State",
+  "Brokerage Name",
   "Review Count",
-  "Google Place ID",
-  "Google Maps Link",
-  "Scraped At",
-  "Verification Score",
-  "Data Source",
+  "Star Rating",
+  "Scraped Timestamp",
+  "Live Google Maps Link",
 ] as const;
 
 const BATCH_SIZE = 1000;
@@ -38,45 +37,56 @@ function escapeCsvField(value: string | number | null | undefined): string {
   return `"${str.replace(/"/g, '""')}"`;
 }
 
+function formatPhoneForCsv(phone: string | null): string {
+  if (!phone) return '""';
+  const cleaned = phone.replace(/\D/g, "");
+  let formatted: string;
+  if (cleaned.length === 10) {
+    formatted = `+1-${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+  } else if (cleaned.length === 11 && cleaned.startsWith("1")) {
+    formatted = `+1-${cleaned.slice(1, 4)}-${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
+  } else {
+    formatted = phone;
+  }
+  return `"=""${formatted}"""`;
+}
+
 function formatCsvRow(agent: {
   brokerageName: string | null;
-  email: string | null;
-  emailStatus: string | null;
   phone: string | null;
-  websiteUrl: string | null;
+  category: string | null;
   brokerageAddress: string | null;
   city: string | null;
   state: string | null;
   zipCode: string | null;
   timezone: string | null;
-  category: string | null;
+  websiteUrl: string | null;
+  email: string | null;
+  licenseNumber: string | null;
+  licenseState: string | null;
   rating: number | null;
   reviewCount: number | null;
-  googlePlaceId: string | null;
-  googleMapsLink: string | null;
   scrapedAt: Date | null;
-  verificationScore: number | null;
-  dataSource: string | null;
+  googleMapsLink: string | null;
 }): string {
   return [
     escapeCsvField(agent.brokerageName),
-    escapeCsvField(agent.email),
-    escapeCsvField(agent.emailStatus),
-    escapeCsvField(agent.phone),
-    escapeCsvField(agent.websiteUrl),
+    formatPhoneForCsv(agent.phone),
+    escapeCsvField(agent.category),
     escapeCsvField(agent.brokerageAddress),
     escapeCsvField(agent.city),
     escapeCsvField(agent.state),
     escapeCsvField(agent.zipCode?.slice(0, 5)),
     escapeCsvField(agent.timezone),
-    escapeCsvField(agent.category),
-    escapeCsvField(agent.rating != null ? agent.rating.toFixed(1) : null),
+    escapeCsvField(agent.websiteUrl),
+    escapeCsvField(agent.email),
+    escapeCsvField(agent.licenseNumber),
+    escapeCsvField(agent.licenseState),
+    escapeCsvField(agent.brokerageName),
     escapeCsvField(agent.reviewCount),
-    escapeCsvField(agent.googlePlaceId),
-    escapeCsvField(agent.googleMapsLink),
+    escapeCsvField(agent.rating != null ? agent.rating.toFixed(1) : null),
     escapeCsvField(agent.scrapedAt?.toISOString() ?? null),
-    escapeCsvField(agent.verificationScore),
-    escapeCsvField(agent.dataSource),
+    escapeCsvField(agent.googleMapsLink),
   ].join(",");
 }
 
@@ -103,23 +113,21 @@ function createCsvStream(stateCode: string, exportId: string, agentIds: string[]
             select: {
               id: true,
               brokerageName: true,
-              email: true,
-              emailStatus: true,
               phone: true,
-              websiteUrl: true,
+              category: true,
               brokerageAddress: true,
               city: true,
               state: true,
               zipCode: true,
               timezone: true,
-              category: true,
+              websiteUrl: true,
+              email: true,
+              licenseNumber: true,
+              licenseState: true,
               rating: true,
               reviewCount: true,
-              googlePlaceId: true,
-              googleMapsLink: true,
               scrapedAt: true,
-              verificationScore: true,
-              dataSource: true,
+              googleMapsLink: true,
             },
             take: BATCH_SIZE,
             orderBy: { id: "asc" },

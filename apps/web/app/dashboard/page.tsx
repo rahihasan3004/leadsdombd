@@ -51,9 +51,14 @@ const EMPTY_METRICS: DashboardMetrics = {
   recentOrders: [],
 };
 
-const formatCurrency = (val: any) => {
-  const num = typeof val === "number" ? val : Number(val?.toString?.() || val || 0);
-  return isNaN(num) ? "$0.00" : `$${num.toFixed(2)}`;
+const formatCurrency = (val: number | string | undefined | null) => {
+  const num = typeof val === "number" ? val : Number(val ?? 0);
+  if (isNaN(num)) return "$0.00";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+  }).format(num);
 };
 
 export default function DashboardPage() {
