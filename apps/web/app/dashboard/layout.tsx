@@ -48,18 +48,20 @@ export default function DashboardLayout({
     <div className="h-screen max-h-screen w-full flex overflow-hidden bg-surface-50 dark:bg-surface-950">
       <Sidebar user={user} mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
-        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b h-14 shrink-0 flex items-center px-4 lg:hidden">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-          <span className="ml-3 font-semibold text-sm text-neutral-900">Dashboard</span>
-        </header>
-        <main className="flex-1 overflow-y-auto bg-slate-100/90 min-h-screen pb-28 sm:pb-8">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-slate-100/90 overscroll-y-contain">
+          <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b h-14 shrink-0 flex items-center px-4 lg:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            <span className="ml-3 font-semibold text-sm text-neutral-900">Dashboard</span>
+          </header>
+          <div className="px-4 pt-4 pb-8 sm:p-6 sm:pb-8">{children}</div>
+        </main>
       </div>
     </div>
   );

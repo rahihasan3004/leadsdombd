@@ -128,14 +128,14 @@ export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) 
       </aside>
 
       <div
-        className={`fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 transition-opacity ${
+        className={`fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[60] transition-opacity ${
           mobileOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={closeMobile}
       />
 
       <div
-        className={`fixed inset-y-0 left-0 w-[85%] max-w-xs bg-white shadow-2xl z-50 p-6 flex flex-col justify-between border-r border-slate-200 h-[100dvh] overflow-y-auto transform transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 w-[85%] max-w-xs bg-white shadow-2xl z-[70] p-6 flex flex-col justify-between border-r border-slate-200 h-[100dvh] overflow-y-auto transform transition-transform duration-300 ease-in-out ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
