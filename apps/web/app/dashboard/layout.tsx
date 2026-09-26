@@ -48,7 +48,7 @@ export default function DashboardLayout({
     <div className="h-screen max-h-screen w-full flex overflow-hidden bg-surface-50 dark:bg-surface-950">
       <Sidebar user={user} mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
-        <main className="flex-1 overflow-y-auto bg-slate-100/90 overscroll-y-contain">
+        <main className="flex-1 overflow-y-auto bg-slate-50 overscroll-y-contain">
           <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b h-14 shrink-0 flex items-center px-4 lg:hidden">
             <Button
               variant="ghost"

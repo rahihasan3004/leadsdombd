@@ -148,7 +148,7 @@ export function LeadOrderEngine() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-2xl p-6 sm:p-8 border-0 shadow-none space-y-7">
+        <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-sm space-y-7">
           <SectionNiche />
           <SectionStates
             selectedStates={selectedStates}
@@ -170,7 +170,7 @@ export function LeadOrderEngine() {
         </div>
 
         <div className="lg:col-span-5 xl:col-span-4 sticky top-6">
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border-0 shadow-none space-y-6">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-sm space-y-6">
             <h2 className="text-lg font-bold text-slate-900 tracking-tight">
               Order Summary
             </h2>

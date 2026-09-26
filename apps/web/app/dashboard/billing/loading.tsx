@@ -2,7 +2,7 @@ import { Skeleton } from "@fine-leads/ui";
 
 export default function BillingLoading() {
   return (
-    <div className="w-full min-h-screen bg-[#F4F7FB] p-3.5 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="w-full min-h-screen bg-slate-50 p-3.5 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
       <div>
         <Skeleton className="h-7 w-64" />
         <Skeleton className="h-5 w-96 mt-2" />

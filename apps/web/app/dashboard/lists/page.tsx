@@ -209,8 +209,8 @@ export default function ListsPage() {
 
   if (loading) {
     return (
-      <div className="w-full min-h-screen bg-[#F4F7FB] p-6 pb-4 space-y-4">
-        <div className="bg-white rounded-2xl border-0 shadow-none p-7 md:p-9 space-y-6">
+      <div className="w-full min-h-screen bg-slate-50 p-6 pb-4 space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-7 md:p-9 space-y-6">
           <div>
             <Skeleton className="h-7 w-48" />
             <Skeleton className="h-5 w-72 mt-2" />
@@ -230,8 +230,8 @@ export default function ListsPage() {
 
   if (purchases.length === 0 && !selectedPurchase) {
     return (
-      <div className="w-full min-h-screen bg-[#F4F7FB] p-6 pb-4 space-y-4">
-        <div className="bg-white rounded-2xl border-0 shadow-none p-7 md:p-9 space-y-6">
+      <div className="w-full min-h-screen bg-slate-50 p-6 pb-4 space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-7 md:p-9 space-y-6">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
               My Leads Vault
@@ -267,8 +267,8 @@ export default function ListsPage() {
   if (selectedPurchase) {
     return (
       <>
-        <div className="w-full h-screen bg-[#F4F7FB] p-6 overflow-hidden flex flex-col">
-          <div className="bg-white border-0 shadow-none rounded-2xl p-6 md:p-8 flex flex-col h-[calc(100vh-48px)] overflow-hidden justify-between">
+        <div className="w-full h-screen bg-slate-50 p-6 overflow-hidden flex flex-col">
+          <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl p-6 md:p-8 flex flex-col h-[calc(100vh-48px)] overflow-hidden justify-between">
             <div className="shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -468,8 +468,8 @@ export default function ListsPage() {
   }
 
   return (
-    <div className="w-full h-screen bg-[#F4F7FB] p-3.5 sm:p-6 lg:p-8 overflow-hidden flex flex-col">
-      <div className="bg-white border-0 shadow-none rounded-2xl p-6 md:p-8 flex flex-col h-[calc(100vh-48px)] overflow-hidden justify-between">
+    <div className="w-full h-screen bg-slate-50 p-3.5 sm:p-6 lg:p-8 overflow-hidden flex flex-col">
+      <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl p-6 md:p-8 flex flex-col h-[calc(100vh-48px)] overflow-hidden justify-between">
         <div className="shrink-0">
           <div className="flex items-center justify-between">
             <div>

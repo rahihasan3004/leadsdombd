@@ -257,7 +257,7 @@ export default function SettingsPage() {
   const canDelete = dangerConfirm === "DELETE" && deleteOtp.length === 6;
 
   return (
-    <div className="w-full min-h-screen bg-[#F4F7FB] p-3.5 sm:p-6 lg:p-8 pb-3.5 sm:pb-6 lg:pb-8 space-y-4">
+    <div className="w-full min-h-screen bg-slate-50 p-3.5 sm:p-6 lg:p-8 pb-3.5 sm:pb-6 lg:pb-8 space-y-4">
       <div>
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900">
           Settings
@@ -271,7 +271,7 @@ export default function SettingsPage() {
         {/* Left / Main Column */}
         <div className="lg:col-span-2 space-y-6">
           {/* Card 1: Profile Information */}
-          <div className="bg-white rounded-2xl border-0 shadow-none p-6">
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
             <h2 className="text-base font-bold text-slate-900 tracking-tight mb-1">
               Profile Information
             </h2>
@@ -296,7 +296,7 @@ export default function SettingsPage() {
                 <Button
                   onClick={handleSaveName}
                   disabled={nameLoading}
-                  className="shrink-0 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-0 shadow-none"
+                  className="shrink-0 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border border-slate-200/80 shadow-sm"
                 >
                   {nameLoading ? "Saving..." : "Save Name"}
                 </Button>
@@ -350,13 +350,13 @@ export default function SettingsPage() {
 
           {/* Card 2: Security & Password */}
           {(securityLoading || !securityInfo) ? (
-            <div className="bg-white rounded-2xl border-0 shadow-none p-6">
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
               <div className="h-7 w-32 bg-slate-200 rounded-md animate-pulse mb-2" />
               <div className="h-4 w-48 bg-slate-200 rounded-md animate-pulse mb-6" />
               <div className="h-24 bg-slate-200 rounded-xl animate-pulse" />
             </div>
           ) : securityInfo.isGoogleUser ? (
-            <div className="bg-white rounded-2xl border-0 shadow-none p-6">
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
               <h2 className="text-base font-bold text-slate-900 tracking-tight mb-1">
                 Security
               </h2>
@@ -380,7 +380,7 @@ export default function SettingsPage() {
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border-0 shadow-none p-6">
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
               <h2 className="text-base font-bold text-slate-900 tracking-tight mb-1">
                 Security & Password
               </h2>
@@ -458,7 +458,7 @@ export default function SettingsPage() {
                 <Button
                   onClick={handleUpdatePassword}
                   disabled={passwordLoading || !currentPassword || !newPassword || !confirmPassword}
-                  className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-0 shadow-none"
+                  className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border border-slate-200/80 shadow-sm"
                 >
                   {passwordLoading ? "Updating..." : "Update Password"}
                 </Button>
@@ -469,7 +469,7 @@ export default function SettingsPage() {
 
         {/* Right Column: Danger Zone */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white rounded-2xl border-0 shadow-none p-6 border border-red-200">
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 border border-red-200">
             <h2 className="text-base font-bold text-red-600 tracking-tight mb-1 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
               Danger Zone
@@ -529,7 +529,7 @@ export default function SettingsPage() {
             <Button
               onClick={handleVerifyEmailChange}
               disabled={otpLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-0 shadow-none"
+              className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border border-slate-200/80 shadow-sm"
             >
               {otpLoading ? "Verifying..." : "Verify & Update Email"}
             </Button>
@@ -573,7 +573,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={handleSendDeleteOtp}
                 disabled={dangerConfirm !== "DELETE" || deleteOtpLoading || deleteOtpSent}
-                className="mb-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-0 shadow-none"
+                className="mb-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border border-slate-200/80 shadow-sm"
               >
                 {deleteOtpSent ? "Code Sent" : deleteOtpLoading ? "Sending..." : "Send Deletion Code"}
               </Button>

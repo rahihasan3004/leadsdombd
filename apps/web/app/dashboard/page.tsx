@@ -231,7 +231,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white border-0 shadow-none rounded-2xl p-6">
+        <div className="lg:col-span-2 bg-white border border-slate-200/80 shadow-sm rounded-2xl p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-sm font-bold text-neutral-900">
@@ -278,7 +278,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="bg-white border-0 shadow-none rounded-2xl p-6">
+        <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl p-6">
           <div className="mb-4">
             <h3 className="text-sm font-bold text-neutral-900">
               Vault Deliverability
