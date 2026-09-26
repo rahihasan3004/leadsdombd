@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
       const totalCents = rawTotal !== undefined ? Number(rawTotal) : Number(customData.amount || 100) * 100;
       const paidAmount = totalCents / 100;
       const orderId = String(attributes.first_order_item?.order_id || body.data?.id || Date.now());
+      const eventId = String(body.meta?.event_id || body.data?.id || orderId);
 
       if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
         console.error(`[WEBHOOK_INVALID_AMOUNT]: ${paidAmount} for ${userEmail}`);
@@ -50,6 +51,14 @@ export async function POST(req: NextRequest) {
       }
 
       await db.$transaction(async (tx) => {
+        const existingEvent = await tx.webhookEvent.findUnique({
+          where: { eventId: eventId },
+        });
+        if (existingEvent && existingEvent.status === "processed") {
+          console.log(`[WEBHOOK_DUPLICATE_SKIPPED]: Event ${eventId} already processed.`);
+          return;
+        }
+
         const targetUser = await tx.user.findFirst({
           where: {
             OR: [
@@ -67,7 +76,24 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        if (paidAmount > 0) {
+        const purchaseType = customData.type || "WALLET_TOPUP";
+
+        if (purchaseType === "LEAD_PURCHASE") {
+          const unlockedStatesRaw = customData.unlocked_states || customData.unlockedStates || "[]";
+          const unlockedStates = Array.isArray(unlockedStatesRaw) ? unlockedStatesRaw : JSON.parse(unlockedStatesRaw);
+
+          await tx.leadPurchase.create({
+            data: {
+              userId: targetUser.id,
+              unlockedStates,
+              amountPaid,
+              status: "COMPLETED",
+              referenceId: `lp_${orderId}`,
+            },
+          });
+
+          console.log(`[LEAD_PURCHASE_COMPLETED]: Unlocked ${unlockedStates.length} states for ${targetUser.email}.`);
+        } else {
           const updatedUser = await tx.user.update({
             where: { id: targetUser.id },
             data: {
@@ -91,6 +117,12 @@ export async function POST(req: NextRequest) {
 
           console.log(`[WALLET_CREDITED_SUCCESS]: Added $${paidAmount} to ${targetUser.email}. New Balance: $${updatedUser.walletBalance}`);
         }
+
+        await tx.webhookEvent.upsert({
+          where: { eventId: eventId },
+          create: { eventId: eventId, provider: "lemonsqueezy", status: "processed", payload: body },
+          update: { status: "processed" },
+        });
       });
     }
 

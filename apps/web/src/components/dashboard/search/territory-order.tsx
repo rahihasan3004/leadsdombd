@@ -82,9 +82,9 @@ export function TerritoryOrder() {
         </div>
 
         {/* Two-Column Layout */}
-        <div className="flex gap-5 min-h-0">
+        <div className="flex flex-col lg:flex-row w-full gap-4 lg:gap-6">
           {/* Left: Map */}
-          <div className="w-[60%] flex-shrink-0">
+          <div className="w-full lg:w-[60%] flex-shrink-0">
             <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-md p-4 shadow-2xs">
               <USMap
                 selectedStates={selectedStates}
@@ -97,7 +97,7 @@ export function TerritoryOrder() {
           </div>
 
           {/* Right: Order Panel */}
-          <div className="w-[40%] flex-shrink-0">
+          <div className="w-full lg:w-[40%] flex-shrink-0">
             <OrderPanel
               selectedStates={selectedStates}
               onRemoveState={removeState}
