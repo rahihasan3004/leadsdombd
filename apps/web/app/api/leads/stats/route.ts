@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { NextResponse } from "next/server";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
@@ -37,7 +40,11 @@ export async function GET() {
       counts[code] = countMap[code] ?? 0;
     }
 
-    return NextResponse.json(counts, { cache: "no-store" });
+    return NextResponse.json(counts, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+    });
   } catch (error) {
     console.error("[LEADS_STATS_ERROR]:", error);
     return NextResponse.json({});
