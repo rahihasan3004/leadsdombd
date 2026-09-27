@@ -413,10 +413,11 @@ export async function extractListings(page: Page, location: LocationSpec): Promi
         var parts = text.split("·").map(function(s) { return s.trim(); });
         for (var i = 0; i < parts.length; i++) {
           var part = parts[i];
-          var cleaned = part.replace(/Open\\s+\\d.*$/i, "").trim();
-          if (/\\d{1,6}\\s+[A-Z]/.test(cleaned) && cleaned.length > 8 && !/stars?|review|rating|/i.test(cleaned)) {
-            var striped = cleaned.replace(/^[^a-zA-Z\\d]*\\d+\\.?\\d*\\s*/, "");
-            var m = striped.match(/(\\d+[^,]{3,120}(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct|Way|Place|Pl|Circle|Cir|Trail|Trl|Parkway|Pkwy|Highway|Hwy|Loop|Square|Sq|Bend|Row|Alley)[^,\\n]{0,80}(?:,\\s*[A-Z]{2}\\s*\\d{5})?)/i);
+          var cleanAddressStr = part.replace(/\b(Open|Closed|Open 24 hours|Closed ⋅ Opens.*|Temporarily closed|Permanently closed)\b/gi, "").trim();
+          var cleaned = cleanAddressStr.replace(/Open\s+\d.*$/i, "").trim();
+          if (/\d{1,6}\s+[A-Z]/.test(cleaned) && cleaned.length > 8 && !/stars?|review|rating|/i.test(cleaned)) {
+            var striped = cleaned.replace(/^[^a-zA-Z\d]*\d+\.?\d*\s*/, "");
+            var m = striped.match(/(\d+[^,]{3,120}(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct|Way|Place|Pl|Circle|Cir|Trail|Trl|Parkway|Pkwy|Highway|Hwy|Loop|Square|Sq|Bend|Row|Alley)[^,\n]{0,80}(?:,\s*[A-Z]{2}\s*\d{5})?)/i);
             if (m && m[1]) return m[1].trim();
             return striped.split(/[]/)[0].trim();
           }

@@ -226,7 +226,7 @@ export abstract class SourceAdapter {
       lastName: raw.lastName,
       brokerageName: raw.brokerageName,
       phone: this.normalizePhone(raw.phone ?? ""),
-      state: defaults.state.toUpperCase(),
+      state: (raw.state || defaults.state || "").toUpperCase(),
       zipCode: raw.zipCode ?? "",
       city: raw.city ?? "",
       timezone: raw.timezone ?? this.deriveTimezone(defaults.state),

@@ -207,7 +207,10 @@ function extractWebsiteFromFlat(flat: string[]): string {
 }
 
 function extractAddressFromFlat(flat: string[]): string {
-  const joined = flat.join(" ");
+  const joined = flat
+    .join(" ")
+    .replace(/\b(Open|Closed|Open 24 hours|Closed ⋅ Opens.*|Temporarily closed|Permanently closed)\b/gi, "")
+    .trim();
   const addrMatch = joined.match(
     /\d{1,6}\s+[A-Za-z][A-Za-z\s.]{2,60}(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct|Way|Place|Pl|Circle|Cir|Trail|Trl|Parkway|Pkwy|Highway|Hwy|Loop|Square|Sq|Bend|Row|Alley)[^]{0,80}(?:,\s*[A-Z]{2}\s*\d{5})/i,
   );

@@ -117,7 +117,10 @@ export class DatabaseSynchronizer {
 
     try {
       const normalizedState = normalizeState(lead.state);
-      const isDeliverable = lead.emailStatus === "deliverable" || lead.emailStatus === "validated";
+      const isDeliverable = Boolean(
+        lead.email &&
+        (lead.emailStatus === "deliverable" || lead.emailStatus === "validated" || lead.emailStatus === "mx_verified"),
+      );
       await this.pool.query(UPSERT_SQL, [
         lead.firstName && lead.lastName
           ? `${lead.firstName} ${lead.lastName}`

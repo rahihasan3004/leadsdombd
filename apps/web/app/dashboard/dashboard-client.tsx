@@ -218,8 +218,8 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
                   stroke="#465FFF"
                   strokeWidth="12"
                   strokeLinecap="round"
-                  strokeDasharray={2 * Math.PI * 80}
-                  strokeDashoffset={2 * Math.PI * 80 * (1 - metrics.deliverability / 100)}
+                  strokeDasharray={Math.PI * 80 * (metrics.deliverability / 100)}
+                  strokeDashoffset={0}
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-end pb-1">
