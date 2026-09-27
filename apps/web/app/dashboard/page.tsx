@@ -70,6 +70,8 @@ async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
     select: { createdAt: true },
   });
 
+  const hasUnlockedLeads = unlockedLeads.length > 0;
+
   for (const ul of unlockedLeads) {
     const key = getMonthKey(new Date(ul.createdAt));
     if (monthlyBuckets.has(key)) {
@@ -77,10 +79,12 @@ async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
     }
   }
 
-  for (const purchase of purchases) {
-    const key = getMonthKey(new Date(purchase.createdAt));
-    if (monthlyBuckets.has(key)) {
-      monthlyBuckets.get(key)!.leads += purchase.leadCount;
+  if (!hasUnlockedLeads) {
+    for (const purchase of purchases) {
+      const key = getMonthKey(new Date(purchase.createdAt));
+      if (monthlyBuckets.has(key)) {
+        monthlyBuckets.get(key)!.leads += purchase.leadCount;
+      }
     }
   }
 
