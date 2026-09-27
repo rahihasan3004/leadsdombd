@@ -1,11 +1,26 @@
 import { Pool } from "pg";
 import { getEnv, resolveDatabaseUrl } from "./config/env.js";
 import type { VerifiedLeadPayload } from "./types/lead.types.js";
+import { US_STATES } from "./crawler.js";
 
 export interface DatabaseSyncStats {
   upserted: number;
   skippedDuplicates: number;
   errors: number;
+}
+
+const STATE_NAME_TO_CODE: Record<string, string> = Object.fromEntries(
+  Object.entries(US_STATES).map(([code, name]) => [name.toLowerCase(), code]),
+);
+
+function normalizeState(state: string | null | undefined): string | null {
+  if (!state) return null;
+  const trimmed = state.trim();
+  if (!trimmed) return null;
+  if (/^[A-Z]{2}$/.test(trimmed)) return trimmed;
+  const lower = trimmed.toLowerCase();
+  if (STATE_NAME_TO_CODE[lower]) return STATE_NAME_TO_CODE[lower];
+  return trimmed.toUpperCase().slice(0, 2);
 }
 
 const UPSERT_SQL = `
@@ -14,8 +29,8 @@ INSERT INTO "Agent" (
   "brokerageAddress", category, "googleMainCategory", "googleSubcategories",
   "websiteUrl", rating, "reviewCount", "scrapedAt", email,
   "emailStatus", "googlePlaceId", "googleMapsLink", "dataSource",
-  "isVerified", "verificationScore", "licenseStatus", "updatedAt"
-) VALUES (gen_random_uuid(), $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25, NOW())
+  "isVerified", "verificationScore", "licenseStatus", "isDeliverable", "updatedAt"
+) VALUES (gen_random_uuid(), $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26, NOW())
 ON CONFLICT ("googlePlaceId") DO UPDATE SET
   rating = CASE
     WHEN EXCLUDED.rating IS NOT NULL AND EXCLUDED.rating > 0 THEN EXCLUDED.rating
@@ -43,7 +58,9 @@ ON CONFLICT ("googlePlaceId") DO UPDATE SET
     WHEN EXCLUDED.email IS NOT NULL AND EXCLUDED.email != ''::text
     THEN EXCLUDED.email
     ELSE "Agent".email
-  END
+  END,
+  state = EXCLUDED.state,
+  "isDeliverable" = EXCLUDED."isDeliverable"
 `;
 
 const EMAIL_DUPE_CHECK = `SELECT "googlePlaceId" FROM "Agent" WHERE email = $1 AND "googlePlaceId" != $2 LIMIT 1`;
@@ -99,6 +116,8 @@ export class DatabaseSynchronizer {
     }
 
     try {
+      const normalizedState = normalizeState(lead.state);
+      const isDeliverable = lead.emailStatus === "deliverable" || lead.emailStatus === "validated";
       await this.pool.query(UPSERT_SQL, [
         lead.firstName && lead.lastName
           ? `${lead.firstName} ${lead.lastName}`
@@ -107,7 +126,7 @@ export class DatabaseSynchronizer {
         lead.lastName || null,
         lead.brokerageName || lead.companyName,
         lead.phone,
-        lead.state,
+        normalizedState,
         lead.zipCode,
         lead.city,
         lead.timezone,
@@ -127,6 +146,7 @@ export class DatabaseSynchronizer {
         lead.emailStatus === "deliverable" || lead.emailStatus === "validated",
         100,
         "ACTIVE",
+        isDeliverable,
       ]);
 
       return { status: "inserted" };

@@ -3,11 +3,6 @@ import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
 import { LEAD_STATES } from "@fine-leads/utils";
 
-const TTL_MS = 60_000;
-
-let cachedData: Record<string, number> | null = null;
-let cachedAt = 0;
-
 export async function GET() {
   try {
     const session = await auth();
@@ -15,21 +10,15 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const now = Date.now();
-    if (cachedData && now - cachedAt < TTL_MS) {
-      return NextResponse.json(cachedData);
-    }
-
     const stateCodes = LEAD_STATES.map((s) => s.code);
 
     const results = await db.agent.groupBy({
       by: ["state"],
       where: {
-        AND: [
-          { email: { not: null } },
-          { email: { not: { equals: "" } } },
-          { isDeliverable: true },
-        ],
+        state: { not: null },
+        email: { not: null },
+        email: { not: { equals: "" } },
+        isDeliverable: true,
       },
       _count: { id: true },
     });
@@ -46,10 +35,7 @@ export async function GET() {
       counts[code] = countMap[code] ?? 0;
     }
 
-    cachedData = counts;
-    cachedAt = now;
-
-    return NextResponse.json(counts);
+    return NextResponse.json(counts, { cache: "no-store" });
   } catch (error) {
     console.error("[LEADS_STATS_ERROR]:", error);
     return NextResponse.json({});

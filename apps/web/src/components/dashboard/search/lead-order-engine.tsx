@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { US_STATES } from "@fine-leads/utils";
 import { Popover, PopoverTrigger, PopoverContent } from "@fine-leads/ui";
 import { Check, Search, X, ChevronDown, Lock } from "lucide-react";
@@ -36,21 +37,19 @@ export function LeadOrderEngine() {
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(0);
   const [quantityInput, setQuantityInput] = useState("");
-  const [inventoryStats, setInventoryStats] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/leads/stats")
-      .then((res) => res.json())
-      .then((data: Record<string, number>) => {
-        if (!cancelled) setInventoryStats(data);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: inventoryStats = {} } = useQuery<Record<string, number>>({
+    queryKey: ["leads", "stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/leads/stats");
+      if (!res.ok) throw new Error("Failed to fetch lead stats");
+      return res.json();
+    },
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
 
   const totalAvailable = useMemo(
     () => selectedStates.reduce((sum, code) => sum + (inventoryStats[code] || 0), 0),
