@@ -45,7 +45,10 @@ export async function POST(req: Request) {
         where: {
           state: { in: states },
           isDeliverable: true,
-          email: { not: null, not: "" },
+          AND: [
+            { email: { not: null } },
+            { email: { not: "" } },
+          ],
           id: { notIn: Array.from(existingAgentIds) },
         },
         take: parsedQuantity,
