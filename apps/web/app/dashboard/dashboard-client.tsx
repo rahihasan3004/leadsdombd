@@ -12,11 +12,13 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { KpiCard } from "@/components/dashboard/kpi-card";
+import { MonthlyLeadVolumeChart } from "@/components/dashboard/monthly-lead-volume-chart";
 import { formatNumber } from "@fine-leads/utils";
 
 interface MonthlyData {
   month: string;
   leads: number;
+  year: number;
 }
 
 interface DashboardMetrics {
@@ -188,31 +190,7 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
               <MoreVertical className="h-4 w-4" />
             </button>
           </div>
-          <div className="flex items-end gap-2 h-[180px]">
-            {metrics.monthlyTrends.map((item) => {
-              const leadHeight = Math.max(1, (item.leads / Math.max(1, ...metrics.monthlyTrends.map((m) => m.leads))) * 100);
-              return (
-                <div
-                  key={item.month}
-                  className="flex-1 flex flex-col items-center gap-1.5"
-                >
-                  <div
-                    className="w-full flex items-end justify-center"
-                    style={{ height: "100%" }}
-                  >
-                    <div
-                      className="bg-[#465FFF] hover:bg-[#3B50E0] rounded-t-sm w-4 md:w-5 transition-all duration-300"
-                      style={{ height: `${leadHeight}%` }}
-                      title={`${item.leads.toLocaleString()} leads`}
-                    />
-                  </div>
-                  <span className="text-[10px] font-medium text-neutral-400">
-                    {item.month}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          <MonthlyLeadVolumeChart data={metrics.monthlyTrends} />
         </div>
 
         <div className="bg-white shadow-none border-0 rounded-2xl p-6">

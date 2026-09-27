@@ -5,6 +5,7 @@ import { DashboardClient } from "./dashboard-client";
 interface MonthlyData {
   month: string;
   leads: number;
+  year: number;
 }
 
 interface DashboardMetrics {
@@ -69,19 +70,17 @@ async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
     select: { createdAt: true },
   });
 
-  if (unlockedLeads.length > 0) {
-    for (const ul of unlockedLeads) {
-      const key = getMonthKey(new Date(ul.createdAt));
-      if (monthlyBuckets.has(key)) {
-        monthlyBuckets.get(key)!.leads += 1;
-      }
+  for (const ul of unlockedLeads) {
+    const key = getMonthKey(new Date(ul.createdAt));
+    if (monthlyBuckets.has(key)) {
+      monthlyBuckets.get(key)!.leads += 1;
     }
-  } else if (purchases.length > 0) {
-    for (const purchase of purchases) {
-      const key = getMonthKey(new Date(purchase.createdAt));
-      if (monthlyBuckets.has(key)) {
-        monthlyBuckets.get(key)!.leads += purchase.leadCount;
-      }
+  }
+
+  for (const purchase of purchases) {
+    const key = getMonthKey(new Date(purchase.createdAt));
+    if (monthlyBuckets.has(key)) {
+      monthlyBuckets.get(key)!.leads += purchase.leadCount;
     }
   }
 
@@ -93,6 +92,7 @@ async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
     return {
       month: getMonthLabel(d),
       leads: bucket.leads,
+      year,
     };
   });
 
