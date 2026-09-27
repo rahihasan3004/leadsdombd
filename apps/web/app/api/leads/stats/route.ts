@@ -16,8 +16,10 @@ export async function GET() {
       by: ["state"],
       where: {
         state: { not: null },
-        email: { not: null },
-        email: { not: { equals: "" } },
+        AND: [
+          { email: { not: null } },
+          { email: { not: "" } },
+        ],
         isDeliverable: true,
       },
       _count: { id: true },
