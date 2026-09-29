@@ -1,1 +1,0 @@
-try {eval('async () => null ?? 1n');} catch (e) {window.ES5DGURL && window.location.replace(window.ES5DGURL);}tick('ms0');

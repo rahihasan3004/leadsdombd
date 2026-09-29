@@ -176,7 +176,14 @@ export class LeadPipeline {
           } else {
             stats.leadsSavedToDb++;
           }
-        } catch {
+        } catch (err) {
+          console.error(
+            `[pipeline] Error processing record "${record.companyName || "(unknown)"}" in "${config.query.locations[0]?.state || ""}":`,
+            err instanceof Error ? err.message : String(err),
+          );
+          if (err instanceof Error) {
+            console.error(`[pipeline] Stack:\n${err.stack}`);
+          }
           stats.errorsEncountered++;
         }
       }

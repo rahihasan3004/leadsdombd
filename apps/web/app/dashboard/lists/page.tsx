@@ -66,6 +66,24 @@ function formatTimezoneDisplay(tz: string | null): string {
   return map[tz] ?? tz;
 }
 
+function formatStatesDisplay(states: string[]): { label: string; title?: string } {
+  if (states.length >= 50) {
+    return { label: "All 50 US States + DC" };
+  }
+  if (states.length > 3) {
+    const firstThree = states.slice(0, 3).join(", ");
+    const remaining = states.length - 3;
+    return {
+      label: `${firstThree} (+${remaining} more)`,
+      title: states.join(", "),
+    };
+  }
+  if (states.length === 0) {
+    return { label: "--" };
+  }
+  return { label: states.join(", ") };
+}
+
 export default function ListsPage() {
   const [loading, setLoading] = useState(true);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -593,9 +611,17 @@ export default function ListsPage() {
                       </div>
                     </td>
                     <td className="px-4 align-middle text-xs">
-                      <span className="font-normal text-[11px] text-[#465FFF] bg-[#F0F4FF] px-2 py-0.5 rounded-md">
-                        {purchase.unlockedStates.join(", ")}
-                      </span>
+                      {(() => {
+                        const formatted = formatStatesDisplay(purchase.unlockedStates);
+                        return (
+                          <span
+                            className="font-normal text-[11px] text-[#465FFF] bg-[#F0F4FF] px-2.5 py-0.5 rounded-full text-xs whitespace-nowrap"
+                            title={formatted.title}
+                          >
+                            {formatted.label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 align-middle text-xs">
                       <span className="font-normal text-slate-600 text-xs">

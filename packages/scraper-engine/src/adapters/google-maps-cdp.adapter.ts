@@ -344,8 +344,9 @@ export class GoogleMapsCdpAdapter extends SourceAdapter {
       await page.waitForTimeout(2000);
       await handleConsent(page);
 
+      const feedSelector = 'div[role="feed"], div[role="article"], a[href*="/maps/place"]';
       try {
-        await page.waitForSelector('div[role="feed"]', { timeout: 20000 });
+        await page.waitForSelector(feedSelector, { timeout: 20000 });
       } catch {
         console.warn("[GoogleMapsCdpAdapter] Feed not found, page may be blocked");
         await context.close();
@@ -415,7 +416,12 @@ export class GoogleMapsCdpAdapter extends SourceAdapter {
           "[GoogleMapsCdpAdapter] CDP yielded 0 records. Handing over to DOM fallback scraper on active page.",
         );
 
-        const domResults = await extractListings(page!, location);
+        let domResults: GoogleMapsPlaceResult[] = [];
+        try {
+          domResults = await extractListings(page!, location);
+        } catch (err) {
+          console.error("[CRAWLER_ERROR] CDP DOM fallback extractListings failed:", err);
+        }
 
         for (const result of domResults) {
           if (signal?.aborted) return;
@@ -451,6 +457,13 @@ export class GoogleMapsCdpAdapter extends SourceAdapter {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      console.error(
+        `[GoogleMapsCdpAdapter] Browser search failed for "${category}" in ${location.city ?? ""}, ${location.state}:`,
+        message,
+      );
+      if (err instanceof Error) {
+        console.error(`[GoogleMapsCdpAdapter] Stack:\n${err.stack}`);
+      }
       throw new Error(
         `GoogleMapsCdpAdapter browser search failed for "${category}" in ${location.city ?? ""}, ${location.state}: ${message}`,
       );

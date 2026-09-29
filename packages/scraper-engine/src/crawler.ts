@@ -296,7 +296,10 @@ export class DiscoveryCrawler {
         batch.map((loc) => this.processLocation(query.category, loc, limit, signal))
       );
 
-      for (const result of batchResults) {
+      for (let j = 0; j < batchResults.length; j++) {
+        const result = batchResults[j]!;
+        const loc = batch[j]!;
+        const locationLabel = this.locationLabel(loc);
         completedQueries++;
 
         if (result.status === "fulfilled") {
@@ -311,10 +314,17 @@ export class DiscoveryCrawler {
           }
         } else {
           const err = result.reason;
+          console.error(
+            `[CRAWLER_ERROR] Location "${locationLabel}" batch failed:`,
+            err instanceof Error ? err.message : String(err),
+          );
+          if (err instanceof Error) {
+            console.error(`[CRAWLER_ERROR] Stack:\n${err.stack}`);
+          }
           const entry: CrawlerErrorEntry = {
             type: "unknown",
             message: err instanceof Error ? err.message : String(err),
-            queryLocation: "",
+            queryLocation: locationLabel,
             category: query.category,
             timestamp: new Date().toISOString(),
           };
@@ -358,6 +368,14 @@ export class DiscoveryCrawler {
         });
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(
+        `[CRAWLER_ERROR] Adapter search failed for "${category}" at ${locationLabel}:`,
+        msg,
+      );
+      if (err instanceof Error) {
+        console.error(`[CRAWLER_ERROR] Stack:\n${err.stack}`);
+      }
       const entry = this.classifyError(err, locationLabel, category);
       events.push({ type: "error", data: entry });
     }

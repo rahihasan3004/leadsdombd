@@ -178,8 +178,11 @@ export async function handleConsent(page: Page): Promise<void> {
     'button[aria-label*="I agree"]',
     'button:has-text("Accept all")',
     'button:has-text("I agree")',
+    'button:has-text("Reject all")',
     'button:has-text("Got it")',
     'button:has-text("OK")',
+    'text=Before you continue to Google',
+    'text=Reject all',
     'form[action*="consent"] button',
     '[jsname][jsaction*="trigger"] button',
   ];
@@ -198,6 +201,15 @@ export async function handleConsent(page: Page): Promise<void> {
   }
 }
 
+export function cleanAddressStr(raw: string | null | undefined): string {
+  if (!raw) return "";
+  return (raw || "")
+    .replace(/\s+/g, " ")
+    .replace(/Open\s+\d.*$/i, "")
+    .replace(/\b(Open|Closed|Open 24 hours|Closed ⋅ Opens.*|Temporarily closed|Permanently closed)\b/gi, "")
+    .trim();
+}
+
 export async function scrollFeed(page: Page, scrollCount: number): Promise<void> {
   const feed = page.locator('div[role="feed"]');
   try {
@@ -213,6 +225,7 @@ export async function scrollFeed(page: Page, scrollCount: number): Promise<void>
     // Feed may not be scrollable — proceed with available cards
   }
 }
+
 
 interface ExtractedCard {
   name: string;
@@ -265,12 +278,14 @@ function filterBusinessUrl(raw: string): string {
 export async function extractListings(page: Page, location: LocationSpec): Promise<GoogleMapsPlaceResult[]> {
   const blockedDomainsArr = JSON.stringify([...BLOCKED_DOMAINS]);
 
-  const results = await page.evaluate(
-    `(function() {
-      var blockedDomains = ${blockedDomainsArr};
-      var blockedSet = new Set(blockedDomains);
-      var cards = [];
-      var seen = new Set();
+  let evaluated: unknown;
+  try {
+    evaluated = await page.evaluate(
+      `(function() {
+        var blockedDomains = ${blockedDomainsArr};
+        var blockedSet = new Set(blockedDomains);
+        var cards = [];
+        var seen = new Set();
 
       var extractPlaceId = function(href, card) {
         var ftidMatch = href.match(/[!?&]ftid=([^!&]+)/);
@@ -299,6 +314,7 @@ export async function extractListings(page: Page, location: LocationSpec): Promi
       };
 
       var cleanName = function(raw) {
+        if (!raw) return "";
         var name = raw.replace(/^\\s*\\d+(?:\\.\\d+)?\\s*\\(?\\d[\\d,]*\\)?\\s*/, "");
         name = name.replace(/·.*$/, "").trim();
         name = name.replace(/\\s*Open\\s+\\d.*$/i, "").trim();
@@ -410,16 +426,26 @@ export async function extractListings(page: Page, location: LocationSpec): Promi
       };
 
       var extractAddress = function(text) {
-        var parts = text.split("·").map(function(s) { return s.trim(); });
+        if (!text) return "";
+        var parts = text.split("·");
         for (var i = 0; i < parts.length; i++) {
-          var part = parts[i];
-          var cleanAddressStr = part.replace(/\b(Open|Closed|Open 24 hours|Closed ⋅ Opens.*|Temporarily closed|Permanently closed)\b/gi, "").trim();
-          var cleaned = cleanAddressStr.replace(/Open\s+\d.*$/i, "").trim();
-          if (/\d{1,6}\s+[A-Z]/.test(cleaned) && cleaned.length > 8 && !/stars?|review|rating|/i.test(cleaned)) {
-            var striped = cleaned.replace(/^[^a-zA-Z\d]*\d+\.?\d*\s*/, "");
-            var m = striped.match(/(\d+[^,]{3,120}(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct|Way|Place|Pl|Circle|Cir|Trail|Trl|Parkway|Pkwy|Highway|Hwy|Loop|Square|Sq|Bend|Row|Alley)[^,\n]{0,80}(?:,\s*[A-Z]{2}\s*\d{5})?)/i);
+          var part = (parts[i] || "").trim();
+          if (!part) continue;
+
+          var lowerPart = part.toLowerCase();
+          if (lowerPart.indexOf("open") === 0 || lowerPart.indexOf("closed") === 0 ||
+              lowerPart.indexOf("temporarily closed") === 0 || lowerPart.indexOf("permanently closed") === 0) {
+            part = part.replace(/\\b(Open|Closed|Open 24 hours|Closed ⋅ Opens.*|Temporarily closed|Permanently closed)\\b/gi, "").trim();
+          }
+
+          var cleaned = part.replace(/Open\\s+\\d.*$/i, "").trim();
+          if (cleaned.length > 8 && /\\d{1,6}\\s+[A-Z]/.test(cleaned)) {
+            var striped = cleaned.replace(/^[^a-zA-Z\\d]*\\d+\\.?\\d*\\s*/, "");
+            var m = striped.match(/(\\d+[^,]{3,120}(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct|Way|Place|Pl|Circle|Cir|Trail|Trl|Parkway|Pkwy|Highway|Hwy|Loop|Square|Sq|Bend|Row|Alley)[^,\\n]{0,80}(?:,\\s*[A-Z]{2}\\s*\\d{5})?)/i);
             if (m && m[1]) return m[1].trim();
-            return striped.split(/[]/)[0].trim();
+            var sepIdx = striped.indexOf("·");
+            if (sepIdx > 0) return striped.substring(0, sepIdx).trim();
+            return striped.trim();
           }
         }
         return "";
@@ -534,9 +560,14 @@ export async function extractListings(page: Page, location: LocationSpec): Promi
       return cards;
     })()` as string,
   );
+} catch (err) {
+  console.error("[CRAWLER_ERROR] extractListings page.evaluate failed:", err);
+  return [];
+}
 
+  const evaluatedResults = evaluated as GoogleMapsPlaceResult[];
   const mapped: GoogleMapsPlaceResult[] = [];
-  for (const card of (results as GoogleMapsPlaceResult[])) {
+  for (const card of evaluatedResults) {
     if (!isReasonableName(card.name)) continue;
 
     card.website = cleanGoogleRedirectUrl(card.website);
@@ -546,18 +577,19 @@ export async function extractListings(page: Page, location: LocationSpec): Promi
     let state = location.state;
     let zipCode = "";
 
-    if (card.address) {
-      const stateMatch = /\b([A-Z]{2})\b/.exec(card.address);
-      const zipMatch = /\b(\d{5})(?:-\d{4})?\b/.exec(card.address);
+    const rawAddress = card.address || "";
+    if (rawAddress) {
+      const stateMatch = /\b([A-Z]{2})\b/.exec(rawAddress);
+      const zipMatch = /\b(\d{5})(?:-\d{4})?\b/.exec(rawAddress);
       if (stateMatch?.[1]) state = stateMatch[1];
       if (zipMatch?.[1]) {
         zipCode = zipMatch[1];
       } else if (location.zipCode) {
         zipCode = location.zipCode;
       }
-      const commaIdx = card.address.indexOf(",");
+      const commaIdx = rawAddress.indexOf(",");
       if (commaIdx > 0) {
-        const cityMatch = /^([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)/.exec(card.address.slice(commaIdx + 1).trim());
+        const cityMatch = /^([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)/.exec(rawAddress.slice(commaIdx + 1).trim());
         if (cityMatch?.[1]) city = cityMatch[1];
       }
     }
@@ -565,7 +597,7 @@ export async function extractListings(page: Page, location: LocationSpec): Promi
     const result: GoogleMapsPlaceResult = {
       name: card.name,
       placeId: card.placeId,
-      address: card.address,
+      address: cleanAddressStr(card.address),
       city,
       state,
       zipCode,
@@ -675,8 +707,9 @@ export class GoogleMapsAdapter extends SourceAdapter {
 
       await handleConsent(page);
 
+      const feedSelector = 'div[role="feed"], div[role="article"], a[href*="/maps/place"]';
       try {
-        await page.waitForSelector('div[role="feed"]', { timeout: 20000 });
+        await page.waitForSelector(feedSelector, { timeout: 20000 });
       } catch {
         await context.close();
         await browser.close();
@@ -733,6 +766,13 @@ export class GoogleMapsAdapter extends SourceAdapter {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      console.error(
+        `[GoogleMapsAdapter] Browser search failed for "${category}" in ${location.city ?? ""}, ${location.state}:`,
+        message,
+      );
+      if (err instanceof Error) {
+        console.error(`[GoogleMapsAdapter] Stack:\n${err.stack}`);
+      }
       throw new Error(
         `GoogleMapsAdapter browser search failed for "${category}" in ${location.city ?? ""}, ${location.state}: ${message}`,
       );

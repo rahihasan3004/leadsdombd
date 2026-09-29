@@ -171,10 +171,11 @@ export async function runContinuous(config: RunnerConfig): Promise<void> {
       mergeAccum(totals, batchStats);
       logBatch(batchStats, totals, batchCount);
     } catch (err) {
-      console.error(
-        `[runner] Batch ${batchCount} failed:`,
-        err instanceof Error ? err.message : String(err),
-      );
+      console.error("[runner] Batch failed:", err);
+      if (err instanceof Error) {
+        console.error(`[runner] Stack:\n${err.stack}`);
+      }
+      totals.errorsEncountered++;
     }
 
     if (running && batchCount < maxBatches) {
