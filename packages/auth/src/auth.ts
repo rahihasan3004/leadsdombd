@@ -27,7 +27,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   pages: {
     signIn: "/login",
-    error: "/login?error=auth",
+    error: "/login",
   },
   providers: [
     Google({
@@ -94,81 +94,94 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async signIn({ user, account }) {
+      if (account?.provider === "credentials") {
+        return true;
+      }
+
       if ((account?.provider === "google" || account?.provider === "github") && user.email) {
-        const normalizedEmail = user.email.toLowerCase().trim();
+        try {
+          const normalizedEmail = user.email.toLowerCase().trim();
 
-        const existingUser = await db.user.findUnique({
-          where: { email: normalizedEmail },
-          include: { accounts: true },
-        });
-
-        if (existingUser) {
-          const hasProviderAccount = existingUser.accounts.some(
-            (acc) => acc.provider === account.provider
-          );
-          if (!hasProviderAccount) {
-            await db.account.create({
-              data: {
-                userId: existingUser.id,
-                type: account.type,
-                provider: account.provider,
-                providerAccountId: account.providerAccountId,
-                access_token: account.access_token,
-                expires_at: account.expires_at,
-                token_type: account.token_type,
-                scope: account.scope,
-                id_token: account.id_token,
-              },
-            });
-          }
-          if (!existingUser.emailVerified) {
-            await db.user.update({
-              where: { id: existingUser.id },
-              data: { emailVerified: new Date() },
-            });
-          }
-        } else {
-          await db.$transaction(async (tx) => {
-            const org = await tx.organization.create({
-              data: {
-                name: user.name || `${normalizedEmail}'s Organization`,
-                slug: `org-${crypto.randomUUID().slice(0, 12)}`,
-              },
-            });
-
-            const newUser = await tx.user.create({
-              data: {
-                name: user.name,
-                email: normalizedEmail,
-                image: user.image,
-                emailVerified: new Date(),
-                organizationId: org.id,
-              },
-            });
-
-            await tx.account.create({
-              data: {
-                userId: newUser.id,
-                type: account.type,
-                provider: account.provider,
-                providerAccountId: account.providerAccountId,
-                access_token: account.access_token,
-                expires_at: account.expires_at,
-                token_type: account.token_type,
-                scope: account.scope,
-                id_token: account.id_token,
-              },
-            });
-
-            await tx.subscription.create({
-              data: {
-                userId: newUser.id,
-                organizationId: org.id,
-                tier: "FREE",
-                status: "ACTIVE",
-              },
-            });
+          const existingUser = await db.user.findUnique({
+            where: { email: normalizedEmail },
+            include: { accounts: true },
           });
+
+          if (existingUser) {
+            const hasProviderAccount = existingUser.accounts.some(
+              (acc) => acc.provider === account.provider
+            );
+            if (!hasProviderAccount) {
+              await db.account.create({
+                data: {
+                  userId: existingUser.id,
+                  type: account.type,
+                  provider: account.provider,
+                  providerAccountId: account.providerAccountId,
+                  access_token: account.access_token,
+                  expires_at: account.expires_at,
+                  token_type: account.token_type,
+                  scope: account.scope,
+                  id_token: account.id_token,
+                },
+              });
+            }
+            if (!existingUser.emailVerified) {
+              await db.user.update({
+                where: { id: existingUser.id },
+                data: { emailVerified: new Date() },
+              });
+            }
+          } else {
+            await db.$transaction(async (tx) => {
+              const org = await tx.organization.create({
+                data: {
+                  name: user.name || `${normalizedEmail}'s Organization`,
+                  slug: `org-${crypto.randomUUID().slice(0, 12)}`,
+                },
+              });
+
+              const newUser = await tx.user.create({
+                data: {
+                  name: user.name,
+                  email: normalizedEmail,
+                  image: user.image,
+                  emailVerified: new Date(),
+                  role: "USER",
+                  walletBalance: "0.00",
+                  credits: 0,
+                  tokenVersion: 0,
+                  organizationId: org.id,
+                },
+              });
+
+              await tx.account.create({
+                data: {
+                  userId: newUser.id,
+                  type: account.type,
+                  provider: account.provider,
+                  providerAccountId: account.providerAccountId,
+                  access_token: account.access_token,
+                  expires_at: account.expires_at,
+                  token_type: account.token_type,
+                  scope: account.scope,
+                  id_token: account.id_token,
+                },
+              });
+
+              await tx.subscription.create({
+                data: {
+                  userId: newUser.id,
+                  organizationId: org.id,
+                  tier: "FREE",
+                  status: "ACTIVE",
+                },
+              });
+            });
+          }
+        } catch (error) {
+          console.error("[SIGNIN_OAUTH_ERROR]:", error);
+          throw error;
         }
       }
       return true;

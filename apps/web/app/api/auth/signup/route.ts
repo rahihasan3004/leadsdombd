@@ -71,6 +71,11 @@ export async function POST(request: Request) {
           name,
           email: normalizedEmail,
           passwordHash,
+          emailVerified: null,
+          role: "USER",
+          walletBalance: "0.00",
+          credits: 0,
+          tokenVersion: 0,
           organizationId: org.id,
           subscriptions: {
             create: {

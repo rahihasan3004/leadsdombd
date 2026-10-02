@@ -30,7 +30,9 @@ export function LoginForm() {
 
   const displayError = errorParam === "CredentialsSignin"
     ? "Invalid email or password, or your email has not been verified. Please check your inbox for a verification code."
-    : errorParam === "auth"
+    : errorParam === "AccessDenied"
+    ? "Authentication failed. Please try again or contact support if the issue persists."
+    : errorParam
     ? "Authentication failed. Please try again or contact support if the issue persists."
     : error
     ? error
