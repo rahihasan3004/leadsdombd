@@ -65,6 +65,9 @@ export default function BillingPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).createLemonSqueezy) {
+      (window as any).createLemonSqueezy();
+    }
     if (typeof window !== "undefined" && (window as any).LemonSqueezy) {
       (window as any).LemonSqueezy.Setup({
         eventHandler: (_event: string, data: any) => {

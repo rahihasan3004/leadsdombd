@@ -109,11 +109,6 @@ export default function RootLayout({
         <Script
           src="https://assets.lemonsqueezy.com/lemon.js"
           strategy="lazyOnload"
-          onLoad={() => {
-            if (typeof window !== "undefined" && (window as any).createLemonSqueezy) {
-              (window as any).createLemonSqueezy();
-            }
-          }}
         />
         <Toaster />
         <OrganizationSchema />
