@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 
 
@@ -18,6 +20,8 @@ interface WalletData {
 }
 
 export default function BillingPage() {
+  const queryClient = useQueryClient();
+
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,6 +38,23 @@ export default function BillingPage() {
   const ITEMS_PER_PAGE = 5;
 
   const metrics = { availableBalance: 0 };
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).LemonSqueezy) {
+      (window as any).LemonSqueezy.Setup({
+        eventHandler: (_event: string, data: any) => {
+          if (_event === "Checkout.Success") {
+            window.LemonSqueezy.Url.Close?.();
+            toast.success("Wallet funds added successfully!");
+            queryClient.invalidateQueries({ queryKey: ["wallet"] });
+            queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+            queryClient.invalidateQueries({ queryKey: ["billing"] });
+            fetchBillingData();
+          }
+        },
+      });
+    }
+  }, [queryClient, fetchBillingData]);
 
   const fetchBillingData = useCallback(async () => {
     try {
@@ -106,7 +127,14 @@ export default function BillingPage() {
         setSelectedAmount(null);
         setCustomAmount("");
         if (json.url) {
-          window.location.href = json.url;
+          const embedUrl = json.url.includes("?")
+            ? `${json.url}&embed=1`
+            : `${json.url}?embed=1`;
+          if (typeof window !== "undefined" && (window as any).LemonSqueezy) {
+            (window as any).LemonSqueezy.Url.Open(embedUrl);
+          } else {
+            window.location.href = embedUrl;
+          }
           return;
         }
         setSuccessMessage(json.message || "Funds added successfully.");

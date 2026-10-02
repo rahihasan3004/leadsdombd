@@ -8,6 +8,7 @@ import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@fine-leads/ui";
 import { OrganizationSchema, WebSiteSchema, SoftwareApplicationSchema } from "@/components/seo";
+import Script from "next/script";
 import "@fine-leads/ui/globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -105,6 +106,15 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className={`${jakarta.variable} ${jetbrainsMono.variable} overflow-x-hidden`}>
       <body className="min-h-screen w-full max-w-full overflow-x-hidden bg-white text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-50 font-sans">
         <Providers>{children}</Providers>
+        <Script
+          src="https://assets.lemonsqueezy.com/lemon.js"
+          strategy="lazyOnload"
+          onLoad={() => {
+            if (typeof window !== "undefined" && (window as any).createLemonSqueezy) {
+              (window as any).createLemonSqueezy();
+            }
+          }}
+        />
         <Toaster />
         <OrganizationSchema />
         <WebSiteSchema />
