@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     if (eventName === "order_created") {
       const rawTotal = attributes.total ?? attributes.total_usd;
-      const totalCents = rawTotal !== undefined ? Number(rawTotal) : Number(customData.amount || 100) * 100;
+      const totalCents = rawTotal !== undefined ? Number(rawTotal) : parseFloat(customData.amount || "100") * 100;
       const paidAmount = totalCents / 100;
       const orderId = String(attributes.first_order_item?.order_id || body.data?.id || Date.now());
       const eventId = String(body.meta?.event_id || body.data?.id || orderId);

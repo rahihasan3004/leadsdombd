@@ -59,12 +59,12 @@ export async function createLemonSqueezyCheckout({
   if (name) checkoutData.name = name;
   checkoutData.custom = {
     user_id: String(userId),
-    type: type || "WALLET_TOPUP",
-    amount: Number(amount),
+    type: String(type || "WALLET_TOPUP"),
+    amount: String(amount),
+    ...(unlockedStates
+      ? { unlocked_states: typeof unlockedStates === "string" ? unlockedStates : JSON.stringify(unlockedStates) }
+      : {}),
   };
-  if (unlockedStates) {
-    checkoutData.custom.unlocked_states = unlockedStates;
-  }
 
   const payload = {
     data: {
