@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
-import { PRICE_PER_LEAD, generateOrderRef, generateTxnRef } from "@fine-leads/utils";
-
-const UNIT_PRICE = PRICE_PER_LEAD;
+import { generateOrderRef, generateTxnRef } from "@fine-leads/utils";
 
 export async function POST(req: Request) {
   try {
@@ -26,11 +24,24 @@ export async function POST(req: Request) {
 
     const user = await db.user.findUnique({
       where: { id: session.user.id },
-      select: { walletBalance: true, id: true },
+      select: { credits: true, id: true },
     });
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const requiredCredits = parsedQuantity;
+
+    if (user.credits < requiredCredits) {
+      return NextResponse.json(
+        {
+          error: "INSUFFICIENT_CREDITS",
+          required: requiredCredits,
+          current: user.credits,
+        },
+        { status: 402 },
+      );
     }
 
     const result = await db.$transaction(async (tx) => {
@@ -51,7 +62,7 @@ export async function POST(req: Request) {
           ],
           id: { notIn: Array.from(existingAgentIds) },
         },
-        take: parsedQuantity,
+        take: requiredCredits,
         select: { id: true },
       });
 
@@ -63,31 +74,17 @@ export async function POST(req: Request) {
       }
 
       const finalQuantity = availableAgents.length;
-      const finalPrice = Math.round(finalQuantity * UNIT_PRICE * 100) / 100;
-      const currentBalance = Number(user.walletBalance.toString());
-
-      if (currentBalance < finalPrice) {
-        return NextResponse.json(
-          {
-            error: "INSUFFICIENT_FUNDS",
-            required: finalPrice,
-            balance: currentBalance,
-          },
-          { status: 402 },
-        );
-      }
-
-      const newBalance = currentBalance - finalPrice;
+      const newCredits = user.credits - finalQuantity;
 
       await tx.user.update({
         where: { id: session.user.id },
-        data: { walletBalance: newBalance },
+        data: { credits: newCredits },
       });
 
       const purchase = await tx.leadPurchase.create({
         data: {
           userId: session.user.id,
-          amountPaid: finalPrice,
+          amountPaid: finalQuantity,
           leadCount: finalQuantity,
           unlockedStates: states,
           status: "COMPLETED",
@@ -99,8 +96,8 @@ export async function POST(req: Request) {
         data: {
           userId: session.user.id,
           type: "PURCHASE",
-          amount: -finalPrice,
-          balanceAfter: newBalance,
+          amount: -finalQuantity,
+          balanceAfter: newCredits,
           referenceId: generateTxnRef(),
           description: `Lead purchase: ${finalQuantity} leads`,
           status: "COMPLETED",
@@ -122,8 +119,8 @@ export async function POST(req: Request) {
         success: true,
         orderId: purchase.id,
         unlockedCount: finalQuantity,
-        amountDeducted: finalPrice,
-        remainingBalance: newBalance,
+        creditsDeducted: finalQuantity,
+        remainingCredits: newCredits,
       });
     });
 

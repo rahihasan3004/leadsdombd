@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { amount = 100, type = "WALLET_TOPUP", unlockedStates } = body;
+    const { amount = 100, type = "WALLET_TOPUP", credits, unlockedStates } = body;
 
     const amountNumber = Math.max(1, Number(amount) || 10);
 
@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
       redirectUrl: `${origin}/dashboard/billing?status=success`,
       isPreview: process.env.NODE_ENV !== "production",
       unlockedStates: unlockedStates || undefined,
+      credits: credits || undefined,
     });
 
     return NextResponse.json({ url: checkoutUrl }, { status: 200 });

@@ -23,22 +23,12 @@ interface MonthlyData {
 
 interface DashboardMetrics {
   totalLeads: number;
-  availableBalance: number;
+  availableCredits: number;
   walletBalance: number;
   deliveredFiles: number;
   deliverability: number;
   monthlyTrends: MonthlyData[];
 }
-
-const formatCurrency = (val: number | string | undefined | null) => {
-  const num = typeof val === "number" ? val : Number(val ?? 0);
-  if (isNaN(num)) return "$0.00";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }).format(num);
-};
 
 interface DashboardClientProps {
   metrics: DashboardMetrics;
@@ -70,7 +60,7 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
   });
 
   const totalLeadsFormatted = formatNumber(metrics.totalLeads);
-  const walletFormatted = formatCurrency(metrics.availableBalance);
+  const creditsFormatted = metrics.availableCredits.toLocaleString();
   const deliveredFilesFormatted = `${metrics.deliveredFiles} File${metrics.deliveredFiles === 1 ? "" : "s"}`;
   const deliverabilityFormatted = `${metrics.deliverability}%`;
 
@@ -151,12 +141,12 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
           iconColor="text-[#465FFF]"
         />
         <KpiCard
-          label="Available Balance"
-          value={walletFormatted}
+          label="Available Credits"
+          value={creditsFormatted}
           icon={Wallet}
           iconBg="bg-blue-50"
           iconColor="text-[#465FFF]"
-          action={{ label: "+ Top Up", href: "/dashboard/billing" }}
+          action={{ label: "+ Buy Credits", href: "/dashboard/billing" }}
         />
         <KpiCard
           label="Delivered Files"

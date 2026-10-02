@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-
-
+import VolumePricingSlider from "@/components/dashboard/billing/volume-pricing-slider";
+import { VOLUME_PRICING_TIERS, type PricingTier } from "@fine-leads/utils";
 
 interface WalletData {
-  walletBalance: number;
+  credits: number;
   transactions: Array<{
     id: string;
     type: string;
@@ -22,22 +22,19 @@ interface WalletData {
 export default function BillingPage() {
   const queryClient = useQueryClient();
 
-  const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
-  const [customAmount, setCustomAmount] = useState("");
+  const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [data, setData] = useState<WalletData>({
-    walletBalance: 0,
+    credits: 0,
     transactions: [],
   });
-  const [liveBalance, setLiveBalance] = useState<number | null>(null);
+  const [liveCredits, setLiveCredits] = useState<number | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
 
   const ITEMS_PER_PAGE = 5;
-
-  const metrics = { availableBalance: 0 };
 
   const fetchBillingData = useCallback(async () => {
     try {
@@ -47,7 +44,7 @@ export default function BillingPage() {
       ]);
       if (profileRes.ok) {
         const profileJson = await profileRes.json();
-        setLiveBalance(Number(profileJson.walletBalance ?? 0));
+        setLiveCredits(Number(profileJson.credits ?? 0));
       }
       if (txRes.ok) {
         const json = await txRes.json();
@@ -73,7 +70,7 @@ export default function BillingPage() {
         eventHandler: (_event: string, data: any) => {
           if (_event === "Checkout.Success") {
             (window as any).LemonSqueezy?.Url?.Close?.();
-            toast.success("Wallet funds added successfully!");
+            toast.success("Credits added successfully!");
             queryClient.invalidateQueries({ queryKey: ["wallet"] });
             queryClient.invalidateQueries({ queryKey: ["dashboard"] });
             queryClient.invalidateQueries({ queryKey: ["billing"] });
@@ -93,22 +90,8 @@ export default function BillingPage() {
   }, [data.transactions.length]);
 
   const handleAddFunds = useCallback(async () => {
-    const amount = customAmount
-      ? parseFloat(customAmount)
-      : selectedAmount;
-
-    if (!amount || amount <= 0) {
-      setError("Please select or enter a valid amount");
-      return;
-    }
-
-    if (amount < 1) {
-      setError("Minimum recharge is $1.00.");
-      return;
-    }
-
-    if (amount > 1000) {
-      setError("Maximum single recharge is $1,000.00.");
+    if (!selectedTier) {
+      setError("Please select a volume tier to recharge.");
       return;
     }
 
@@ -121,14 +104,13 @@ export default function BillingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount: selectedTier.price, credits: selectedTier.credits }),
       });
 
       const json = await res.json();
 
       if (res.ok) {
-        setSelectedAmount(null);
-        setCustomAmount("");
+        setSelectedTier(null);
         if (json.url) {
           const embedUrl = json.url.includes("?")
             ? `${json.url}&embed=1`
@@ -140,24 +122,24 @@ export default function BillingPage() {
           }
           return;
         }
-        setSuccessMessage(json.message || "Funds added successfully.");
+        setSuccessMessage(json.message || "Credits added successfully.");
         if (json.newBalance != null) {
-          setLiveBalance(Number(json.newBalance));
+          setLiveCredits(Number(json.newBalance));
         }
         await fetchBillingData();
       } else {
-        setError(json.error || "Failed to add funds");
+        setError(json.error || "Failed to add credits");
       }
     } catch {
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [selectedAmount, customAmount, fetchBillingData]);
+  }, [selectedTier, fetchBillingData]);
 
-  const formatCurrency = (val: any) => {
+  const formatCredits = (val: any) => {
     const num = typeof val === "number" ? val : Number(val?.toString?.() || val || 0);
-    return isNaN(num) ? "$0.00" : `$${num.toFixed(2)}`;
+    return isNaN(num) ? "0" : num.toLocaleString();
   };
 
   const formatDate = (dateString: string) => {
@@ -207,10 +189,10 @@ export default function BillingPage() {
       <div className="w-full min-h-screen bg-slate-50 p-3.5 sm:p-6 lg:p-8 pb-3.5 sm:pb-6 lg:pb-8 space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-          Billing & Wallet Balance
+          Billing & Credits
         </h1>
         <p className="mt-1.5 text-sm text-slate-500">
-          Pre-load wallet funds for instant 1-click lead purchases and manage
+          Pre-load credits for instant 1-click lead purchases and manage
           your transaction ledger.
         </p>
       </div>
@@ -219,50 +201,23 @@ export default function BillingPage() {
         <div className="lg:col-span-8 bg-white shadow-none border-0 rounded-2xl p-5 md:p-6 flex flex-col justify-between space-y-4">
           <div className="space-y-1">
             <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-              Available Wallet Balance
+              Available Credits
             </div>
             <div className="flex items-center gap-3">
               <div className="text-3xl font-bold text-slate-900 tabular-nums">
-                {formatCurrency(liveBalance ?? data?.walletBalance ?? 0)}
+                {formatCredits(liveCredits ?? data?.credits ?? 0)}
               </div>
+              <span className="text-sm font-medium text-slate-400">Credits</span>
             </div>
           </div>
 
           <div className="space-y-4">
-            <div className="space-y-3">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                Amount to Recharge (USD)
-              </label>
-              <input
-                type="number"
-                min={1}
-                max={1000}
-                step="0.01"
-                value={customAmount}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "") {
-                    setCustomAmount("");
-                    setSelectedAmount(null);
-                    setError(null);
-                    return;
-                  }
-                  const num = parseFloat(val);
-                  if (!isNaN(num)) {
-                    if (num > 1000) setCustomAmount("1000");
-                    else if (num < 1) setCustomAmount("1");
-                    else setCustomAmount(val);
-                  }
-                  setSelectedAmount(null);
-                  setError(null);
-                }}
-                placeholder="Enter amount in USD ($1 – $1,000)"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 bg-white focus:outline-none focus:border-[#465FFF] transition-colors"
-              />
-              <p className="text-xs text-slate-400 mt-1.5 font-normal">
-                Min: $1.00 · Max: $1,000.00 per top-up transaction
-              </p>
-            </div>
+            <VolumePricingSlider
+              selectedTier={selectedTier}
+              onTierChange={setSelectedTier}
+              onConfirm={handleAddFunds}
+              loading={loading}
+            />
 
             {error && (
               <div className="text-xs font-medium text-red-600">
@@ -275,15 +230,6 @@ export default function BillingPage() {
                 {successMessage}
               </div>
             )}
-
-            <button
-              type="button"
-              onClick={handleAddFunds}
-              disabled={loading || (!selectedAmount && !customAmount)}
-               className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-none border-0 transition-all duration-200 block text-center disabled:opacity-50"
-            >
-              {loading ? "Processing..." : "Add Funds to Wallet →"}
-            </button>
 
             <div className="text-xs text-slate-400">
               Secure 256-Bit Encrypted Checkout · Instant Balance Credit · No Monthly Lock-in
@@ -342,7 +288,7 @@ export default function BillingPage() {
         {/* Top: Header */}
         <div className="shrink-0">
           <h2 className="text-base font-bold text-slate-900 tracking-tight">Transaction Ledger</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Full historical record of your wallet top-ups, lead purchases, and automated adjustments.</p>
+          <p className="text-xs text-slate-400 mt-0.5">Full historical record of your credit top-ups, lead purchases, and automated adjustments.</p>
         </div>
 
          {/* Middle: 5 Rows Table OR Empty State (Same Fixed Space) */}
@@ -367,38 +313,38 @@ export default function BillingPage() {
 
                   return (
                      <tr key={tx.id} className="h-11 hover:bg-slate-50/70 text-xs transition-colors">
-                      <td className="py-2 px-4 whitespace-nowrap">
-                        <div className="text-xs font-sans font-normal text-sm text-slate-900">
-                          {tx.id}
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
-                          {formatDate(tx.createdAt)}
-                        </div>
-                      </td>
-                      <td className="py-2 px-4 whitespace-nowrap text-xs text-slate-700">
-                        {tx.type === "TOPUP" || tx.type === "RECHARGE" ? "Top-up" : tx.type === "PURCHASE" ? "Purchase" : tx.type === "REFUND" ? "Refund" : tx.type}
-                      </td>
-                      <td className="py-2 px-4 text-slate-700 text-xs max-w-xs truncate">
-                        {tx.description}
-                      </td>
-                      <td
-                        className={`py-2 px-4 text-xs font-semibold tabular-nums whitespace-nowrap text-right ${typeConfig.amountClass}`}
-                      >
-                        {isPositive ? "+" : ""}
-                        {formatCurrency(tx.amount)}
-                      </td>
-                      <td className="py-2 px-4 text-xs font-medium text-slate-500 tabular-nums whitespace-nowrap text-right">
-                        {tx.balanceAfter != null
-                          ? formatCurrency(tx.balanceAfter)
-                          : "—"}
-                      </td>
-                      <td className="py-2 px-4 whitespace-nowrap text-right text-xs font-medium">
-                        {tx.status === "COMPLETED" && <span className="text-emerald-600">Completed</span>}
-                        {tx.status === "PENDING" && <span className="text-amber-600">Pending</span>}
-                        {tx.status === "FAILED" && <span className="text-red-600">Failed</span>}
-                        {tx.status === "REFUNDED" && <span className="text-slate-500">Refunded</span>}
-                      </td>
-                    </tr>
+                    <td className="py-2 px-4 whitespace-nowrap">
+                      <div className="text-xs font-sans font-normal text-sm text-slate-900">
+                        {tx.id}
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        {formatDate(tx.createdAt)}
+                      </div>
+                    </td>
+                    <td className="py-2 px-4 whitespace-nowrap text-xs text-slate-700">
+                      {tx.type === "TOPUP" || tx.type === "RECHARGE" ? "Top-up" : tx.type === "PURCHASE" ? "Purchase" : tx.type === "REFUND" ? "Refund" : tx.type}
+                    </td>
+                    <td className="py-2 px-4 text-slate-700 text-xs max-w-xs truncate">
+                      {tx.description}
+                    </td>
+                    <td
+                      className={`py-2 px-4 text-xs font-semibold tabular-nums whitespace-nowrap text-right ${typeConfig.amountClass}`}
+                    >
+                      {isPositive ? "+" : ""}
+                      {tx.amount.toLocaleString()} Credits
+                    </td>
+                    <td className="py-2 px-4 text-xs font-medium text-slate-500 tabular-nums whitespace-nowrap text-right">
+                      {tx.balanceAfter != null
+                        ? tx.balanceAfter.toLocaleString()
+                        : "—"}
+                    </td>
+                    <td className="py-2 px-4 whitespace-nowrap text-right text-xs font-medium">
+                      {tx.status === "COMPLETED" && <span className="text-emerald-600">Completed</span>}
+                      {tx.status === "PENDING" && <span className="text-amber-600">Pending</span>}
+                      {tx.status === "FAILED" && <span className="text-red-600">Failed</span>}
+                      {tx.status === "REFUNDED" && <span className="text-slate-500">Refunded</span>}
+                    </td>
+                  </tr>
                   );
                 })}
               </tbody>

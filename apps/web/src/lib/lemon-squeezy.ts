@@ -35,6 +35,7 @@ export interface LemonSqueezyCheckoutParams {
   redirectUrl: string;
   isPreview: boolean;
   unlockedStates?: any;
+  credits?: number;
 }
 
 export async function createLemonSqueezyCheckout({
@@ -48,10 +49,24 @@ export async function createLemonSqueezyCheckout({
   redirectUrl,
   isPreview,
   unlockedStates,
+  credits,
 }: LemonSqueezyCheckoutParams): Promise<string> {
   const apiKey = getLemonSqueezyApiKey();
   if (!apiKey) {
     throw new Error("Lemon Squeezy API key is not configured");
+  }
+
+  const resolvedStoreId = storeId || getLemonSqueezyStoreId();
+  const resolvedVariantId = variantId || getWalletTopupVariantId();
+
+  if (!resolvedStoreId || !/^\d+$/.test(resolvedStoreId)) {
+    console.warn("[LEMONSQUEEZY_VALIDATION] Invalid or missing LEMONSQUEEZY_STORE_ID:", resolvedStoreId);
+    throw new Error("Lemon Squeezy store ID is not configured or invalid");
+  }
+
+  if (!resolvedVariantId || !/^\d+$/.test(resolvedVariantId)) {
+    console.warn("[LEMONSQUEEZY_VALIDATION] Invalid or missing variant ID:", resolvedVariantId);
+    throw new Error("Lemon Squeezy variant ID is not configured or invalid");
   }
 
   const checkoutData: Record<string, any> = {};
@@ -61,6 +76,7 @@ export async function createLemonSqueezyCheckout({
     user_id: String(userId),
     type: String(type || "WALLET_TOPUP"),
     amount: String(amount),
+    ...(credits !== undefined ? { credits: String(credits) } : {}),
     ...(unlockedStates
       ? { unlocked_states: typeof unlockedStates === "string" ? unlockedStates : JSON.stringify(unlockedStates) }
       : {}),
@@ -72,7 +88,7 @@ export async function createLemonSqueezyCheckout({
       attributes: {
         custom_price: Math.round(Number(amount) * 100),
         product_options: {
-          enabled_variants: [Number(variantId)],
+          enabled_variants: [Number(resolvedVariantId)],
         },
         checkout_data: checkoutData,
         preview: isPreview,
@@ -81,13 +97,13 @@ export async function createLemonSqueezyCheckout({
         store: {
           data: {
             type: "stores",
-            id: String(storeId),
+            id: String(resolvedStoreId),
           },
         },
         variant: {
           data: {
             type: "variants",
-            id: String(variantId),
+            id: String(resolvedVariantId),
           },
         },
       },

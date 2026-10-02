@@ -12,11 +12,11 @@ export async function GET() {
 
     const user = await db.user.findUnique({
       where: { id: session.user.id },
-      select: { walletBalance: true },
+      select: { credits: true },
     });
 
     return NextResponse.json({
-      walletBalance: Number(user?.walletBalance?.toString() || 0),
+      credits: Number(user?.credits ?? 0),
     });
   } catch (error) {
     console.error("Profile fetch error:", error);

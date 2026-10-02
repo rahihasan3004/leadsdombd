@@ -4,12 +4,16 @@ import { PrismaPlugin } from "@prisma/nextjs-monorepo-workaround-plugin";
 
 const isDev = process.env.NODE_ENV === "development";
 const scriptSrc = isDev
-  ? "'self' 'unsafe-inline' 'unsafe-eval'"
-  : "'self' 'unsafe-inline'";
+  ? "'self' 'unsafe-inline' 'unsafe-eval' https://assets.lemonsqueezy.com"
+  : "'self' 'unsafe-inline' https://assets.lemonsqueezy.com";
 
 const connectSrc = isDev
-  ? "'self' https: http: ws: wss: localhost:*"
-  : "'self' https: *.lemonsqueezy.com";
+  ? "'self' https: http: ws: wss: localhost:* https://*.lemonsqueezy.com"
+  : "'self' https: https://*.lemonsqueezy.com";
+
+const frameSrc = isDev
+  ? "'self' https://*.lemonsqueezy.com"
+  : "'self' https://*.lemonsqueezy.com";
 
 const nextConfig: NextConfig = {
   env: {
@@ -50,7 +54,7 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' https://lh3.googleusercontent.com https://avatars.githubusercontent.com data: blob:; font-src 'self' data:; connect-src ${connectSrc}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
+              `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' https://lh3.googleusercontent.com https://avatars.githubusercontent.com data: blob:; font-src 'self' data:; connect-src ${connectSrc}; frame-src ${frameSrc}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
           },
         ],
       },

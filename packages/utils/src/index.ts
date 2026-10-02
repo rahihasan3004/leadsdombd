@@ -131,6 +131,8 @@ export const LEAD_STATES = US_STATES.map((s) => {
 
 export type LeadState = string;
 
+export { type PricingTier, VOLUME_PRICING_TIERS, getTierByCredits, getDefaultTier } from "./pricing";
+
 export const PRICE_PER_THOUSAND_LEADS = 19;
 export const PRICE_PER_LEAD = 0.019;
 

@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       const paidAmount = totalCents / 100;
       const orderId = String(attributes.first_order_item?.order_id || body.data?.id || Date.now());
       const eventId = String(body.meta?.event_id || body.data?.id || orderId);
+      const creditsToAdd = customData.credits ? parseInt(String(customData.credits), 10) : null;
 
       if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
         console.error(`[WEBHOOK_INVALID_AMOUNT]: ${paidAmount} for ${userEmail}`);
@@ -94,33 +95,34 @@ export async function POST(req: NextRequest) {
 
           console.log(`[LEAD_PURCHASE_COMPLETED]: Unlocked ${unlockedStates.length} states for ${targetUser.email}.`);
         } else {
+          const updateData: Record<string, any> = {};
+          if (creditsToAdd !== null && Number.isFinite(creditsToAdd)) {
+            updateData.credits = { increment: creditsToAdd };
+          }
+
           const updatedUser = await tx.user.update({
             where: { id: targetUser.id },
-            data: {
-              walletBalance: {
-                increment: paidAmount,
-              },
-            },
+            data: updateData,
           });
 
           await tx.walletTransaction.create({
             data: {
               userId: targetUser.id,
-              amount: paidAmount,
+              amount: creditsToAdd ?? paidAmount,
               type: "RECHARGE",
               status: "COMPLETED",
-              balanceAfter: updatedUser.walletBalance,
+              balanceAfter: updatedUser.credits,
               description: `Wallet top-up via Lemon Squeezy (Order #${orderId})`,
               referenceId: `ls_order_${orderId}_${Date.now()}`,
             },
           });
 
-          console.log(`[WALLET_CREDITED_SUCCESS]: Added $${paidAmount} to ${targetUser.email}. New Balance: $${updatedUser.walletBalance}`);
+          console.log(`[WALLET_CREDITED_SUCCESS]: Added ${creditsToAdd ?? paidAmount} credits to ${targetUser.email}. New Balance: ${updatedUser.credits}`);
         }
 
         await tx.webhookEvent.upsert({
           where: { eventId: eventId },
-          create: { eventId: eventId, provider: "lemonsqueezy", status: "processed", payload: body },
+          create: { eventId, provider: "lemonsqueezy", status: "processed", payload: body },
           update: { status: "processed" },
         });
       });

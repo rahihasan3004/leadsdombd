@@ -10,7 +10,7 @@ interface MonthlyData {
 
 interface DashboardMetrics {
   totalLeads: number;
-  availableBalance: number;
+  availableCredits: number;
   walletBalance: number;
   deliveredFiles: number;
   deliverability: number;
@@ -33,7 +33,7 @@ async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
     deliveredFiles,
     purchases,
   ] = await Promise.all([
-    db.user.findUnique({ where: { id: userId }, select: { walletBalance: true } }),
+    db.user.findUnique({ where: { id: userId }, select: { credits: true } }),
     db.unlockedLead.count({ where: { userId } }),
     db.unlockedLead.count({ where: { userId, agent: { isDeliverable: true } } }),
     db.leadPurchase.count({ where: { userId, status: "COMPLETED" } }),
@@ -43,7 +43,7 @@ async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
     }),
   ]);
 
-  const availableBalance = user ? Number(user.walletBalance) : 0;
+  const availableCredits = user ? Number(user.credits) : 0;
   const deliverability =
     totalLeads > 0
       ? Math.round((deliverableUnlockedLeads / totalLeads) * 100)
@@ -102,8 +102,8 @@ async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
 
   return {
     totalLeads,
-    availableBalance,
-    walletBalance: availableBalance,
+    availableCredits,
+    walletBalance: availableCredits,
     deliveredFiles,
     deliverability,
     monthlyTrends,

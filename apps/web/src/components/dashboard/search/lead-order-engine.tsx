@@ -51,6 +51,19 @@ export function LeadOrderEngine() {
     refetchOnWindowFocus: true,
   });
 
+  const { data: userCredits = 0 } = useQuery<number>({
+    queryKey: ["user", "credits"],
+    queryFn: async () => {
+      const res = await fetch("/api/user/profile");
+      if (!res.ok) throw new Error("Failed to fetch user credits");
+      const json = await res.json();
+      return Number(json.credits ?? 0);
+    },
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
   const totalAvailable = useMemo(
     () => selectedStates.reduce((sum, code) => sum + (inventoryStats[code] || 0), 0),
     [selectedStates, inventoryStats],
@@ -139,11 +152,11 @@ export function LeadOrderEngine() {
       const data = await res.json();
 
       if (!res.ok) {
-        if (data.error === "INSUFFICIENT_FUNDS") {
-          toast.error("Insufficient wallet balance", {
-            description: `$${data.required.toFixed(2)} required, balance $${data.balance.toFixed(2)}. Please top up your wallet.`,
+        if (data.error === "INSUFFICIENT_CREDITS") {
+          toast.error("Insufficient credits", {
+            description: `${data.required.toLocaleString()} credits required, ${data.current.toLocaleString()} available. Please top up your credits.`,
             action: {
-              label: "Top Up Wallet",
+              label: "Buy Credits",
               onClick: () => router.push("/dashboard/billing"),
             },
           });
@@ -228,11 +241,11 @@ export function LeadOrderEngine() {
                 >
                   {selectedStates.length === 0
                     ? "None selected"
-                      : selectedStates.length === ALL_US_STATES.length
-                        ? "All 50 US States + DC"
-                      : selectedStates.length <= 4
-                        ? selectedStates.join(", ")
-                        : `${selectedStates.slice(0, 3).join(", ")} (+${selectedStates.length - 3} more)`}
+                    : selectedStates.length === ALL_US_STATES.length
+                      ? "All 50 US States + DC"
+                    : selectedStates.length <= 4
+                      ? selectedStates.join(", ")
+                      : `${selectedStates.slice(0, 3).join(", ")} (+${selectedStates.length - 3} more)`}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -245,6 +258,18 @@ export function LeadOrderEngine() {
                 <span className="text-slate-500">Unit Price</span>
                 <span className="font-semibold text-slate-900 tabular-nums">
                   $0.019 / lead ($19.00 / 1k)
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Required Credits</span>
+                <span className="font-semibold text-slate-900 tabular-nums">
+                  {parsedQty > 0 ? `${parsedQty.toLocaleString()} Credits` : "—"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Available Credits</span>
+                <span className="font-semibold text-slate-900 tabular-nums">
+                  {userCredits.toLocaleString()} Credits
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -272,7 +297,7 @@ export function LeadOrderEngine() {
               disabled={!isFormValid || submitting}
               className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-none border-0 transition-all duration-200 block text-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting ? "Processing..." : "Unlock & Export Leads →"}
+              {submitting ? "Processing..." : `Unlock ${parsedQty > 0 ? parsedQty.toLocaleString() : ""} Leads (${parsedQty > 0 ? parsedQty.toLocaleString() : ""} Credits) →`}
             </button>
 
             <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
