@@ -44,7 +44,7 @@ export default function BillingPage() {
       (window as any).LemonSqueezy.Setup({
         eventHandler: (_event: string, data: any) => {
           if (_event === "Checkout.Success") {
-            window.LemonSqueezy.Url.Close?.();
+            (window as any).LemonSqueezy?.Url?.Close?.();
             toast.success("Wallet funds added successfully!");
             queryClient.invalidateQueries({ queryKey: ["wallet"] });
             queryClient.invalidateQueries({ queryKey: ["dashboard"] });
