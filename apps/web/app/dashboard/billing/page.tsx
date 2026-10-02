@@ -39,23 +39,6 @@ export default function BillingPage() {
 
   const metrics = { availableBalance: 0 };
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && (window as any).LemonSqueezy) {
-      (window as any).LemonSqueezy.Setup({
-        eventHandler: (_event: string, data: any) => {
-          if (_event === "Checkout.Success") {
-            (window as any).LemonSqueezy?.Url?.Close?.();
-            toast.success("Wallet funds added successfully!");
-            queryClient.invalidateQueries({ queryKey: ["wallet"] });
-            queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-            queryClient.invalidateQueries({ queryKey: ["billing"] });
-            fetchBillingData();
-          }
-        },
-      });
-    }
-  }, [queryClient, fetchBillingData]);
-
   const fetchBillingData = useCallback(async () => {
     try {
       const [txRes, profileRes] = await Promise.all([
@@ -80,6 +63,23 @@ export default function BillingPage() {
       setPageLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).LemonSqueezy) {
+      (window as any).LemonSqueezy.Setup({
+        eventHandler: (_event: string, data: any) => {
+          if (_event === "Checkout.Success") {
+            (window as any).LemonSqueezy?.Url?.Close?.();
+            toast.success("Wallet funds added successfully!");
+            queryClient.invalidateQueries({ queryKey: ["wallet"] });
+            queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+            queryClient.invalidateQueries({ queryKey: ["billing"] });
+            fetchBillingData();
+          }
+        },
+      });
+    }
+  }, [queryClient, fetchBillingData]);
 
   useEffect(() => {
     fetchBillingData();
