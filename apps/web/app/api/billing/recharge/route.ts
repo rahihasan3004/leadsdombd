@@ -18,7 +18,6 @@ export async function POST(req: NextRequest) {
     const { amount = 100, type = "WALLET_TOPUP", unlockedStates } = body;
 
     const amountNumber = Math.max(1, Number(amount) || 10);
-    const amountInCents = Math.round(amountNumber * 100);
 
     const storeId = getLemonSqueezyStoreId();
     const variantId =
@@ -38,25 +37,17 @@ export async function POST(req: NextRequest) {
       process.env.NEXT_PUBLIC_APP_URL ||
       "https://leadsdombd-web.vercel.app";
 
-    const custom: Record<string, any> = {
-      user_id: session.user.id,
-      type,
-      amount: amountNumber,
-    };
-
-    if (unlockedStates) {
-      custom.unlocked_states = unlockedStates;
-    }
-
     const checkoutUrl = await createLemonSqueezyCheckout({
       storeId,
       variantId,
-      amountInCents,
+      amount: amountNumber,
+      userId: session.user.id,
+      type,
       email: session.user.email ?? undefined,
       name: session.user.name ?? undefined,
-      custom,
       redirectUrl: `${origin}/dashboard/billing?status=success`,
       isPreview: process.env.NODE_ENV !== "production",
+      unlockedStates: unlockedStates || undefined,
     });
 
     return NextResponse.json({ url: checkoutUrl }, { status: 200 });

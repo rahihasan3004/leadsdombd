@@ -27,69 +27,86 @@ export const LEMON_SQUEEZY_LEAD_PURCHASE_VARIANT_ID = process.env.LEMONSQUEEZY_L
 export interface LemonSqueezyCheckoutParams {
   storeId: string;
   variantId: string;
-  amountInCents: number;
+  amount: number;
+  userId: string;
+  type?: string;
   email?: string;
   name?: string;
-  custom: Record<string, any>;
   redirectUrl: string;
   isPreview: boolean;
+  unlockedStates?: any;
 }
 
 export async function createLemonSqueezyCheckout({
   storeId,
   variantId,
-  amountInCents,
+  amount,
+  userId,
+  type,
   email,
   name,
-  custom,
   redirectUrl,
   isPreview,
+  unlockedStates,
 }: LemonSqueezyCheckoutParams): Promise<string> {
   const apiKey = getLemonSqueezyApiKey();
   if (!apiKey) {
     throw new Error("Lemon Squeezy API key is not configured");
   }
 
-  const response = await fetch("https://api.lemonsqueezy.com/v1/checkouts", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/vnd.api+json",
-      Accept: "application/vnd.api+json",
-    },
-    body: JSON.stringify({
-      data: {
-        type: "checkouts",
-        attributes: {
-          custom_price: amountInCents,
-          checkout_data: {
-            email: email || undefined,
-            name: name || undefined,
-            custom,
-            redirect_url: redirectUrl,
-          },
-          preview: isPreview,
+  const checkoutData: Record<string, any> = {};
+  if (email) checkoutData.email = email;
+  if (name) checkoutData.name = name;
+  checkoutData.custom = {
+    user_id: String(userId),
+    type: type || "WALLET_TOPUP",
+    amount: Number(amount),
+  };
+  if (unlockedStates) {
+    checkoutData.custom.unlocked_states = unlockedStates;
+  }
+
+  const payload = {
+    data: {
+      type: "checkouts",
+      attributes: {
+        custom_price: Math.round(Number(amount) * 100),
+        product_options: {
+          enabled_variants: [Number(variantId)],
         },
-        relationships: {
-          store: {
-            data: {
-              type: "stores",
-              id: storeId,
-            },
+        checkout_data: checkoutData,
+        preview: isPreview,
+      },
+      relationships: {
+        store: {
+          data: {
+            type: "stores",
+            id: String(storeId),
           },
-          variant: {
-            data: {
-              type: "variants",
-              id: variantId,
-            },
+        },
+        variant: {
+          data: {
+            type: "variants",
+            id: String(variantId),
           },
         },
       },
-    }),
+    },
+  };
+
+  const response = await fetch("https://api.lemonsqueezy.com/v1/checkouts", {
+    method: "POST",
+    headers: {
+      Accept: "application/vnd.api+json",
+      "Content-Type": "application/vnd.api+json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
+    console.error("[LEMONSQUEEZY_CHECKOUT_ERROR]:", JSON.stringify(error, null, 2));
     const message = error.errors?.[0]?.detail || error.error || `Lemon Squeezy error: ${response.status}`;
     throw new Error(message);
   }
