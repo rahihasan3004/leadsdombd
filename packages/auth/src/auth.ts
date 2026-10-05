@@ -190,20 +190,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         const dbUser = await db.user.findUnique({
           where: { email: (user.email as string) },
-          select: { id: true, role: true, walletBalance: true, tokenVersion: true },
+          select: { id: true, role: true, walletBalance: true, credits: true, tokenVersion: true },
         });
         if (dbUser) {
           token.id = dbUser.id;
           token.email = (user.email ?? "") as string;
           token.name = (user.name ?? "") as string;
           token.role = dbUser.role as string;
+          token.credits = dbUser.credits;
           token.walletBalance = dbUser.walletBalance.toNumber();
           token.tokenVersion = dbUser.tokenVersion;
         } else {
           token.id = (user.id ?? token.sub ?? "") as string;
           token.email = (user.email ?? "") as string;
           token.name = (user.name ?? "") as string;
-          token.role = (user.role ?? "") as string;
+          token.role = (user.role ?? "USER") as string;
+          token.credits = (user.credits ?? 0) as number;
           token.walletBalance = (user.walletBalance as number);
           token.tokenVersion = (((user as any).tokenVersion ?? 0) as number);
         }
@@ -212,7 +214,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token.id && !user) {
         const dbUser = await db.user.findUnique({
           where: { id: (token.id as string) },
-          select: { tokenVersion: true, walletBalance: true },
+          select: { tokenVersion: true, walletBalance: true, credits: true },
         });
         if (dbUser) {
           const jtv = ((token.tokenVersion ?? 0) as number);
@@ -220,6 +222,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null;
           }
           token.walletBalance = dbUser.walletBalance.toNumber();
+          token.credits = dbUser.credits;
         }
       }
 
@@ -231,6 +234,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.name = (token.name as string | null);
         session.user.email = (token.email as string);
         session.user.role = (token.role as string);
+        session.user.credits = (token.credits as number);
         session.user.walletBalance = (token.walletBalance as number);
         session.user.tokenVersion = (token.tokenVersion as number);
       }
