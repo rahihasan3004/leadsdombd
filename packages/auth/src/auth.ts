@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
+import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "@fine-leads/database";
 import { verifyPassword } from "./password";
 import crypto from "crypto";
@@ -19,6 +20,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "leadsdom_production_auth_secret_key_2026";
     return secret;
   })(),
+  adapter: PrismaAdapter(db),
   trustHost: true,
   logger: {
     error(code, ...message) {
@@ -105,101 +107,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.provider === "credentials") {
         return true;
       }
-
-      if ((account?.provider === "google" || account?.provider === "github") && user.email) {
-        try {
-          const normalizedEmail = user.email.toLowerCase().trim();
-
-          const existingUser = await db.user.findUnique({
-            where: { email: normalizedEmail },
-            include: { accounts: true },
-          });
-
-          if (existingUser) {
-            const hasProviderAccount = existingUser.accounts.some(
-              (acc) => acc.provider === account.provider
-            );
-            if (!hasProviderAccount) {
-              await db.account.create({
-                data: {
-                  userId: existingUser.id,
-                  type: account.type,
-                  provider: account.provider,
-                  providerAccountId: account.providerAccountId,
-                  access_token: account.access_token,
-                  expires_at: account.expires_at,
-                  token_type: account.token_type,
-                  scope: account.scope,
-                  id_token: account.id_token,
-                },
-              });
-            }
-            if (!existingUser.emailVerified) {
-              await db.user.update({
-                where: { id: existingUser.id },
-                data: { emailVerified: new Date() },
-              });
-            }
-          } else {
-            await db.$transaction(async (tx) => {
-              const org = await tx.organization.create({
-                data: {
-                  name: user.name || `${normalizedEmail}'s Organization`,
-                  slug: `org-${crypto.randomUUID().slice(0, 12)}`,
-                },
-              });
-
-              const newUser = await tx.user.create({
-                data: {
-                  name: user.name,
-                  email: normalizedEmail,
-                  image: user.image,
-                  emailVerified: new Date(),
-                  role: "USER",
-                  walletBalance: "0.00",
-                  credits: 0,
-                  tokenVersion: 0,
-                  organizationId: org.id,
-                },
-              });
-
-              await tx.account.create({
-                data: {
-                  userId: newUser.id,
-                  type: account.type,
-                  provider: account.provider,
-                  providerAccountId: account.providerAccountId,
-                  access_token: account.access_token,
-                  expires_at: account.expires_at,
-                  token_type: account.token_type,
-                  scope: account.scope,
-                  id_token: account.id_token,
-                },
-              });
-
-              await tx.subscription.create({
-                data: {
-                  userId: newUser.id,
-                  organizationId: org.id,
-                  tier: "FREE",
-                  status: "ACTIVE",
-                },
-              });
-            });
-          }
-        } catch (error) {
-          console.error("[SIGNIN_OAUTH_ERROR]:", error);
-          return true;
-        }
-      }
       return true;
     },
     async jwt({ token, user }) {
       if (user) {
         const dbUser = await db.user.findUnique({
-          where: { email: (user.email as string) },
-          select: { id: true, role: true, walletBalance: true, credits: true, tokenVersion: true },
+          where: { id: (user as any).id ?? token.sub ?? (user.email as string) },
+          select: { id: true, role: true, walletBalance: true, credits: true, tokenVersion: true, emailVerified: true },
         });
+
         if (dbUser) {
           token.id = dbUser.id;
           token.email = (user.email ?? "") as string;
@@ -208,6 +124,48 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.credits = dbUser.credits;
           token.walletBalance = dbUser.walletBalance.toNumber();
           token.tokenVersion = dbUser.tokenVersion;
+
+          if (!dbUser.emailVerified) {
+            await db.user.update({
+              where: { id: dbUser.id },
+              data: { emailVerified: new Date() },
+            });
+          }
+
+          if (!token.initialized) {
+            token.initialized = true;
+            const hasOrg = await db.organization.findFirst({
+              where: { users: { some: { id: dbUser.id } } },
+            });
+            const hasSubscription = await db.subscription.findFirst({
+              where: { userId: dbUser.id },
+            });
+            if (!hasOrg) {
+              const slug = `org-${crypto.randomUUID().slice(0, 12)}`;
+              await db.organization.create({
+                data: {
+                  name: (user.name as string) || `${(user.email as string)}'s Organization`,
+                  slug,
+                  users: { connect: { id: dbUser.id } },
+                },
+              });
+            }
+            if (!hasSubscription) {
+              const org = await db.organization.findFirst({
+                where: { users: { some: { id: dbUser.id } } },
+              });
+              if (org) {
+                await db.subscription.create({
+                  data: {
+                    userId: dbUser.id,
+                    organizationId: org.id,
+                    tier: "FREE",
+                    status: "ACTIVE",
+                  },
+                });
+              }
+            }
+          }
         } else {
           token.id = (user.id ?? token.sub ?? "") as string;
           token.email = (user.email ?? "") as string;
