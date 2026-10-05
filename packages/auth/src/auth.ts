@@ -25,9 +25,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   logger: {
     error(code, ...message) {
       console.error("[AUTH_ERROR]", code, ...message);
+      console.error("[AUTH_DEBUG_TRACE]", { code, message, timestamp: new Date().toISOString() });
     },
     warn(code, ...message) {
       console.warn("[AUTH_WARN]", code, ...message);
+      console.error("[AUTH_DEBUG_TRACE]", { code, message, timestamp: new Date().toISOString() });
     },
   },
   session: {
@@ -71,6 +73,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        console.error("[AUTH_DEBUG_TRACE]", { credentials: { email: credentials?.email, password: credentials?.password ? "***" : null }, timestamp: new Date().toISOString() });
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
@@ -81,12 +84,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const user = await db.user.findUnique({
           where: { email },
         });
+        console.error("[AUTH_DEBUG_TRACE]", { email, userFound: !!user, hasPasswordHash: !!user?.passwordHash, timestamp: new Date().toISOString() });
 
         if (!user || !user.passwordHash) {
           return null;
         }
 
         const isValid = await verifyPassword(password, user.passwordHash);
+        console.error("[AUTH_DEBUG_TRACE]", { email, isValid, timestamp: new Date().toISOString() });
         if (!isValid) {
           return null;
         }

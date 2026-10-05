@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
 
   if (!allowed) {
     const retryAfter = Math.ceil((resetAt - Date.now()) / 1000);
+    console.error("[AUTH_DEBUG_TRACE]", { clientIp, rateLimitKey, allowed, remaining, resetAt, retryAfter, timestamp: new Date().toISOString() });
     return NextResponse.json(
       { error: "Too many login attempts. Please try again later." },
       {
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
   }
 
   const response = await handlers.POST(request);
+  console.error("[AUTH_DEBUG_TRACE]", { clientIp, rateLimitKey, allowed, remaining, resetAt, timestamp: new Date().toISOString() });
   return response;
 }
 

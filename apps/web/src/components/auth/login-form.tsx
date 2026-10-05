@@ -66,9 +66,16 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-left">
       {displayError && (
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-          {displayError}
-        </p>
+        <div>
+          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+            {displayError}
+          </p>
+          <pre className="text-xs font-mono bg-red-950 text-red-200 p-3 rounded-lg mt-2 overflow-x-auto">
+            {`Raw Error Type: ${searchParams.get("error")}`}
+{`\nAll Search Params: ${Array.from(searchParams.entries()).map(([k, v]) => `${k}=${v}`).join("&")}`}
+{`\nFull URL Path / Callback Info: ${typeof window !== "undefined" ? window.location.href : ""}`}
+          </pre>
+        </div>
       )}
 
       <div>
