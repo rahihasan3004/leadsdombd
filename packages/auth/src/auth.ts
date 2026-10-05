@@ -205,7 +205,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.email = (user.email ?? "") as string;
           token.name = (user.name ?? "") as string;
           token.role = (user.role ?? "USER") as string;
-          token.credits = (user.credits ?? 0) as number;
+          token.credits = (((user as any).credits ?? 0) as number);
           token.walletBalance = (user.walletBalance as number);
           token.tokenVersion = (((user as any).tokenVersion ?? 0) as number);
         }
