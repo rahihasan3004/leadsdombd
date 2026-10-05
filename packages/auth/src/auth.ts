@@ -12,14 +12,11 @@ const isDev = process.env.NODE_ENV !== "production";
 const defaultAuthUrl =
   isDev ? "http://localhost:3000" : process.env.NEXT_PUBLIC_APP_URL ?? "https://getleadsdom.com";
 
-const googleClientId = process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID || "";
-const googleClientSecret = process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET || "";
+const googleId = process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID;
+const googleSecret = process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: (() => {
-    const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "leadsdom_production_auth_secret_key_2026";
-    return secret;
-  })(),
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "leadsdom_production_auth_secret_key_2026",
   adapter: PrismaAdapter(db),
   trustHost: true,
   logger: {
@@ -42,18 +39,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: "/login",
   },
   providers: [
-    Google({
-      clientId: googleClientId,
-      clientSecret: googleClientSecret,
-      allowDangerousEmailAccountLinking: true,
-      authorization: {
-        params: {
-          prompt: "consent",
-          access_type: "offline",
-          response_type: "code",
-        },
-      },
-    }),
+    ...(googleId && googleSecret
+      ? [
+          Google({
+            clientId: googleId,
+            clientSecret: googleSecret,
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]
+      : [
+          Google({
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]),
     GitHub({
       clientId: process.env.AUTH_GITHUB_ID || process.env.GITHUB_CLIENT_ID || "",
       clientSecret:
