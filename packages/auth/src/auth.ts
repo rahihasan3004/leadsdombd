@@ -133,19 +133,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async jwt({ token, user }) {
       if (user) {
-        const dbUser = await db.user.findUnique({
-          where: { id: (user as any).id ?? token.sub ?? (user.email as string) },
-          select: { id: true, role: true, walletBalance: true, credits: true, tokenVersion: true, emailVerified: true },
-        });
+        let dbUser: any = null;
+        try {
+          dbUser = await db.user.findUnique({
+            where: { id: (user as any).id ?? token.sub ?? (user.email as string) },
+            select: { id: true, role: true, walletBalance: true, credits: true, tokenVersion: true, emailVerified: true },
+          });
+        } catch (dbErr: any) {
+          console.warn("[AUTH_JWT_USER_SELECT_FALLBACK]", dbErr?.message);
+          // Fallback if schema migration for credits/wallet is missing or failing in database
+          try {
+            dbUser = await db.user.findUnique({
+              where: { id: (user as any).id ?? token.sub ?? (user.email as string) },
+            });
+          } catch (innerErr) {
+            console.error("[AUTH_JWT_USER_FETCH_FAIL]", innerErr);
+          }
+        }
 
         if (dbUser) {
           token.id = dbUser.id;
           token.email = (user.email ?? "") as string;
           token.name = (user.name ?? "") as string;
-          token.role = dbUser.role as string;
-          token.credits = dbUser.credits;
-          token.walletBalance = dbUser.walletBalance.toNumber();
-          token.tokenVersion = dbUser.tokenVersion;
+          token.role = (dbUser.role as string) ?? "USER";
+          token.credits = dbUser.credits ?? 0;
+          token.walletBalance = dbUser.walletBalance ? (typeof dbUser.walletBalance.toNumber === "function" ? dbUser.walletBalance.toNumber() : Number(dbUser.walletBalance)) : 0;
+          token.tokenVersion = dbUser.tokenVersion ?? 0;
 
           if (!dbUser.emailVerified) {
             await db.user.update({
@@ -200,17 +213,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       if (token.id && !user) {
-        const dbUser = await db.user.findUnique({
-          where: { id: (token.id as string) },
-          select: { tokenVersion: true, walletBalance: true, credits: true },
-        });
-        if (dbUser) {
-          const jtv = ((token.tokenVersion ?? 0) as number);
-          if (jtv !== dbUser.tokenVersion) {
-            return null;
+        try {
+          const dbUser: any = await db.user.findUnique({
+            where: { id: (token.id as string) },
+          });
+          if (dbUser) {
+            const jtv = ((token.tokenVersion ?? 0) as number);
+            if (dbUser.tokenVersion !== undefined && jtv !== dbUser.tokenVersion) {
+              return null;
+            }
+            if (dbUser.walletBalance !== undefined && dbUser.walletBalance !== null) {
+              token.walletBalance = typeof dbUser.walletBalance.toNumber === "function" ? dbUser.walletBalance.toNumber() : Number(dbUser.walletBalance);
+            }
+            if (dbUser.credits !== undefined) {
+              token.credits = dbUser.credits;
+            }
           }
-          token.walletBalance = dbUser.walletBalance.toNumber();
-          token.credits = dbUser.credits;
+        } catch (dbErr) {
+          console.warn("[AUTH_JWT_REFRESH_WARN]", dbErr);
         }
       }
 
