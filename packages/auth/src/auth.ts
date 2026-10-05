@@ -20,6 +20,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     return secret;
   })(),
   trustHost: true,
+  logger: {
+    error(code, ...message) {
+      console.error("[AUTH_ERROR]", code, ...message);
+    },
+    warn(code, ...message) {
+      console.warn("[AUTH_WARN]", code, ...message);
+    },
+  },
   session: {
     strategy: "jwt",
     maxAge: 7 * 24 * 60 * 60,
@@ -181,7 +189,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         } catch (error) {
           console.error("[SIGNIN_OAUTH_ERROR]:", error);
-          throw error;
+          return true;
         }
       }
       return true;
