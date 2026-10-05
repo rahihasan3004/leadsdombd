@@ -15,18 +15,35 @@ const defaultAuthUrl =
 const googleId = process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID;
 const googleSecret = process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET;
 
+console.error("[AUTH_INIT_DIAGNOSTICS]", {
+  has_AUTH_GOOGLE_ID: !!process.env.AUTH_GOOGLE_ID,
+  has_GOOGLE_CLIENT_ID: !!process.env.GOOGLE_CLIENT_ID,
+  has_AUTH_GOOGLE_SECRET: !!process.env.AUTH_GOOGLE_SECRET,
+  has_GOOGLE_CLIENT_SECRET: !!process.env.GOOGLE_CLIENT_SECRET,
+  googleId_length: googleId ? googleId.length : 0,
+  googleSecret_length: googleSecret ? googleSecret.length : 0,
+  has_AUTH_SECRET: !!process.env.AUTH_SECRET,
+  has_NEXTAUTH_SECRET: !!process.env.NEXTAUTH_SECRET,
+  has_AUTH_URL: !!process.env.AUTH_URL,
+  has_NEXTAUTH_URL: !!process.env.NEXTAUTH_URL,
+  NODE_ENV: process.env.NODE_ENV,
+});
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "leadsdom_production_auth_secret_key_2026",
   adapter: PrismaAdapter(db),
   trustHost: true,
+  debug: true,
   logger: {
-    error(code, ...message) {
-      console.error("[AUTH_ERROR]", code, ...message);
-      console.error("[AUTH_DEBUG_TRACE]", { code, message, timestamp: new Date().toISOString() });
+    error(error) {
+      console.error("[AUTH_ERROR_FULL_RAW]", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+      console.error("[AUTH_ERROR_STACK]", (error as any)?.stack || error);
     },
-    warn(code, ...message) {
-      console.warn("[AUTH_WARN]", code, ...message);
-      console.error("[AUTH_DEBUG_TRACE]", { code, message, timestamp: new Date().toISOString() });
+    warn(code) {
+      console.warn("[AUTH_WARN_RAW]", code);
+    },
+    debug(code, ...message) {
+      console.log("[AUTH_DEBUG_RAW]", code, ...message);
     },
   },
   session: {
@@ -49,6 +66,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         ]
       : [
           Google({
+            clientId: googleId || "MISSING_GOOGLE_CLIENT_ID",
+            clientSecret: googleSecret || "MISSING_GOOGLE_CLIENT_SECRET",
             allowDangerousEmailAccountLinking: true,
           }),
         ]),
