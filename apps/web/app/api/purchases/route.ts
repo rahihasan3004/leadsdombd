@@ -24,8 +24,11 @@ const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 
 export async function POST(req: Request) {
+  const t0 = performance.now();
   try {
     const session = await auth();
+    const t1 = performance.now();
+    console.log(`[LATENCY][api/purchases POST] auth: ${(t1 - t0).toFixed(2)}ms`);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -40,6 +43,8 @@ export async function POST(req: Request) {
     const existingPurchases = await db.leadPurchase.findMany({
       where: { userId: session.user.id, status: "COMPLETED" },
     });
+    const t2 = performance.now();
+    console.log(`[LATENCY][api/purchases POST] leadPurchase-findMany: ${(t2 - t1).toFixed(2)}ms`);
 
     const purchasedStateCodes = existingPurchases.flatMap((p) => p.unlockedStates || []);
 
@@ -59,10 +64,16 @@ export async function POST(req: Request) {
         isDeliverable: true,
       },
     });
+    const t3 = performance.now();
+    console.log(`[LATENCY][api/purchases POST] agent-count: ${(t3 - t2).toFixed(2)}ms`);
+
     const finalAmount = Math.round(leadCount * PRICE_PER_LEAD * 100) / 100;
 
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
     const successUrl = `${appUrl}/dashboard?purchase=success`;
+
+    const t4 = performance.now();
+    console.log(`[LATENCY][api/purchases POST] total: ${(t4 - t0).toFixed(2)}ms`);
 
     return NextResponse.json({ url: successUrl });
   } catch (err: unknown) {
@@ -76,8 +87,11 @@ export async function POST(req: Request) {
 }
 
 export async function GET(request: Request) {
+  const t0 = performance.now();
   try {
     const session = await auth();
+    const t1 = performance.now();
+    console.log(`[LATENCY][api/purchases GET] auth: ${(t1 - t0).toFixed(2)}ms`);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -113,6 +127,8 @@ export async function GET(request: Request) {
         { status: 500 },
       );
     }
+    const t2 = performance.now();
+    console.log(`[LATENCY][api/purchases GET] leadPurchase-list+count: ${(t2 - t1).toFixed(2)}ms`);
 
     if (purchaseId) {
       const purchase = await db.leadPurchase.findFirst({
@@ -172,6 +188,8 @@ export async function GET(request: Request) {
           },
         },
       });
+      const t3 = performance.now();
+      console.log(`[LATENCY][api/purchases GET] leadPurchase+unlockedLeads: ${(t3 - t2).toFixed(2)}ms`);
 
       if (!purchase) {
         return NextResponse.json(
@@ -183,6 +201,9 @@ export async function GET(request: Request) {
       const leads = (purchase.unlockedLeads || [])
         .map((ul) => ul.agent)
         .filter(Boolean);
+
+      const t4 = performance.now();
+      console.log(`[LATENCY][api/purchases GET] total: ${(t4 - t0).toFixed(2)}ms`);
 
       return NextResponse.json({
         purchase,
@@ -197,6 +218,8 @@ export async function GET(request: Request) {
     }
 
     if (purchases.length === 0) {
+      const t5 = performance.now();
+      console.log(`[LATENCY][api/purchases GET] total: ${(t5 - t0).toFixed(2)}ms`);
       return NextResponse.json({
         purchases: [],
         leads: [],
@@ -266,10 +289,15 @@ export async function GET(request: Request) {
         },
       },
     });
+    const t6 = performance.now();
+    console.log(`[LATENCY][api/purchases GET] unlockedLead+agent: ${(t6 - t2).toFixed(2)}ms`);
 
     const leads = unlockedLeads
       .map((ul) => ul.agent)
       .filter((agent): agent is NonNullable<typeof agent> => Boolean(agent));
+
+    const t7 = performance.now();
+    console.log(`[LATENCY][api/purchases GET] total: ${(t7 - t0).toFixed(2)}ms`);
 
     return NextResponse.json({
       purchases,

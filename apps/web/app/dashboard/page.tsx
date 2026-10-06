@@ -26,6 +26,8 @@ function getMonthLabel(date: Date): string {
 }
 
 async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
+  const t0 = performance.now();
+  const tAuth = performance.now();
   const [
     user,
     totalLeads,
@@ -42,6 +44,8 @@ async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
       orderBy: { createdAt: "asc" },
     }),
   ]);
+  const t1 = performance.now();
+  console.log(`[LATENCY][dashboard] auth+initial-db: ${(t1 - tAuth).toFixed(2)}ms`);
 
   const availableCredits = user ? Number(user.credits) : 0;
   const deliverability =
@@ -69,6 +73,8 @@ async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
     },
     select: { createdAt: true },
   });
+  const t2 = performance.now();
+  console.log(`[LATENCY][dashboard] monthly-unlockedLead-fetch: ${(t2 - t1).toFixed(2)}ms`);
 
   const hasUnlockedLeads = unlockedLeads.length > 0;
 
@@ -100,6 +106,9 @@ async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
     };
   });
 
+  const t3 = performance.now();
+  console.log(`[LATENCY][dashboard] total-db-queries: ${(t3 - t0).toFixed(2)}ms`);
+
   return {
     totalLeads,
     availableCredits,
@@ -111,7 +120,11 @@ async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
 }
 
 export default async function DashboardPage() {
+  const t0 = performance.now();
   const session = await auth();
+  const t1 = performance.now();
+  console.log(`[LATENCY][dashboard] auth-resolve: ${(t1 - t0).toFixed(2)}ms`);
+
   if (!session?.user?.id) {
     return null;
   }
@@ -130,6 +143,9 @@ export default async function DashboardPage() {
   } catch {
     // Gracefully fall back to empty state on transient data-fetch failures
   }
+
+  const t2 = performance.now();
+  console.log(`[LATENCY][dashboard] total-server-execution: ${(t2 - t0).toFixed(2)}ms`);
 
   const userName =
     session.user.name ??

@@ -103,7 +103,10 @@ export default function ListsPage() {
   useEffect(() => {
     const fetchPurchases = async () => {
       try {
+        const t0 = performance.now();
         const res = await fetch("/api/purchases");
+        const t1 = performance.now();
+        console.log(`[LATENCY][client /api/purchases] fetch+parse: ${(t1 - t0).toFixed(2)}ms`);
         if (res.ok) {
           const data = await res.json();
           const mapped: Purchase[] = (data.purchases || []).map((p: Record<string, unknown>) => ({

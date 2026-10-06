@@ -6,14 +6,17 @@ export function BrandedLoader() {
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white">
       <div className="flex flex-col items-center gap-4">
-        {/* Pulsing Brand Logo */}
         <div className="relative flex items-center justify-center animate-pulse">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-md">
-            <span className="text-white font-black text-xl tracking-tighter">LD</span>
-          </div>
+          <Image
+            src="/favicon.svg"
+            alt="LeadsDom Logo"
+            width={48}
+            height={48}
+            className="object-contain"
+            priority
+          />
         </div>
 
-        {/* Pure CSS Smooth Trickle Progress Bar */}
         <div className="w-48 h-1 bg-slate-100 rounded-full overflow-hidden relative">
           <div className="h-full bg-blue-600 rounded-full animate-[progress_1.5s_ease-in-out_infinite]" />
         </div>

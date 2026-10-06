@@ -7,8 +7,11 @@ import { db } from "@fine-leads/database";
 import { LEAD_STATES } from "@fine-leads/utils";
 
 export async function GET() {
+  const t0 = performance.now();
   try {
     const session = await auth();
+    const t1 = performance.now();
+    console.log(`[LATENCY][api/leads/stats] auth: ${(t1 - t0).toFixed(2)}ms`);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -27,6 +30,8 @@ export async function GET() {
       },
       _count: { id: true },
     });
+    const t2 = performance.now();
+    console.log(`[LATENCY][api/leads/stats] db-agent-groupBy: ${(t2 - t1).toFixed(2)}ms`);
 
     const countMap: Record<string, number> = {};
     for (const row of results) {
@@ -39,6 +44,9 @@ export async function GET() {
     for (const code of stateCodes) {
       counts[code] = countMap[code] ?? 0;
     }
+
+    const t3 = performance.now();
+    console.log(`[LATENCY][api/leads/stats] total: ${(t3 - t0).toFixed(2)}ms`);
 
     return NextResponse.json(counts, {
       headers: {

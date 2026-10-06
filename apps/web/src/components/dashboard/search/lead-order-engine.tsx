@@ -43,7 +43,10 @@ export function LeadOrderEngine() {
   const { data: inventoryStats = {}, isLoading: statsLoading } = useQuery<Record<string, number>>({
     queryKey: ["leads", "stats"],
     queryFn: async () => {
+      const t0 = performance.now();
       const res = await fetch("/api/leads/stats");
+      const t1 = performance.now();
+      console.log(`[LATENCY][client /api/leads/stats] fetch+parse: ${(t1 - t0).toFixed(2)}ms`);
       if (!res.ok) throw new Error("Failed to fetch lead stats");
       return res.json();
     },
