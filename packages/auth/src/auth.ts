@@ -131,13 +131,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      if (trigger === "update" && session?.name) {
+        token.name = String(session.name);
+      }
       if (user) {
         let dbUser: any = null;
         try {
           dbUser = await db.user.findUnique({
             where: { id: (user as any).id ?? token.sub ?? (user.email as string) },
-            select: { id: true, role: true, walletBalance: true, credits: true, tokenVersion: true, emailVerified: true },
+            select: { id: true, name: true, role: true, walletBalance: true, credits: true, tokenVersion: true, emailVerified: true },
           });
         } catch (dbErr: any) {
           console.warn("[AUTH_JWT_USER_SELECT_FALLBACK]", dbErr?.message);
@@ -154,7 +157,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (dbUser) {
           token.id = dbUser.id;
           token.email = (user.email ?? "") as string;
-          token.name = (user.name ?? "") as string;
+          token.name = (dbUser?.name ?? user?.name ?? token.name ?? "") as string;
           token.role = (dbUser.role as string) ?? "USER";
           token.credits = dbUser.credits ?? 0;
           token.walletBalance = dbUser.walletBalance ? (typeof dbUser.walletBalance.toNumber === "function" ? dbUser.walletBalance.toNumber() : Number(dbUser.walletBalance)) : 0;
@@ -239,7 +242,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }: any) {
       if (token && session.user) {
         session.user.id = (token.id as string) || (token.sub as string);
-        session.user.name = (token.name as string | null);
+        session.user.name = (token.name as string) ?? "";
         session.user.email = (token.email as string);
         session.user.role = (token.role as string);
         session.user.credits = (token.credits as number);

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Button } from "@fine-leads/ui";
 import { Menu } from "lucide-react";
+import { BrandedLoader } from "@/components/ui/branded-loader";
 
 const MAX_RETRIES = 20;
 let retryCount = 0;
@@ -20,11 +21,7 @@ export default function DashboardLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   if (status === "loading") {
-    return (
-      <div className="h-screen max-h-screen w-full flex items-center justify-center bg-surface-50 dark:bg-surface-950">
-        <div className="text-sm text-neutral-500">Loading...</div>
-      </div>
-    );
+    return <BrandedLoader />;
   }
 
   if (status === "unauthenticated" || !session?.user) {
