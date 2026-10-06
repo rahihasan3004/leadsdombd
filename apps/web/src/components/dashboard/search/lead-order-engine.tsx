@@ -68,9 +68,10 @@ export function LeadOrderEngine() {
     refetchOnWindowFocus: true,
   });
 
-  if (statsLoading || creditsLoading) {
-    return <BrandedLoader />;
-  }
+  const parsedQty = parseInt(quantityInput, 10) || 0;
+  const minLeads = Math.max(10, selectedStates.length);
+  const isValidQty = parsedQty >= minLeads && parsedQty <= 50000;
+  const isFormValid = selectedStates.length > 0 && isValidQty;
 
   const totalAvailable = useMemo(
     () => selectedStates.reduce((sum, code) => sum + (inventoryStats[code] || 0), 0),
@@ -95,39 +96,6 @@ export function LeadOrderEngine() {
     },
     [],
   );
-
-  const handleToggleState = (code: string) => {
-    setSelectedStates((prev) => {
-      const next = prev.includes(code) ? prev.filter((s) => s !== code) : [...prev, code];
-      return next;
-    });
-  };
-
-  const handleSelectAll = () => {
-    setSelectedStates(ALL_US_STATES.map((s) => s));
-  };
-
-  const handleClearAll = () => {
-    setSelectedStates([]);
-  };
-
-  const handleQuickSelect = (code: string) => {
-    setSelectedStates((prev) => {
-      if (prev.includes(code) && prev.length === 1) {
-        return [];
-      }
-      return [code];
-    });
-    if (quantity === 0) {
-      setQuantity(1000);
-      setQuantityInput("1000");
-    }
-  };
-
-  const parsedQty = parseInt(quantityInput, 10) || 0;
-  const minLeads = Math.max(10, selectedStates.length);
-  const isValidQty = parsedQty >= minLeads && parsedQty <= 50000;
-  const isFormValid = selectedStates.length > 0 && isValidQty;
 
   const totalPrice = useMemo(() => {
     const num = (isValidQty ? parsedQty * 0.019 : 0).toFixed(2);
@@ -192,6 +160,38 @@ export function LeadOrderEngine() {
       setSubmitting(false);
     }
   }, [isFormValid, selectedStates, parsedQty, router, queryClient]);
+
+  if (statsLoading || creditsLoading) {
+    return <BrandedLoader />;
+  }
+
+  const handleToggleState = (code: string) => {
+    setSelectedStates((prev) => {
+      const next = prev.includes(code) ? prev.filter((s) => s !== code) : [...prev, code];
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    setSelectedStates(ALL_US_STATES.map((s) => s));
+  };
+
+  const handleClearAll = () => {
+    setSelectedStates([]);
+  };
+
+  const handleQuickSelect = (code: string) => {
+    setSelectedStates((prev) => {
+      if (prev.includes(code) && prev.length === 1) {
+        return [];
+      }
+      return [code];
+    });
+    if (quantity === 0) {
+      setQuantity(1000);
+      setQuantityInput("1000");
+    }
+  };
 
   return (
     <div className="w-full p-4 sm:p-6 lg:p-8 space-y-6">
