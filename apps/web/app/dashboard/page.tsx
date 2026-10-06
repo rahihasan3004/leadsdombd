@@ -116,7 +116,20 @@ export default async function DashboardPage() {
     return null;
   }
 
-  const metrics = await getDashboardMetrics(session.user.id);
+  let metrics: DashboardMetrics = {
+    totalLeads: 0,
+    availableCredits: 0,
+    walletBalance: 0,
+    deliveredFiles: 0,
+    deliverability: 100,
+    monthlyTrends: [],
+  };
+
+  try {
+    metrics = await getDashboardMetrics(session.user.id);
+  } catch {
+    // Gracefully fall back to empty state on transient data-fetch failures
+  }
 
   const userName =
     session.user.name ??
