@@ -8,6 +8,7 @@ import { Check, Search, X, ChevronDown, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { BrandedLoader } from "@/components/ui/branded-loader";
 
 const ALL_US_STATES = US_STATES.map((s) => s.code);
 
@@ -39,7 +40,7 @@ export function LeadOrderEngine() {
   const [quantityInput, setQuantityInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const { data: inventoryStats = {} } = useQuery<Record<string, number>>({
+  const { data: inventoryStats = {}, isLoading: statsLoading } = useQuery<Record<string, number>>({
     queryKey: ["leads", "stats"],
     queryFn: async () => {
       const res = await fetch("/api/leads/stats");
@@ -51,7 +52,7 @@ export function LeadOrderEngine() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: userCredits = 0 } = useQuery<number>({
+  const { data: userCredits = 0, isLoading: creditsLoading } = useQuery<number>({
     queryKey: ["user", "credits"],
     queryFn: async () => {
       const res = await fetch("/api/user/profile");
@@ -63,6 +64,10 @@ export function LeadOrderEngine() {
     refetchOnMount: true,
     refetchOnWindowFocus: true,
   });
+
+  if (statsLoading || creditsLoading) {
+    return <BrandedLoader />;
+  }
 
   const totalAvailable = useMemo(
     () => selectedStates.reduce((sum, code) => sum + (inventoryStats[code] || 0), 0),

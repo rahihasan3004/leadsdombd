@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import VolumePricingSlider from "@/components/dashboard/billing/volume-pricing-slider";
 import { VOLUME_PRICING_TIERS, type PricingTier } from "@fine-leads/utils";
+import { BrandedLoader } from "@/components/ui/branded-loader";
 
 interface WalletData {
   credits: number;
@@ -158,17 +159,7 @@ export default function BillingPage() {
   );
 
   if (pageLoading) {
-    return (
-      <div className="w-full min-h-screen bg-slate-50 p-6 pb-6 animate-pulse">
-        <div className="h-7 w-64 bg-slate-200 rounded-md" />
-        <div className="h-5 w-96 bg-slate-200 rounded-md mt-2" />
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch mt-6">
-          <div className="lg:col-span-8 h-72 bg-slate-200 rounded-2xl" />
-          <div className="lg:col-span-4 h-72 bg-slate-200 rounded-2xl" />
-        </div>
-        <div className="h-96 bg-slate-200 rounded-2xl mt-6" />
-      </div>
-    );
+    return <BrandedLoader />;
   }
 
   const getTypeConfig = (type: string) => {

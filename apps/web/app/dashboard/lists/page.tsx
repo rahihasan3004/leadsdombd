@@ -13,6 +13,7 @@ import {
   Filter,
 } from "lucide-react";
 import { Skeleton } from "@fine-leads/ui";
+import { BrandedLoader } from "@/components/ui/branded-loader";
 import {
   AgentDetailModal,
   type AgentData,
@@ -272,24 +273,7 @@ export default function ListsPage() {
   const leadShowingTo = Math.min((leadPage + 1) * LEAD_PAGE_SIZE, filteredLeads.length);
 
   if (loading) {
-    return (
-      <div className="w-full min-h-screen bg-slate-50 p-6 pb-4 space-y-4">
-        <div className="bg-white shadow-none border-0 rounded-2xl p-7 md:p-9 space-y-6">
-          <div>
-            <Skeleton className="h-7 w-48" />
-            <Skeleton className="h-5 w-72 mt-2" />
-          </div>
-          <Skeleton className="h-10 w-64 rounded-xl" />
-          <div className="w-full bg-white border-0 rounded-2xl overflow-hidden">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="border-b border-slate-100 px-4 py-4">
-                <Skeleton className="h-5 w-full" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+    return <BrandedLoader />;
   }
 
   if (purchases.length === 0 && !selectedPurchase) {

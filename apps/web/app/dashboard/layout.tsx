@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Button } from "@fine-leads/ui";
+import { BrandedLoader } from "@/components/ui/branded-loader";
 import { Menu } from "lucide-react";
 
 const MAX_RETRIES = 20;
@@ -20,7 +21,7 @@ export default function DashboardLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   if (status === "loading") {
-    return null;
+    return <BrandedLoader />;
   }
 
   if (status === "unauthenticated" || !session?.user) {
