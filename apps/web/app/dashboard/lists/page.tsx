@@ -11,6 +11,9 @@ import {
   Calendar,
   ExternalLink,
   Filter,
+  Phone,
+  Mail,
+  MapPin,
 } from "lucide-react";
 import { Skeleton } from "@fine-leads/ui";
 import { BrandedLoader } from "@/components/ui/branded-loader";
@@ -66,6 +69,18 @@ function formatTimezoneDisplay(tz: string | null): string {
     "Pacific/Honolulu": "Hawaii",
   };
   return map[tz] ?? tz;
+}
+
+function formatPhone(phone: string | null): string {
+  if (!phone) return "--";
+  const cleaned = phone.replace(/\D/g, "");
+  if (cleaned.length === 10) {
+    return `+1 (${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+  }
+  if (cleaned.length === 11 && cleaned.startsWith("1")) {
+    return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
+  }
+  return phone;
 }
 
 function formatStatesDisplay(states: string[]): { label: string; title?: string } {
@@ -323,154 +338,284 @@ export default function ListsPage() {
         <div className="w-full h-screen bg-slate-50 p-6 overflow-hidden flex flex-col">
           <div className="bg-white shadow-none border-0 rounded-2xl p-6 md:p-8 flex flex-col h-[calc(100vh-48px)] overflow-hidden justify-between">
             <div className="shrink-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleBackToOrders}
-                    className="inline-flex items-center gap-1.5 text-slate-600 hover:text-[#465FFF] hover:bg-[#F0F4FF] font-medium text-xs px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-                  >
-                    <ArrowLeft className="h-3.5 w-3.5" />
-                    Back to All Orders
-                  </button>
-                  <div>
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-                      Order #{selectedPurchase.referenceId}
-                    </h2>
-                     <p className="text-sm text-slate-500 mt-1.5">
-                       {selectedPurchase.unlockedStates.join(", ")} · {formatQuantity(selectedPurchase.quantity)} Verified Leads
-                     </p>
-                  </div>
+              <div className="md:hidden space-y-3">
+                <button
+                  type="button"
+                  onClick={handleBackToOrders}
+                  className="inline-flex items-center gap-1.5 text-slate-600 hover:text-blue-600 font-medium text-xs"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Back to All Orders
+                </button>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+                    Order #{selectedPurchase.referenceId}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {selectedPurchase.unlockedStates.join(", ")} - {formatQuantity(selectedPurchase.quantity)} Verified Leads
+                  </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleDownloadCsv(selectedPurchase.unlockedStates, selectedPurchase.id)}
-                  className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold shadow-none border-0 transition-all duration-200 flex items-center gap-2 cursor-pointer"
+                  className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors"
                 >
-                  <Download className="h-3.5 w-3.5" /> Download Full CSV
+                  <Download className="h-4 w-4" />
+                  Download Full CSV
                 </button>
-              </div>
-
-              <div className="mt-6 mb-5 flex items-center justify-between gap-4 flex-wrap">
-                <div className="relative w-full sm:w-80">
+                <div className="relative">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input
                     ref={leadSearchRef}
                     type="text"
                     value={leadSearch}
                     onChange={(e) => setLeadSearch(e.target.value)}
-                    placeholder="Search agents in this order by name, brokerage, city, or email..."
-                    className="w-full sm:w-80 px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:border-[#465FFF] bg-white pl-10 placeholder:text-slate-400 focus:outline-none transition-colors"
+                    placeholder="Search agents in this order by name..."
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs bg-white pl-10 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
                   />
+                </div>
+              </div>
+              <div className="hidden md:block">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleBackToOrders}
+                      className="inline-flex items-center gap-1.5 text-slate-600 hover:text-[#465FFF] hover:bg-[#F0F4FF] font-medium text-xs px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                      Back to All Orders
+                    </button>
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+                        Order #{selectedPurchase.referenceId}
+                      </h2>
+                       <p className="text-sm text-slate-500 mt-1.5">
+                         {selectedPurchase.unlockedStates.join(", ")} · {formatQuantity(selectedPurchase.quantity)} Verified Leads
+                       </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadCsv(selectedPurchase.unlockedStates, selectedPurchase.id)}
+                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold shadow-none border-0 transition-all duration-200 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Download Full CSV
+                  </button>
+                </div>
+
+                <div className="mt-6 mb-5 flex items-center justify-between gap-4 flex-wrap">
+                  <div className="relative w-full sm:w-80">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <input
+                      ref={leadSearchRef}
+                      type="text"
+                      value={leadSearch}
+                      onChange={(e) => setLeadSearch(e.target.value)}
+                      placeholder="Search agents in this order by name, brokerage, city, or email..."
+                      className="w-full sm:w-80 px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:border-[#465FFF] bg-white pl-10 placeholder:text-slate-400 focus:outline-none transition-colors"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
             <div className="w-full flex-1 overflow-hidden my-2">
               {leadsLoading ? (
-                <div className="w-full divide-y divide-slate-100">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="px-4 py-4">
-                      <Skeleton className="h-5 w-full" />
+                <>
+                  <div className="md:hidden w-full overflow-y-auto no-scrollbar bg-slate-50">
+                    <div className="p-4 space-y-3">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="bg-white rounded-xl border border-slate-200 p-4">
+                          <div className="space-y-2">
+                            <div className="h-4 bg-slate-100 rounded w-3/4"></div>
+                            <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                  <div className="hidden md:block">
+                    <div className="w-full divide-y divide-slate-100">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="px-4 py-4">
+                          <Skeleton className="h-5 w-full" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
               ) : (
-                <div className="w-full overflow-x-auto no-scrollbar">
-                <table className="w-full text-left text-sm min-w-[600px]">
-                  <thead className="border-b border-slate-100 text-[11px] font-normal text-slate-400 uppercase tracking-wider">
-                    <tr className="h-14">
-                      <th className="px-4 align-middle text-left">Agent & Company</th>
-                      <th className="px-4 align-middle text-left">Category</th>
-                      <th className="px-4 align-middle text-left">Direct Phone</th>
-                      <th className="px-4 align-middle text-left">Verified Email</th>
-                      <th className="px-4 align-middle text-left">Location</th>
-                      <th className="px-4 align-middle text-left">Rating & Reviews</th>
-                      <th className="px-4 align-middle text-left">Timezone</th>
-                      <th className="px-4 align-middle text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {paginatedLeads.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="px-4 py-12 text-center text-sm text-slate-400">
+                <>
+                  <div className="md:hidden w-full overflow-y-auto no-scrollbar bg-slate-50">
+                    <div className="p-4 space-y-3">
+                      {paginatedLeads.length === 0 ? (
+                        <div className="py-8 text-center text-sm text-slate-400">
                           {leadSearch ? "No agents match your search." : "No agents available for this order."}
-                        </td>
-                      </tr>
-                    ) : (
-                      paginatedLeads.map((agent) => (
-                        <tr
-                          key={agent.id}
-                          className="h-14 hover:bg-slate-50 transition-colors cursor-pointer"
-                          onClick={() => handleOpenAgent(agent)}
-                        >
-                          <td className="px-4 align-middle text-xs">
-                            <span className="font-normal text-slate-900">
-                              {agent.fullName}
-                            </span>
-                            <p className="text-[11px] text-slate-500 mt-0.5">
-                              {agent.brokerageName}
-                            </p>
-                          </td>
-                          <td className="px-4 align-middle text-xs">
-                            <span className="font-normal text-slate-600">
-                              {agent.category ?? "Real Estate Agent"}
-                            </span>
-                          </td>
-                          <td className="px-4 align-middle text-xs font-sans text-sm font-normal text-slate-800">
-                            {agent.phone ?? "--"}
-                          </td>
-                          <td className="px-4 align-middle text-xs">
-                            <span className="text-xs text-slate-800 select-all">
-                              {agent.email}
-                            </span>
-                          </td>
-                          <td className="px-4 align-middle text-xs">
-                            <span className="font-normal text-slate-700">
-                              {[agent.city, agent.state].filter(Boolean).join(", ") || "--"}
-                            </span>
-                          </td>
-                          <td className="px-4 align-middle text-xs">
-                            <span className="font-normal text-slate-700 tabular-nums">
-                              {agent.rating != null
-                                ? `★ ${agent.rating.toFixed(1)} (${agent.reviewCount})`
-                                : "--"}
-                            </span>
-                          </td>
-                          <td className="px-4 align-middle text-xs">
-                            <span className="font-normal text-slate-500">
-                              {formatTimezoneDisplay(agent.timezone)}
-                            </span>
-                          </td>
-                          <td className="px-4 align-middle text-xs text-right">
-                            {agent.googleMapsLink ? (
-                              <a
-                                href={agent.googleMapsLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 text-xs font-normal text-slate-600 hover:text-slate-900 transition-colors"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                                View on Maps
-                              </a>
-                            ) : (
-                              <span className="text-slate-400">--</span>
-                            )}
-                          </td>
+                        </div>
+                      ) : (
+                        paginatedLeads.map((agent) => (
+                          <div key={agent.id} className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+                            <div>
+                              <p className="text-sm font-bold text-slate-900">{agent.brokerageName || "Agent"}</p>
+                              <p className="text-xs text-slate-500 mt-0.5">{agent.fullName} {agent.brokerageName ? `- Realtor: ${agent.brokerageName}` : ""}</p>
+                            </div>
+                            <div className="space-y-2">
+                              {agent.phone && (
+                                <div className="flex items-center gap-2 text-xs text-slate-600">
+                                  <Phone className="h-3.5 w-3.5 text-slate-400" />
+                                  <span>{formatPhone(agent.phone)}</span>
+                                </div>
+                              )}
+                              {agent.email && (
+                                <div className="flex items-center gap-2 text-xs text-slate-600">
+                                  <Mail className="h-3.5 w-3.5 text-slate-400" />
+                                  <span className="truncate">{agent.email}</span>
+                                  <span className="inline-flex items-center text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60 flex-shrink-0">
+                                    Verified
+                                  </span>
+                                </div>
+                              )}
+                              {(agent.city || agent.state) && (
+                                <div className="flex items-center gap-2 text-xs text-slate-600">
+                                  <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                                  <span>{[agent.city, agent.state].filter(Boolean).join(", ")}</span>
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenAgent(agent)}
+                              className="w-full px-4 py-2.5 border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                              View Details
+                            </button>
+                          </div>
+                        ))
+                      )}
+                      {totalLeadPages > 1 && (
+                        <div className="flex items-center justify-between pt-2">
+                          <button
+                            type="button"
+                            disabled={leadPage === 0}
+                            onClick={() => setLeadPage((p) => Math.max(0, p - 1))}
+                            className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            Previous
+                          </button>
+                          <span className="text-xs text-slate-500">
+                            {leadPage + 1} / {totalLeadPages}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={leadPage >= totalLeadPages - 1}
+                            onClick={() => setLeadPage((p) => p + 1)}
+                            className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="hidden md:block">
+                    <div className="w-full overflow-x-auto no-scrollbar">
+                    <table className="w-full text-left text-sm min-w-[600px]">
+                      <thead className="border-b border-slate-100 text-[11px] font-normal text-slate-400 uppercase tracking-wider">
+                        <tr className="h-14">
+                          <th className="px-4 align-middle text-left">Agent & Company</th>
+                          <th className="px-4 align-middle text-left">Category</th>
+                          <th className="px-4 align-middle text-left">Direct Phone</th>
+                          <th className="px-4 align-middle text-left">Verified Email</th>
+                          <th className="px-4 align-middle text-left">Location</th>
+                          <th className="px-4 align-middle text-left">Rating & Reviews</th>
+                          <th className="px-4 align-middle text-left">Timezone</th>
+                          <th className="px-4 align-middle text-right">Action</th>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {paginatedLeads.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="px-4 py-12 text-center text-sm text-slate-400">
+                              {leadSearch ? "No agents match your search." : "No agents available for this order."}
+                            </td>
+                          </tr>
+                        ) : (
+                          paginatedLeads.map((agent) => (
+                            <tr
+                              key={agent.id}
+                              className="h-14 hover:bg-slate-50 transition-colors cursor-pointer"
+                              onClick={() => handleOpenAgent(agent)}
+                            >
+                              <td className="px-4 align-middle text-xs">
+                                <span className="font-normal text-slate-900">
+                                  {agent.fullName}
+                                </span>
+                                <p className="text-[11px] text-slate-500 mt-0.5">
+                                  {agent.brokerageName}
+                                </p>
+                              </td>
+                              <td className="px-4 align-middle text-xs">
+                                <span className="font-normal text-slate-600">
+                                  {agent.category ?? "Real Estate Agent"}
+                                </span>
+                              </td>
+                              <td className="px-4 align-middle text-xs font-sans text-sm font-normal text-slate-800">
+                                {agent.phone ?? "--"}
+                              </td>
+                              <td className="px-4 align-middle text-xs">
+                                <span className="text-xs text-slate-800 select-all">
+                                  {agent.email}
+                                </span>
+                              </td>
+                              <td className="px-4 align-middle text-xs">
+                                <span className="font-normal text-slate-700">
+                                  {[agent.city, agent.state].filter(Boolean).join(", ") || "--"}
+                                </span>
+                              </td>
+                              <td className="px-4 align-middle text-xs">
+                                <span className="font-normal text-slate-700 tabular-nums">
+                                  {agent.rating != null
+                                    ? `★ ${agent.rating.toFixed(1)} (${agent.reviewCount})`
+                                    : "--"}
+                                </span>
+                              </td>
+                              <td className="px-4 align-middle text-xs">
+                                <span className="font-normal text-slate-500">
+                                  {formatTimezoneDisplay(agent.timezone)}
+                                </span>
+                              </td>
+                              <td className="px-4 align-middle text-xs text-right">
+                                {agent.googleMapsLink ? (
+                                  <a
+                                    href={agent.googleMapsLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-1 text-xs font-normal text-slate-600 hover:text-slate-900 transition-colors"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                    View on Maps
+                                  </a>
+                                ) : (
+                                  <span className="text-slate-400">--</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
 
-            <div className="shrink-0 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <div className="hidden md:block shrink-0 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
               <span>
                 Showing{" "}
-                <strong className="text-slate-900 tabular-nums">{leadShowingFrom}&ndash;{leadShowingTo}</strong>{" "}
+                <strong className="text-slate-900 tabular-nums">{leadShowingFrom}</strong>&ndash;<strong className="text-slate-900 tabular-nums">{leadShowingTo}</strong>{" "}
                 of{" "}
                 <strong className="text-slate-900 tabular-nums">{filteredLeads.length}</strong>{" "}
                 agents
@@ -563,105 +708,202 @@ export default function ListsPage() {
         </div>
 
         <div className="w-full flex-1 overflow-hidden my-2">
-          <div className="w-full overflow-x-auto no-scrollbar">
-          <table className="w-full text-left text-sm min-w-[600px]">
-            <thead className="border-b border-slate-100 text-[11px] font-normal text-slate-400 uppercase tracking-wider">
-              <tr className="h-14">
-                <th className="px-4 align-middle text-left">Order ID & Date</th>
-                <th className="px-4 align-middle text-left">Target States</th>
-                <th className="px-4 align-middle text-left">Category</th>
-                <th className="px-4 align-middle text-right">Quantity</th>
-                <th className="px-4 align-middle text-left">Status</th>
-                <th className="px-4 align-middle text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
+          <div className="md:hidden w-full overflow-y-auto no-scrollbar bg-slate-50">
+            <div className="p-4 space-y-3">
+              <div className="space-y-1">
+                <h1 className="text-xl font-bold text-slate-900 tracking-tight">My Leads Vault</h1>
+                <p className="text-xs text-slate-500">Access, search, and export your unlocked Real Estate Agent databases.</p>
+              </div>
+              <a href="/dashboard/search" className="block w-full text-center px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-none border-0 transition-colors">
+                Order Leads
+              </a>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={orderSearch}
+                    onChange={(e) => setOrderSearch(e.target.value)}
+                    placeholder="Search orders by Order ID or State..."
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs bg-white pl-10 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                >
+                  <Filter className="h-4 w-4" />
+                  Filter
+                </button>
+              </div>
               {paginatedPurchases.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-sm text-slate-400">
-                    No orders match your search.
-                  </td>
-                </tr>
+                <div className="py-8 text-center text-sm text-slate-400">No orders match your search.</div>
               ) : (
                 paginatedPurchases.map((purchase) => (
-                  <tr
-                    key={purchase.id}
-                    className="h-14 hover:bg-slate-50 transition-colors cursor-pointer"
-                    onClick={() => handleSelectPurchase(purchase)}
-                  >
-                    <td className="px-4 align-middle text-xs">
-                      <div>
-                        <span className="font-normal text-slate-900 tabular-nums">
-                          {purchase.referenceId}
-                        </span>
-                        <p className="text-xs text-slate-400 font-normal tabular-nums mt-0.5">
-                          {formatDate(purchase.createdAt)}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-4 align-middle text-xs">
-                      {(() => {
-                        const formatted = formatStatesDisplay(purchase.unlockedStates);
-                        return (
-                          <span
-                            className="font-normal text-[11px] text-[#465FFF] bg-[#F0F4FF] px-2.5 py-0.5 rounded-full text-xs whitespace-nowrap"
-                            title={formatted.title}
-                          >
-                            {formatted.label}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-4 align-middle text-xs">
-                      <span className="font-normal text-slate-600 text-xs">
-                        Real Estate Agents
+                  <div key={purchase.id} className="bg-white rounded-xl border border-slate-200 p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-900 tabular-nums">{purchase.referenceId}</span>
+                      <span className="inline-flex items-center text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                        {purchase.status || "COMPLETED"}
                       </span>
-                    </td>
-                    <td className="px-4 align-middle text-xs text-right">
-                      <span className="font-normal text-slate-800 text-xs tabular-nums">
-                        {formatQuantity(purchase.quantity)}
+                    </div>
+                    <p className="text-xs text-slate-500">{formatDate(purchase.createdAt)}</p>
+                    <div className="flex items-center gap-3 text-xs text-slate-600">
+                      <span className="inline-flex items-center text-[11px] font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                        {purchase.unlockedStates[0] || "--"}
                       </span>
-                    </td>
-                    <td className="px-4 align-middle text-xs">
-                      <span className="font-normal text-emerald-600 text-xs">
-                        {purchase.status || "Delivered"}
-                      </span>
-                    </td>
-                    <td className="px-4 align-middle text-xs text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectPurchase(purchase);
-                          }}
-                          className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-none border-0 transition-all duration-200 cursor-pointer"
-                        >
-                          View Leads
-                          <ArrowRight className="h-3 w-3" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownloadCsv(purchase.unlockedStates, purchase.id);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F0F4FF] text-[#465FFF] border border-blue-100 hover:bg-blue-100/70 font-semibold text-xs shadow-none transition-colors cursor-pointer"
-                        >
-                          <Download className="h-3 w-3" />
-                          CSV
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                      <span>{formatQuantity(purchase.quantity)} Leads</span>
+                      <span>Real Estate Agents</span>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectPurchase(purchase)}
+                        className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                      >
+                        View Leads
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadCsv(purchase.unlockedStates, purchase.id);
+                        }}
+                        className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        CSV
+                      </button>
+                    </div>
+                  </div>
                 ))
               )}
-            </tbody>
-          </table>
+              {totalOrderPages > 1 && (
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    disabled={orderPage === 0}
+                    onClick={() => setOrderPage((p) => Math.max(0, p - 1))}
+                    className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-xs text-slate-500">
+                    {orderPage + 1} / {totalOrderPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={orderPage >= totalOrderPages - 1}
+                    onClick={() => setOrderPage((p) => p + 1)}
+                    className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="hidden md:block">
+            <div className="w-full overflow-x-auto no-scrollbar">
+            <table className="w-full text-left text-sm min-w-[600px]">
+              <thead className="border-b border-slate-100 text-[11px] font-normal text-slate-400 uppercase tracking-wider">
+                <tr className="h-14">
+                  <th className="px-4 align-middle text-left">Order ID & Date</th>
+                  <th className="px-4 align-middle text-left">Target States</th>
+                  <th className="px-4 align-middle text-left">Category</th>
+                  <th className="px-4 align-middle text-right">Quantity</th>
+                  <th className="px-4 align-middle text-left">Status</th>
+                  <th className="px-4 align-middle text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedPurchases.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-sm text-slate-400">
+                      No orders match your search.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedPurchases.map((purchase) => (
+                    <tr
+                      key={purchase.id}
+                      className="h-14 hover:bg-slate-50 transition-colors cursor-pointer"
+                      onClick={() => handleSelectPurchase(purchase)}
+                    >
+                      <td className="px-4 align-middle text-xs">
+                        <div>
+                          <span className="font-normal text-slate-900 tabular-nums">
+                            {purchase.referenceId}
+                          </span>
+                          <p className="text-xs text-slate-400 font-normal tabular-nums mt-0.5">
+                            {formatDate(purchase.createdAt)}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 align-middle text-xs">
+                        {(() => {
+                          const formatted = formatStatesDisplay(purchase.unlockedStates);
+                          return (
+                            <span
+                              className="font-normal text-[11px] text-[#465FFF] bg-[#F0F4FF] px-2.5 py-0.5 rounded-full text-xs whitespace-nowrap"
+                              title={formatted.title}
+                            >
+                              {formatted.label}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-4 align-middle text-xs">
+                        <span className="font-normal text-slate-600 text-xs">
+                          Real Estate Agents
+                        </span>
+                      </td>
+                      <td className="px-4 align-middle text-xs text-right">
+                        <span className="font-normal text-slate-800 text-xs tabular-nums">
+                          {formatQuantity(purchase.quantity)}
+                        </span>
+                      </td>
+                      <td className="px-4 align-middle text-xs">
+                        <span className="font-normal text-emerald-600 text-xs">
+                          {purchase.status || "Delivered"}
+                        </span>
+                      </td>
+                      <td className="px-4 align-middle text-xs text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectPurchase(purchase);
+                            }}
+                            className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-none border-0 transition-all duration-200 cursor-pointer"
+                          >
+                            View Leads
+                            <ArrowRight className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownloadCsv(purchase.unlockedStates, purchase.id);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F0F4FF] text-[#465FFF] border border-blue-100 hover:bg-blue-100/70 font-semibold text-xs shadow-none transition-colors cursor-pointer"
+                          >
+                            <Download className="h-3 w-3" />
+                            CSV
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+            </div>
           </div>
         </div>
 
-        <div className="shrink-0 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+        <div className="hidden md:block shrink-0 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
           <span>
             Showing{" "}
             <strong className="text-slate-900 tabular-nums">{showingFrom}</strong>

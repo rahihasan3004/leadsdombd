@@ -130,11 +130,11 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="flex-shrink-0 p-1 rounded-sm text-surface-400 hover:text-surface-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors cursor-pointer"
+      className="flex-shrink-0 p-1 rounded-sm text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
       title="Copy to clipboard"
     >
       {copied ? (
-        <Check className="w-3.5 h-3.5 text-status-verified" />
+        <Check className="w-3.5 h-3.5 text-emerald-600" />
       ) : (
         <Copy className="w-3.5 h-3.5" />
       )}
@@ -144,9 +144,9 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
 
 function SectionHeader({ icon: Icon, label }: { icon: React.ComponentType<{ className?: string }>; label: string }) {
   return (
-    <div className="flex items-center gap-2 pb-2 mb-2 border-b border-surface-100 dark:border-surface-800">
-      <Icon className="w-4 h-4 text-surface-500" />
-      <span className="text-xs font-semibold uppercase tracking-wider text-surface-500">
+    <div className="flex items-center gap-2 pb-2 mb-2 border-b border-slate-100">
+      <Icon className="w-4 h-4 text-slate-500" />
+      <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
         {label}
       </span>
     </div>
@@ -171,9 +171,9 @@ function AttrRow({
   return (
     <div className="flex items-center justify-between py-2 group">
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
-        <Icon className="w-3.5 h-3.5 text-surface-400 flex-shrink-0" />
+        <Icon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-surface-400 mb-0.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
             {label}
           </p>
           <div className="flex items-center gap-1.5">
@@ -182,12 +182,12 @@ function AttrRow({
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm font-medium text-surface-800 dark:text-surface-200 hover:text-surface-950 dark:hover:text-white hover:underline truncate"
+                className="text-sm font-medium text-slate-800 hover:text-slate-950 hover:underline truncate"
               >
                 {value}
               </a>
             ) : (
-              <span className="text-sm font-medium text-surface-800 dark:text-surface-200 truncate">
+              <span className="text-sm font-medium text-slate-800 truncate">
                 {value}
               </span>
             )}
@@ -202,7 +202,7 @@ function AttrRow({
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-1 rounded-sm text-surface-400 hover:text-surface-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors cursor-pointer"
+            className="p-1 rounded-sm text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
             title="Open link"
           >
             <ExternalLink className="w-3.5 h-3.5" />
@@ -256,38 +256,38 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-slate-900/20 flex items-center justify-center p-4 z-50"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="agent-modal-title"
-        className="bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg p-6 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto"
+        className="bg-white border border-slate-200 text-slate-900 shadow-xl rounded-2xl p-6 max-w-lg w-full relative max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3 top-3 p-1.5 rounded-md text-surface-400 hover:text-surface-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors cursor-pointer"
+          className="absolute right-4 top-4 p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
         >
           <X className="h-4 w-4" />
         </button>
 
         <div className="pr-8">
-          <h2 id="agent-modal-title" className="text-lg font-bold text-surface-950 dark:text-white flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-surface-500" />
+          <h2 id="agent-modal-title" className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-slate-500" />
             {agent.fullName}
           </h2>
           <div className="flex items-center gap-3 mt-1">
             {agent.category && (
-              <span className="inline-flex items-center gap-1 text-xs text-surface-600">
+              <span className="inline-flex items-center gap-1 text-xs text-slate-600">
                 <Tag className="h-3.5 w-3.5" />
                 {agent.category}
               </span>
             )}
             {(agent.city || agent.state) && (
-              <span className="inline-flex items-center gap-1 text-xs text-surface-600">
+              <span className="inline-flex items-center gap-1 text-xs text-slate-600">
                 <MapPin className="h-3.5 w-3.5" />
                 {[agent.city, agent.state].filter(Boolean).join(", ")}
               </span>
@@ -299,7 +299,7 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
           <button
             type="button"
             onClick={handleCopyAllInfo}
-            className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-none border-0 transition-all duration-150 cursor-pointer"
+            className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-none border-0 transition-colors cursor-pointer"
           >
             <Copy className="h-4 w-4" />
             <span>Copy business info</span>
@@ -394,7 +394,7 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
             <AttrRow
               icon={Star}
               label="Rating"
-              value={`★ ${agent.rating.toFixed(1)} (${agent.reviewCount?.toLocaleString() ?? 0} reviews)`}
+              value={`${agent.rating.toFixed(1)} (${agent.reviewCount?.toLocaleString() ?? 0} reviews)`}
             />
           )}
           <AttrRow
