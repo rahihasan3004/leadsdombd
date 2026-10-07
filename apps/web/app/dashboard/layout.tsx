@@ -57,7 +57,7 @@ export default function DashboardLayout({
             </Button>
             <span className="ml-3 font-semibold text-sm text-neutral-900">Dashboard</span>
           </header>
-          <div className="px-4 pt-4 pb-8 sm:p-6 sm:pb-8">{children}</div>
+          <div className="px-4 pt-4 pb-14 md:px-8 md:pt-6 md:pb-8">{children}</div>
         </main>
       </div>
     </div>
