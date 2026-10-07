@@ -1,10 +1,10 @@
+import { type LucideIcon } from "lucide-react";
 import { cn } from "@fine-leads/utils";
-import type { IconWeight } from "@phosphor-icons/react";
 
 interface KpiCardProps {
   label: string;
   value: string;
-  icon?: React.ComponentType<{ className?: string; weight?: IconWeight }>;
+  icon?: LucideIcon;
   iconBg?: string;
   iconColor?: string;
   trend?: {
@@ -34,7 +34,7 @@ export function KpiCard({
     <div className="bg-white shadow-none border-0 rounded-2xl p-3.5 sm:p-6 flex flex-col justify-between">
       <div className="flex items-center justify-between w-full">
         <span className={cn("p-3 rounded-xl w-fit", iconBg, iconColor)}>
-          {Icon ? <Icon className="h-5 w-5" weight="bold" /> : null}
+          {Icon ? <Icon className="h-5 w-5" /> : null}
         </span>
         {trend && (
           <span

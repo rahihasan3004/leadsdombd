@@ -1,8 +1,7 @@
 "use client";
 
 import { US_STATES } from "@fine-leads/utils";
-import { Lock, X, Lightning, Phone, Envelope, Buildings, ShieldCheck, ArrowRight, DownloadSimple } from "@phosphor-icons/react";
-import type { IconWeight } from "@phosphor-icons/react";
+import { Lock, X, Zap, Phone, Mail, Building2, ShieldCheck, ArrowRight, Download } from "lucide-react";
 
 type PackageType = "full" | "phone-only" | "email-only";
 
@@ -38,7 +37,7 @@ export function OrderPanel({
   return (
     <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-md p-6 flex flex-col shadow-2xs h-full">
       <div className="flex items-center gap-2 mb-6">
-        <Lightning className="h-4 w-4 text-surface-600 dark:text-surface-400" weight="bold" />
+        <Zap className="h-4 w-4 text-surface-600 dark:text-surface-400" />
         <h2 className="text-sm font-bold tracking-tight text-surface-950 dark:text-white uppercase">
           Territory Order
         </h2>
@@ -51,7 +50,7 @@ export function OrderPanel({
             Target Niche
           </span>
           <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-sm bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
-            <Lock className="h-3 w-3 text-surface-400" weight="bold" />
+            <Lock className="h-3 w-3 text-surface-400" />
             <span className="text-xs font-medium text-surface-700 dark:text-surface-300">
               Real Estate Agents
             </span>
@@ -120,7 +119,7 @@ export function OrderPanel({
               type="email-only"
               label="Email-Only Validated"
               description="Deliverable business email addresses"
-              icon={Envelope}
+              icon={Mail}
               isSelected={packageType === "email-only"}
               onClick={() => onPackageTypeChange("email-only")}
             />
@@ -190,10 +189,10 @@ export function OrderPanel({
           className="w-full h-11 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-md text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-none border-0 cursor-pointer"
         >
           Unlock &amp; Order Leads
-          <ArrowRight className="h-4 w-4" weight="bold" />
+          <ArrowRight className="h-4 w-4" />
         </button>
         <p className="text-center text-[10px] text-surface-400 dark:text-surface-500">
-          <ShieldCheck className="inline h-3 w-3 mr-0.5 -mt-0.5" weight="bold" />
+          <ShieldCheck className="inline h-3 w-3 mr-0.5 -mt-0.5" />
           100% Deliverability Guarantee &bull; Instant CSV Export in Vault
         </p>
       </div>
@@ -211,7 +210,7 @@ function PackageCard({
   type: PackageType;
   label: string;
   description: string;
-  icon: React.ComponentType<{ className?: string; weight?: IconWeight }>;
+  icon: React.ComponentType<{ className?: string }>;
   isSelected: boolean;
   onClick: () => void;
 }) {
@@ -227,7 +226,6 @@ function PackageCard({
     >
       <div className="flex items-start gap-2.5">
       <Icon
-        weight="bold"
         className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
           isSelected
             ? "text-white"

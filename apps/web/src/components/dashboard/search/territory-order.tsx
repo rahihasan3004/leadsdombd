@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { US_STATES } from "@fine-leads/utils";
-import { Vault } from "@phosphor-icons/react";
+import { Database } from "lucide-react";
 import { USMap } from "./us-map";
 import { OrderPanel } from "./order-panel";
 
