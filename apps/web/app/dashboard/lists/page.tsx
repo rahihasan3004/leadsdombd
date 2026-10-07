@@ -37,6 +37,7 @@ interface Purchase {
   amountPaid: number;
   status: string;
   createdAt: string;
+  quantity: number;
 }
 
 const PAGE_SIZE = 10;
@@ -117,6 +118,7 @@ export default function ListsPage() {
             amountPaid: Number(p.amountPaid) || 0,
             status: p.status as string,
             createdAt: p.createdAt as string,
+            quantity: Number(p.quantity) || 0,
           }));
           setPurchases(mapped);
         }
@@ -335,9 +337,9 @@ export default function ListsPage() {
                     <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
                       Order #{selectedPurchase.referenceId}
                     </h2>
-                    <p className="text-sm text-slate-500 mt-1.5">
-                      {selectedPurchase.unlockedStates.join(", ")} · {formatQuantity(Math.round(selectedPurchase.amountPaid / 0.019))} Verified Leads
-                    </p>
+                     <p className="text-sm text-slate-500 mt-1.5">
+                       {selectedPurchase.unlockedStates.join(", ")} · {formatQuantity(selectedPurchase.quantity)} Verified Leads
+                     </p>
                   </div>
                 </div>
                 <button
@@ -617,7 +619,7 @@ export default function ListsPage() {
                     </td>
                     <td className="px-4 align-middle text-xs text-right">
                       <span className="font-normal text-slate-800 text-xs tabular-nums">
-                        {formatQuantity(Math.round(purchase.amountPaid / 0.019))}
+                        {formatQuantity(purchase.quantity)}
                       </span>
                     </td>
                     <td className="px-4 align-middle text-xs">

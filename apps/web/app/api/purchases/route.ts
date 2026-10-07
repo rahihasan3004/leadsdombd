@@ -115,6 +115,9 @@ export async function GET(request: Request) {
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
+        include: {
+          unlockedLeads: { select: { id: true } },
+        },
       });
 
       totalPurchases = await db.leadPurchase.count({
@@ -129,6 +132,11 @@ export async function GET(request: Request) {
     }
     const t2 = performance.now();
     console.log(`[LATENCY][api/purchases GET] leadPurchase-list+count: ${(t2 - t1).toFixed(2)}ms`);
+
+    const mappedPurchases = purchases.map((p) => ({
+      ...p,
+      quantity: p.leadCount ?? p.unlockedLeads?.length ?? 0,
+    }));
 
     if (purchaseId) {
       const purchase = await db.leadPurchase.findFirst({
@@ -198,6 +206,11 @@ export async function GET(request: Request) {
         );
       }
 
+      const purchaseWithQuantity = {
+        ...purchase,
+        quantity: purchase.leadCount ?? purchase.unlockedLeads?.length ?? 0,
+      };
+
       const leads = (purchase.unlockedLeads || [])
         .map((ul) => ul.agent)
         .filter(Boolean);
@@ -206,7 +219,7 @@ export async function GET(request: Request) {
       console.log(`[LATENCY][api/purchases GET] total: ${(t4 - t0).toFixed(2)}ms`);
 
       return NextResponse.json({
-        purchase,
+        purchase: purchaseWithQuantity,
         leads,
         pagination: {
           total: 1,
@@ -300,7 +313,7 @@ export async function GET(request: Request) {
     console.log(`[LATENCY][api/purchases GET] total: ${(t7 - t0).toFixed(2)}ms`);
 
     return NextResponse.json({
-      purchases,
+      purchases: mappedPurchases,
       purchasedStates: uniquePurchasedStates,
       purchasedCount: uniquePurchasedStates.length,
       totalAmountPaid,
