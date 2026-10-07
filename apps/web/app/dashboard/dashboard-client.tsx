@@ -136,7 +136,7 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-4 lg:gap-6">
         <KpiCard
           label="Total Leads in Vault"
           value={totalLeadsFormatted}
@@ -169,7 +169,7 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="hidden md:grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-white shadow-none border-0 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
