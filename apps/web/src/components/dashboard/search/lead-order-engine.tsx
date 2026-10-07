@@ -97,14 +97,6 @@ export function LeadOrderEngine() {
     [],
   );
 
-  const totalPrice = useMemo(() => {
-    const num = (isValidQty ? parsedQty * 0.019 : 0).toFixed(2);
-    return parseFloat(num).toLocaleString("en-US", {
-      style: "currency",
-      currency: "USD",
-    });
-  }, [parsedQty, isValidQty]);
-
   const minQuantity = useMemo(
     () => Math.max(10, selectedStates.length || 10),
     [selectedStates.length],
@@ -194,7 +186,7 @@ export function LeadOrderEngine() {
   };
 
   return (
-    <div className="w-full p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="w-full p-4 sm:p-6 lg:p-8 pb-14 md:pb-8 space-y-6">
       <div className="px-0 sm:px-0 lg:px-0">
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 tracking-tight">
           Order Real Estate Leads
@@ -258,14 +250,8 @@ export function LeadOrderEngine() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">Lead Quantity</span>
-                <span className="font-semibold text-slate-900 tabular-nums">
+                <span className="font-semibold text-slate-900 tabular-nums truncate">
                   {parsedQty > 0 ? `${parsedQty.toLocaleString()} Leads` : "—"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Unit Price</span>
-                <span className="font-semibold text-slate-900 tabular-nums">
-                  $0.019 / lead ($19.00 / 1k)
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -282,19 +268,21 @@ export function LeadOrderEngine() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">Delivery Speed</span>
-                <span className="font-semibold text-slate-900">Instant Cloud Vault Delivery</span>
+                <span className="font-semibold text-slate-900 truncate">Instant</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">SMTP Deliverability</span>
-                <span className="font-semibold text-emerald-600">100% Verified (0% Bounce)</span>
+                <span className="text-slate-500">Deliverability</span>
+                <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-sm font-semibold text-emerald-700 truncate">
+                  99%
+                </span>
               </div>
             </div>
 
             <div className="border-t border-slate-100 pt-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-900">Estimated Total</span>
-                <span className="text-2xl font-extrabold text-slate-900 tabular-nums tracking-tight">
-                  {totalPrice}
+                <span className="text-sm font-bold text-slate-900">Total</span>
+                <span className="text-2xl font-extrabold text-slate-900 tabular-nums tracking-tight truncate">
+                  {parsedQty > 0 ? `${parsedQty.toLocaleString()} Credits` : "—"}
                 </span>
               </div>
             </div>
