@@ -48,10 +48,11 @@ async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
   console.log(`[LATENCY][dashboard] auth+initial-db: ${(t1 - tAuth).toFixed(2)}ms`);
 
   const availableCredits = user ? Number(user.credits) : 0;
-  const deliverability =
+  const rawDeliverability =
     totalLeads > 0
       ? Math.round((deliverableUnlockedLeads / totalLeads) * 100)
       : 100;
+  const deliverability = Math.min(rawDeliverability, 99);
 
   const monthlyBuckets = new Map<string, { leads: number }>();
   for (let i = 11; i >= 0; i--) {
@@ -134,7 +135,7 @@ export default async function DashboardPage() {
     availableCredits: 0,
     walletBalance: 0,
     deliveredFiles: 0,
-    deliverability: 100,
+    deliverability: 99,
     monthlyTrends: [],
   };
 

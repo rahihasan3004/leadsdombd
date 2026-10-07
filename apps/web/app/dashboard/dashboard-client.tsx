@@ -63,6 +63,10 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
   const creditsFormatted = metrics.availableCredits.toLocaleString();
   const deliveredFilesFormatted = `${metrics.deliveredFiles} File${metrics.deliveredFiles === 1 ? "" : "s"}`;
   const deliverabilityFormatted = `${metrics.deliverability}%`;
+  const radius = 80;
+  const halfCircumference = Math.PI * radius;
+  const deliverabilityPercentage = Math.min(Number(metrics.deliverability ?? 99), 99);
+  const strokeDashoffset = halfCircumference - (halfCircumference * deliverabilityPercentage) / 100;
 
   return (
     <div className="w-full p-3.5 sm:p-6 lg:p-8 space-y-6">
@@ -194,28 +198,29 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
           </div>
           <div className="flex flex-col items-center">
             <div className="relative w-[180px] h-[90px]">
-              <svg viewBox="0 0 200 100" className="w-full h-full">
+              <svg viewBox="0 0 200 110" className="w-full h-full">
                 <path
-                  d="M 10 100 A 80 80 0 0 1 190 100"
+                  d="M 20 100 A 80 80 0 0 1 180 100"
                   fill="none"
-                  stroke="#E5E7EB"
+                  stroke="#E2E8F0"
                   strokeWidth="12"
                   strokeLinecap="round"
                 />
                 <path
-                  d="M 10 100 A 80 80 0 0 1 190 100"
+                  d="M 20 100 A 80 80 0 0 1 180 100"
                   fill="none"
-                  stroke="#465FFF"
+                  stroke="#2563EB"
                   strokeWidth="12"
                   strokeLinecap="round"
-                  strokeDasharray={Math.PI * 80 * (metrics.deliverability / 100)}
-                  strokeDashoffset={0}
+                  strokeDasharray={halfCircumference}
+                  strokeDashoffset={strokeDashoffset}
+                  className="transition-all duration-700 ease-out"
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-end pb-1">
                 <span className="text-2xl font-bold text-neutral-900">{metrics.deliverability}%</span>
                 <span className="inline-flex items-center text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60 mt-1">
-                  {metrics.deliverability === 100 ? "Guaranteed Active" : "Verified"}
+                  Guaranteed Active
                 </span>
               </div>
             </div>
