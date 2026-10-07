@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { US_STATES } from "@fine-leads/utils";
 import { Popover, PopoverTrigger, PopoverContent } from "@fine-leads/ui";
-import { Check, Search, X, ChevronDown, Lock } from "lucide-react";
+import { CheckCircle, MagnifyingGlass, X, CaretDown, Lock } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -376,7 +376,7 @@ function SectionStates({
                 ? "Select states..."
                 : `${selectedStates.length} selected`}
             </span>
-            <ChevronDown className="h-4 w-4 text-slate-400 flex-shrink-0 transition-transform duration-200" />
+            <CaretDown className="h-4 w-4 text-slate-400 flex-shrink-0 transition-transform duration-200" weight="bold" />
           </button>
         </PopoverTrigger>
         <PopoverContent
@@ -385,7 +385,7 @@ function SectionStates({
           sideOffset={4}
         >
           <div className="border-b border-slate-100 px-3 py-2.5 flex items-center gap-2">
-            <Search className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+            <MagnifyingGlass className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" weight="bold" />
             <input
               type="text"
               value={search}
@@ -399,7 +399,7 @@ function SectionStates({
                 onClick={() => setSearch("")}
                 className="text-slate-400 hover:text-slate-600 transition-colors"
               >
-                <X className="h-3.5 w-3.5" />
+                  <X className="h-3.5 w-3.5" weight="bold" />
               </button>
             )}
           </div>
@@ -547,7 +547,7 @@ function SectionGuarantee() {
             key={item}
             className="flex items-center gap-2.5 text-[11px] text-slate-600"
           >
-            <Check className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+            <CheckCircle className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" weight="bold" />
             {item}
           </div>
         ))}

@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  X,
-  Check,
-  MoreVertical,
-  Users,
-  Wallet,
+  X as XIcon,
+  CheckCircle,
+  DotsThreeVertical,
+  UsersThree,
+  Coins,
   FileText,
-  CheckCircle2,
-} from "lucide-react";
+  ShieldCheck,
+} from "@phosphor-icons/react";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { MonthlyLeadVolumeChart } from "@/components/dashboard/monthly-lead-volume-chart";
 import { formatNumber } from "@fine-leads/utils";
@@ -64,11 +64,16 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
   const deliveredFilesFormatted = `${metrics.deliveredFiles} File${metrics.deliveredFiles === 1 ? "" : "s"}`;
   const deliverabilityFormatted = `${metrics.deliverability}%`;
 
+  const radius = 80;
+  const halfCircumference = Math.PI * radius;
+  const percentage = Math.min(Math.max(Number(metrics.deliverability ?? 100), 0), 100);
+  const strokeDashoffset = halfCircumference - (halfCircumference * percentage) / 100;
+
   return (
     <div className="w-full p-3.5 sm:p-6 lg:p-8 space-y-6">
       {purchaseSuccess && (
         <div className="rounded-xl bg-emerald-50 border border-emerald-200/60 p-4 flex items-center gap-3">
-          <Check className="h-5 w-5 text-emerald-600 shrink-0" />
+          <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" weight="bold" />
           <div className="flex-1">
             <p className="text-sm font-semibold text-emerald-700">
               Purchase successful
@@ -82,13 +87,13 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
             onClick={() => setPurchaseSuccess(false)}
             className="text-emerald-400 hover:text-emerald-600 cursor-pointer"
           >
-            <X className="h-4 w-4" />
+            <XIcon className="h-4 w-4" weight="bold" />
           </button>
         </div>
       )}
       {purchaseCancelled && (
         <div className="rounded-xl bg-amber-50 border border-amber-200/60 p-4 flex items-center gap-3">
-          <X className="h-5 w-5 text-amber-500 shrink-0" />
+          <XIcon className="h-5 w-5 text-amber-500 shrink-0" weight="bold" />
           <div className="flex-1">
             <p className="text-sm font-semibold text-amber-700">
               Payment cancelled
@@ -102,7 +107,7 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
             onClick={() => setPurchaseCancelled(false)}
             className="text-amber-400 hover:text-amber-600 cursor-pointer"
           >
-            <X className="h-4 w-4" />
+            <XIcon className="h-4 w-4" weight="bold" />
           </button>
         </div>
       )}
@@ -136,14 +141,14 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
         <KpiCard
           label="Total Leads in Vault"
           value={totalLeadsFormatted}
-          icon={Users}
+          icon={UsersThree}
           iconBg="bg-blue-50"
           iconColor="text-[#465FFF]"
         />
         <KpiCard
           label="Available Credits"
           value={creditsFormatted}
-          icon={Wallet}
+          icon={Coins}
           iconBg="bg-blue-50"
           iconColor="text-[#465FFF]"
           action={{ label: "+ Buy Credits", href: "/dashboard/billing" }}
@@ -158,7 +163,7 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
         <KpiCard
           label="Vault Deliverability"
           value={deliverabilityFormatted}
-          icon={CheckCircle2}
+          icon={ShieldCheck}
           iconBg="bg-blue-50"
           iconColor="text-[#465FFF]"
           badge="Zero Bounce"
@@ -177,7 +182,7 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
               </p>
             </div>
             <button className="text-neutral-400 hover:text-neutral-600 transition-colors">
-              <MoreVertical className="h-4 w-4" />
+              <DotsThreeVertical className="h-4 w-4" weight="bold" />
             </button>
           </div>
           <MonthlyLeadVolumeChart data={metrics.monthlyTrends} />
@@ -205,11 +210,12 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
                 <path
                   d="M 10 100 A 80 80 0 0 1 190 100"
                   fill="none"
-                  stroke="#465FFF"
+                  stroke="currentColor"
+                  className="text-blue-600 transition-all duration-700 ease-out"
                   strokeWidth="12"
                   strokeLinecap="round"
-                  strokeDasharray={Math.PI * 80 * (metrics.deliverability / 100)}
-                  strokeDashoffset={0}
+                  strokeDasharray={halfCircumference}
+                  strokeDashoffset={strokeDashoffset}
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-end pb-1">

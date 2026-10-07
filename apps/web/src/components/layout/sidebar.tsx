@@ -5,15 +5,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut as nextAuthSignOut } from "next-auth/react";
 import {
-  LayoutGrid,
-  Search,
-  Database,
+  SquaresFour,
+  MagnifyingGlass,
+  Vault,
   CreditCard,
-  HelpCircle,
-  Settings,
-  LogOut,
+  Headset,
+  GearSix,
+  SignOut,
   X,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import { Logo } from "@/components/logo";
 
 interface SidebarUser {
@@ -28,11 +28,11 @@ interface SidebarProps {
 }
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-  { href: "/dashboard/search", label: "Search Leads", icon: Search },
-  { href: "/dashboard/lists", label: "My Leads Vault", icon: Database },
-  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
-  { href: "/dashboard/support", label: "Support", icon: HelpCircle },
+  { href: "/dashboard", label: "Dashboard", icon: SquaresFour },
+  { href: "/dashboard/search", label: "Search Leads", icon: MagnifyingGlass },
+  { href: "/dashboard/lists", label: "My Leads Vault", icon: Vault },
+  { href: "/dashboard/billing", label: "Billing & Credits", icon: CreditCard },
+  { href: "/dashboard/support", label: "Support", icon: Headset },
 ] as const;
 
 export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) {
@@ -78,6 +78,7 @@ export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) 
                       }`}
                     >
                       <Icon
+                        weight="bold"
                         className={`h-5 w-5 shrink-0 ${
                           active ? "text-[#465FFF]" : "text-slate-400"
                         }`}
@@ -97,7 +98,7 @@ export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) 
             onClick={closeMobile}
             className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors"
           >
-            <Settings className="h-5 w-5 shrink-0 text-slate-400" />
+            <GearSix className="h-5 w-5 shrink-0 text-slate-400" weight="bold" />
             <span>Settings</span>
           </Link>
 
@@ -121,7 +122,7 @@ export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) 
               }}
               className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
             >
-              <LogOut className="h-4 w-4 shrink-0" />
+              <SignOut className="h-4 w-4 shrink-0" weight="bold" />
             </button>
           </div>
         </div>
@@ -172,6 +173,7 @@ export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) 
                       }`}
                     >
                       <Icon
+                        weight="bold"
                         className={`h-5 w-5 shrink-0 ${
                           active ? "text-[#465FFF]" : "text-slate-400"
                         }`}
@@ -191,7 +193,7 @@ export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) 
             onClick={closeMobile}
             className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors"
           >
-            <Settings className="h-5 w-5 shrink-0 text-slate-400" />
+            <GearSix className="h-5 w-5 shrink-0 text-slate-400" weight="bold" />
             <span>Settings</span>
           </Link>
 
@@ -215,7 +217,7 @@ export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) 
               }}
               className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
             >
-              <LogOut className="h-4 w-4 shrink-0" />
+              <SignOut className="h-4 w-4 shrink-0" weight="bold" />
             </button>
           </div>
         </div>
