@@ -411,7 +411,7 @@ export default function ListsPage() {
             <div className="w-full flex-1 overflow-hidden my-2">
               {leadsLoading ? (
                 <>
-                  <div className="md:hidden w-full overflow-y-auto no-scrollbar bg-slate-50">
+                  <div className="md:hidden w-full overflow-y-auto no-scrollbar">
                     <div className="p-4 space-y-3">
                       {Array.from({ length: 6 }).map((_, i) => (
                         <div key={i} className="bg-white rounded-xl border border-slate-200 p-4">
@@ -435,8 +435,8 @@ export default function ListsPage() {
                 </>
               ) : (
                 <>
-                  <div className="md:hidden w-full overflow-y-auto no-scrollbar bg-slate-50">
-                    <div className="divide-y divide-slate-100 bg-white border border-slate-200/80 rounded-2xl overflow-hidden my-3">
+                  <div className="md:hidden w-full overflow-y-auto no-scrollbar">
+                    <div className="w-full bg-white divide-y divide-slate-100 border-t border-b border-slate-100 my-2">
                       {paginatedLeads.length === 0 ? (
                         <div className="py-8 text-center text-sm text-slate-400">
                           {leadSearch ? "No agents match your search." : "No agents available for this order."}
@@ -677,8 +677,8 @@ export default function ListsPage() {
         </div>
 
         <div className="w-full flex-1 overflow-hidden my-2">
-          <div className="md:hidden w-full overflow-y-auto no-scrollbar bg-slate-50">
-            <div className="divide-y divide-slate-100 bg-white border border-slate-200/80 rounded-2xl overflow-hidden my-3">
+          <div className="md:hidden w-full overflow-y-auto no-scrollbar">
+            <div className="w-full bg-white divide-y divide-slate-100 border-t border-b border-slate-100 my-2">
               {paginatedPurchases.length === 0 ? (
                 <div className="py-8 text-center text-sm text-slate-400">No orders match your search.</div>
               ) : (
