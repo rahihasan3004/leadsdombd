@@ -323,8 +323,8 @@ export default function ListsPage() {
   if (selectedPurchase) {
     return (
       <>
-        <div className="-mx-4 -mt-4 min-h-screen bg-white px-4 pt-4 pb-12 md:mx-0 md:mt-0 md:min-h-0 md:bg-transparent md:p-0 overflow-hidden flex flex-col">
-          <div className="bg-transparent rounded-none md:bg-white md:rounded-2xl p-0 md:p-6 lg:md:p-8 flex flex-col h-[calc(100vh-44px)] md:h-[calc(100vh-48px)] overflow-hidden justify-between">
+        <div className="-mx-4 -mt-4 min-h-screen bg-white px-4 pt-4 pb-20 md:mx-0 md:mt-0 md:min-h-0 md:bg-transparent md:p-0 flex flex-col">
+          <div className="bg-transparent rounded-none md:bg-white md:rounded-2xl p-0 md:p-6 lg:md:p-8 flex flex-col md:h-[calc(100vh-48px)] justify-between">
             <div className="shrink-0">
               <div className="md:hidden space-y-3">
                 <button
@@ -408,10 +408,10 @@ export default function ListsPage() {
               </div>
             </div>
 
-            <div className="w-full flex-1 overflow-hidden my-2">
+            <div className="w-full flex-1 my-2">
               {leadsLoading ? (
                 <>
-                  <div className="md:hidden w-full overflow-y-auto no-scrollbar">
+                  <div className="md:hidden w-full">
                     <div className="p-4 space-y-3">
                       {Array.from({ length: 6 }).map((_, i) => (
                         <div key={i} className="bg-white rounded-xl border border-slate-200 p-4">
@@ -435,7 +435,7 @@ export default function ListsPage() {
                 </>
               ) : (
                 <>
-                  <div className="md:hidden w-full overflow-y-auto no-scrollbar">
+                  <div className="md:hidden w-full">
                     <div className="w-full bg-white divide-y divide-slate-100 border-t border-b border-slate-100 my-2">
                       {paginatedLeads.length === 0 ? (
                         <div className="py-8 text-center text-sm text-slate-400">
@@ -469,30 +469,30 @@ export default function ListsPage() {
                           </div>
                         ))
                       )}
-                      {totalLeadPages > 1 && (
-                        <div className="flex items-center justify-between pt-3 pb-6 text-xs text-slate-500">
-                          <button
-                            type="button"
-                            disabled={leadPage === 0}
-                            onClick={() => setLeadPage((p) => Math.max(0, p - 1))}
-                            className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            Previous
-                          </button>
-                          <span>
-                            Page {leadPage + 1} of {totalLeadPages}
-                          </span>
-                          <button
-                            type="button"
-                            disabled={leadPage >= totalLeadPages - 1}
-                            onClick={() => setLeadPage((p) => p + 1)}
-                            className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            Next
-                          </button>
-                        </div>
-                      )}
                     </div>
+                    {totalLeadPages > 1 && (
+                      <div className="flex items-center justify-between pt-4 pb-8 text-xs text-slate-600">
+                        <button
+                          type="button"
+                          disabled={leadPage === 0}
+                          onClick={() => setLeadPage((p) => Math.max(0, p - 1))}
+                          className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white disabled:opacity-40 font-medium"
+                        >
+                          Previous
+                        </button>
+                        <span className="font-medium text-slate-500">
+                          Page {leadPage + 1} of {totalLeadPages}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={leadPage >= totalLeadPages - 1}
+                          onClick={() => setLeadPage((p) => p + 1)}
+                          className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white disabled:opacity-40 font-medium"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div className="hidden md:block">
                     <div className="w-full overflow-x-auto no-scrollbar">
