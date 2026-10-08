@@ -323,7 +323,7 @@ export default function ListsPage() {
   if (selectedPurchase) {
     return (
       <>
-        <div className="-mx-4 -mt-4 min-h-screen bg-white px-4 pt-4 pb-20 md:mx-0 md:mt-0 md:min-h-0 md:bg-transparent md:p-0 flex flex-col">
+        <div className="-mx-4 min-h-screen bg-white px-4 pt-4 pb-20 md:mx-0 md:mt-0 md:min-h-0 md:bg-transparent md:p-0 flex flex-col">
           <div className="bg-transparent rounded-none md:bg-white md:rounded-2xl p-0 md:p-6 lg:md:p-8 flex flex-col md:h-[calc(100vh-48px)] justify-between">
             <div className="shrink-0">
               <div className="md:hidden space-y-3">
@@ -642,7 +642,7 @@ export default function ListsPage() {
   }
 
   return (
-    <div className="-mx-4 -mt-4 min-h-0 h-auto bg-white px-4 pt-4 pb-6 md:mx-0 md:mt-0 md:min-h-0 md:bg-transparent md:p-0 overflow-hidden flex flex-col">
+    <div className="-mx-4 min-h-0 h-auto bg-white px-4 pt-4 pb-6 md:mx-0 md:mt-0 md:min-h-0 md:bg-transparent md:p-0 overflow-hidden flex flex-col">
       <div className="bg-transparent rounded-none md:bg-white md:rounded-2xl p-0 md:p-6 lg:md:p-8 flex flex-col h-[calc(100vh-44px)] md:h-[calc(100vh-48px)] overflow-hidden justify-between">
         <div className="shrink-0">
           <div className="flex items-center justify-between">
