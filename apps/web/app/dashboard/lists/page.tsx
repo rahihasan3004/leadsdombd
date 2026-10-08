@@ -10,7 +10,6 @@ import {
   ChevronRight,
   Calendar,
   ExternalLink,
-  Filter,
   Phone,
   Mail,
   MapPin,
@@ -655,7 +654,7 @@ export default function ListsPage() {
   }
 
   return (
-    <div className="w-full h-screen bg-white px-3 pt-2 pb-14 md:bg-transparent md:px-3.5 md:pt-0 md:pb-8 sm:md:px-6 lg:md:px-8 overflow-hidden flex flex-col">
+    <div className="-mx-4 -mt-4 min-h-[calc(100dvh-3.5rem)] bg-white px-4 pt-4 pb-16 md:mx-0 md:mt-0 md:min-h-0 md:bg-transparent md:p-0 overflow-hidden flex flex-col">
       <div className="bg-transparent rounded-none md:bg-white md:rounded-2xl p-0 md:p-6 lg:md:p-8 flex flex-col h-[calc(100vh-44px)] md:h-[calc(100vh-48px)] overflow-hidden justify-between">
         <div className="shrink-0">
           <div className="flex items-center justify-between">
@@ -669,30 +668,24 @@ export default function ListsPage() {
             </div>
             <a
               href="/dashboard/search"
-              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold shadow-none border-0 transition-all duration-200 flex items-center gap-2"
+              className="h-9 px-3.5 text-xs font-semibold rounded-xl bg-blue-600 text-white shrink-0 shadow-none border-0 flex items-center justify-center md:px-4 md:py-2.5 md:rounded-xl md:bg-blue-600 md:hover:bg-blue-700 md:active:bg-blue-800 md:text-xs md:font-semibold md:shadow-none md:border-0 md:transition-all md:duration-200 md:flex md:items-center md:gap-2"
             >
-              + Order Leads
+              <span className="md:hidden">+ Leads</span>
+              <span className="hidden md:inline">+ Order Leads</span>
             </a>
           </div>
 
-          <div className="mt-6 mb-5 flex items-center justify-between gap-4 flex-wrap">
-            <div className="relative w-full sm:w-80">
+          <div className="mt-6 mb-5">
+            <div className="relative w-full">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
                 type="text"
                 value={orderSearch}
                 onChange={(e) => setOrderSearch(e.target.value)}
                 placeholder="Search orders by Order ID or State..."
-                className="w-full sm:w-80 px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:border-[#465FFF] bg-white pl-10 placeholder:text-slate-400 focus:outline-none transition-colors"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:border-[#465FFF] bg-white pl-10 placeholder:text-slate-400 focus:outline-none transition-colors"
               />
             </div>
-            <button
-              type="button"
-              className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
-            >
-              <Filter className="h-4 w-4" />
-              Filter
-            </button>
           </div>
         </div>
 
