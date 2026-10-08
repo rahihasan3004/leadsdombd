@@ -256,14 +256,14 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
 
   return (
     <div
-      className="fixed inset-0 bg-slate-900/20 flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-white md:bg-slate-900/20 flex items-center justify-center p-4 z-50"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="agent-modal-title"
-        className="bg-white border border-slate-200 text-slate-900 shadow-xl rounded-2xl p-6 max-w-lg w-full relative max-h-[90vh] overflow-y-auto"
+        className="fixed inset-0 w-full h-full max-w-none rounded-none border-0 bg-white z-[100] overflow-y-auto p-4 md:relative md:max-w-2xl md:h-auto md:rounded-2xl md:p-6 md:border md:border-slate-200 md:text-slate-900 md:shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button

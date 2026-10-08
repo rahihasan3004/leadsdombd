@@ -323,7 +323,7 @@ export default function ListsPage() {
   if (selectedPurchase) {
     return (
       <>
-        <div className="w-full h-screen bg-white p-3.5 md:bg-slate-50 md:p-6 overflow-hidden flex flex-col">
+        <div className="-mx-4 -mt-4 min-h-screen bg-white px-4 pt-4 pb-12 md:mx-0 md:mt-0 md:min-h-0 md:bg-transparent md:p-0 overflow-hidden flex flex-col">
           <div className="bg-transparent rounded-none md:bg-white md:rounded-2xl p-0 md:p-6 lg:md:p-8 flex flex-col h-[calc(100vh-44px)] md:h-[calc(100vh-48px)] overflow-hidden justify-between">
             <div className="shrink-0">
               <div className="md:hidden space-y-3">
