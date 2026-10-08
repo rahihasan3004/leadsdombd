@@ -163,7 +163,7 @@ export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) 
         aria-hidden={!mobileOpen}
       >
         <div>
-          <div className="pt-6 pb-4 px-6 flex items-center justify-between gap-3">
+          <div className="pt-10 pb-5 px-6 flex items-center justify-between gap-3">
             <Logo size={36} showText={true} />
             <button
               type="button"
@@ -174,7 +174,7 @@ export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) 
               <X className="h-5 w-5" />
             </button>
           </div>
-          {navSection}
+          <div className="mt-3 pt-1">{navSection}</div>
         </div>
         {footerSection}
       </div>
