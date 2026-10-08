@@ -449,7 +449,7 @@ export default function ListsPage() {
                             onClick={() => handleOpenAgent(agent)}
                           >
                             <span className="text-xs font-medium text-slate-400 w-5 text-right shrink-0 mt-0.5">
-                              {index + 1}
+                              {(leadPage * LEAD_PAGE_SIZE) + index + 1}
                             </span>
                             <div className="flex-1 min-w-0">
                               <p className="font-semibold text-sm text-slate-900 line-clamp-1">
