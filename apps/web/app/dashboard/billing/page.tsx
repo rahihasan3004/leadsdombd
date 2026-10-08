@@ -23,7 +23,7 @@ interface WalletData {
 export default function BillingPage() {
   const queryClient = useQueryClient();
 
-  const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
+  const [selectedTier, setSelectedTier] = useState<PricingTier>(VOLUME_PRICING_TIERS[0]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -90,11 +90,11 @@ export default function BillingPage() {
     setCurrentPage(1);
   }, [data.transactions.length]);
 
-  const handleAddFunds = useCallback(async () => {
-    if (!selectedTier) {
-      setError("Please select a volume tier to recharge.");
-      return;
-    }
+  const handleAddFunds = useCallback(async (params?: { amount: number; credits: number }) => {
+    // Always have a valid tier: use what the slider confirmed, else the selected/default tier.
+    const tier = selectedTier ?? VOLUME_PRICING_TIERS[0];
+    const amount = params?.amount ?? tier.price;
+    const credits = params?.credits ?? tier.credits;
 
     setLoading(true);
     setError(null);
@@ -105,13 +105,13 @@ export default function BillingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ amount: selectedTier.price, credits: selectedTier.credits }),
+        body: JSON.stringify({ amount, credits }),
       });
 
       const json = await res.json();
 
       if (res.ok) {
-        setSelectedTier(null);
+        setSelectedTier(VOLUME_PRICING_TIERS[0]);
         if (json.url) {
           const embedUrl = json.url.includes("?")
             ? `${json.url}&embed=1`
@@ -177,7 +177,7 @@ export default function BillingPage() {
   };
 
   return (
-      <div className="w-full min-h-screen bg-slate-50 p-3.5 sm:p-6 lg:p-8 pb-3.5 sm:pb-6 lg:pb-8 space-y-4">
+      <div className="w-full min-h-screen bg-slate-50 p-3.5 sm:p-6 lg:p-8 pb-16 md:pb-6 lg:pb-8 space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
           Billing & Credits
@@ -190,7 +190,7 @@ export default function BillingPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
         <div className="lg:col-span-8 bg-white shadow-none border-0 rounded-2xl p-5 md:p-6 flex flex-col justify-between space-y-4">
-          <div className="space-y-1">
+          <div className="space-y-1 mb-6 pb-6 border-b border-slate-100 md:mb-0 md:pb-0 md:border-b-0">
             <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
               Available Credits
             </div>
@@ -349,8 +349,8 @@ export default function BillingPage() {
         </div>
 
         {/* Bottom: Pagination Bar (Always fixed at bottom of card) */}
-        <div className="shrink-0 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <span>
+        <div className="shrink-0 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 pb-2 md:pt-3 md:pb-0 text-xs text-slate-500">
+          <span className="whitespace-nowrap font-medium text-slate-500 md:font-normal">
             Showing{" "}
             <strong className="text-slate-900 tabular-nums font-semibold">
               {transactions.length === 0
@@ -363,7 +363,7 @@ export default function BillingPage() {
             </strong>{" "}
             transactions
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}

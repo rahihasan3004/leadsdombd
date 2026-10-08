@@ -45,18 +45,19 @@ export default function DashboardLayout({
     <div className="h-screen max-h-screen w-full flex overflow-hidden bg-surface-50 dark:bg-surface-950">
       <Sidebar user={user} mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
-        <main className="flex-1 overflow-y-auto bg-slate-50 overscroll-y-contain">
-          <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b h-14 shrink-0 flex items-center px-4 lg:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open menu"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            <span className="ml-3 font-semibold text-sm text-neutral-900">Dashboard</span>
-          </header>
+        {/* Mobile header: fixed to the viewport, outside the scroll container, so nothing can scroll it away. */}
+        <header className="fixed top-0 left-0 right-0 w-full h-14 z-[80] bg-white/95 backdrop-blur-md border-b border-slate-200/80 flex items-center px-4 lg:hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <span className="ml-3 font-semibold text-sm text-neutral-900">Dashboard</span>
+        </header>
+        <main className="flex-1 overflow-y-auto bg-slate-50 overscroll-y-contain pt-14 lg:pt-0">
           <div className="px-4 pt-4 pb-14 md:px-8 md:pt-6 md:pb-8">{children}</div>
         </main>
       </div>
