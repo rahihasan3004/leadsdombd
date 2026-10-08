@@ -436,53 +436,41 @@ export default function ListsPage() {
               ) : (
                 <>
                   <div className="md:hidden w-full overflow-y-auto no-scrollbar bg-slate-50">
-                    <div className="p-4 space-y-3">
+                    <div className="divide-y divide-slate-100 bg-white border border-slate-200/80 rounded-2xl overflow-hidden my-3">
                       {paginatedLeads.length === 0 ? (
                         <div className="py-8 text-center text-sm text-slate-400">
                           {leadSearch ? "No agents match your search." : "No agents available for this order."}
                         </div>
                       ) : (
-                        paginatedLeads.map((agent) => (
-                          <div key={agent.id} className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
-                            <div>
-                              <p className="text-sm font-bold text-slate-900">{agent.brokerageName || "Agent"}</p>
-                              <p className="text-xs text-slate-500 mt-0.5">{agent.fullName} {agent.brokerageName ? `- Realtor: ${agent.brokerageName}` : ""}</p>
-                            </div>
-                            <div className="space-y-2">
+                        paginatedLeads.map((agent, index) => (
+                          <div
+                            key={agent.id}
+                            className="flex items-start gap-3 p-3.5 hover:bg-slate-50/60 transition-colors cursor-pointer"
+                            onClick={() => handleOpenAgent(agent)}
+                          >
+                            <span className="text-xs font-medium text-slate-400 w-5 text-right shrink-0 mt-0.5">
+                              {index + 1}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-sm text-slate-900 line-clamp-1">
+                                {agent.brokerageName || "Agent"}
+                              </p>
                               {agent.phone && (
-                                <div className="flex items-center gap-2 text-xs text-slate-600">
+                                <div className="flex items-center gap-1.5 text-xs text-slate-600 mt-1">
                                   <Phone className="h-3.5 w-3.5 text-slate-400" />
                                   <span>{formatPhone(agent.phone)}</span>
                                 </div>
                               )}
-                              {agent.email && (
-                                <div className="flex items-center gap-2 text-xs text-slate-600">
-                                  <Mail className="h-3.5 w-3.5 text-slate-400" />
-                                  <span className="truncate">{agent.email}</span>
-                                  <span className="inline-flex items-center text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60 flex-shrink-0">
-                                    Verified
-                                  </span>
-                                </div>
-                              )}
-                              {(agent.city || agent.state) && (
-                                <div className="flex items-center gap-2 text-xs text-slate-600">
-                                  <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                                  <span>{[agent.city, agent.state].filter(Boolean).join(", ")}</span>
-                                </div>
-                              )}
+                              <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
+                                {agent.fullName} {agent.brokerageName ? `- ${agent.brokerageName}` : ""} {agent.city || agent.state ? `- ${[agent.city, agent.state].filter(Boolean).join(", ")}` : ""}
+                              </p>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenAgent(agent)}
-                              className="w-full px-4 py-2.5 border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors"
-                            >
-                              View Details
-                            </button>
+                            <ChevronRight className="h-4 w-4 text-slate-400 shrink-0 mt-1" />
                           </div>
                         ))
                       )}
                       {totalLeadPages > 1 && (
-                        <div className="flex items-center justify-between pt-2">
+                        <div className="flex items-center justify-between pt-3 pb-6 text-xs text-slate-500">
                           <button
                             type="button"
                             disabled={leadPage === 0}
@@ -491,8 +479,8 @@ export default function ListsPage() {
                           >
                             Previous
                           </button>
-                          <span className="text-xs text-slate-500">
-                            {leadPage + 1} / {totalLeadPages}
+                          <span>
+                            Page {leadPage + 1} of {totalLeadPages}
                           </span>
                           <button
                             type="button"
@@ -668,10 +656,9 @@ export default function ListsPage() {
             </div>
             <a
               href="/dashboard/search"
-              className="h-9 px-3.5 text-xs font-semibold rounded-xl bg-blue-600 text-white shrink-0 shadow-none border-0 flex items-center justify-center md:px-4 md:py-2.5 md:rounded-xl md:bg-blue-600 md:hover:bg-blue-700 md:active:bg-blue-800 md:text-xs md:font-semibold md:shadow-none md:border-0 md:transition-all md:duration-200 md:flex md:items-center md:gap-2"
+              className="hidden md:inline-flex items-center gap-2 h-9 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold rounded-xl shadow-none border-0 transition-all duration-200"
             >
-              <span className="md:hidden">+ Leads</span>
-              <span className="hidden md:inline">+ Order Leads</span>
+              + Order Leads
             </a>
           </div>
 
@@ -691,33 +678,32 @@ export default function ListsPage() {
 
         <div className="w-full flex-1 overflow-hidden my-2">
           <div className="md:hidden w-full overflow-y-auto no-scrollbar bg-slate-50">
-            <div className="p-4 space-y-3">
+            <div className="divide-y divide-slate-100 bg-white border border-slate-200/80 rounded-2xl overflow-hidden my-3">
               {paginatedPurchases.length === 0 ? (
                 <div className="py-8 text-center text-sm text-slate-400">No orders match your search.</div>
               ) : (
                 paginatedPurchases.map((purchase) => {
                   const stateBadge = formatStateBadge(purchase.unlockedStates);
                   return (
-                    <div key={purchase.id} className="bg-white rounded-xl border border-slate-200 p-4 space-y-2">
+                    <div key={purchase.id} className="p-3.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-900 tabular-nums">{purchase.referenceId}</span>
+                        <span className="text-sm font-semibold text-slate-900 tabular-nums">{purchase.referenceId}</span>
                         <span className="inline-flex items-center text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
                           {purchase.status || "COMPLETED"}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-500">{formatDate(purchase.createdAt)}</p>
-                      <div className="flex items-center gap-3 text-xs text-slate-600">
+                      <div className="flex items-center gap-2 mt-1.5">
                         <span className="inline-flex items-center text-[11px] font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
                           {stateBadge.label}
                         </span>
-                        <span>{formatQuantity(purchase.quantity)} Leads</span>
-                        <span>Real Estate Agents</span>
+                        <span className="text-xs text-slate-500">{formatQuantity(purchase.quantity)} Leads</span>
+                        <span className="text-xs text-slate-500">{formatDate(purchase.createdAt)}</span>
                       </div>
-                      <div className="flex gap-2 pt-1">
+                      <div className="flex items-center gap-2 mt-3">
                         <button
                           type="button"
                           onClick={() => handleSelectPurchase(purchase)}
-                          className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                          className="inline-flex items-center justify-center h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
                         >
                           View Leads
                         </button>
@@ -727,7 +713,7 @@ export default function ListsPage() {
                             e.stopPropagation();
                             handleDownloadCsv(purchase.unlockedStates, purchase.id);
                           }}
-                          className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors"
+                          className="inline-flex items-center justify-center h-8 px-3 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-50 transition-colors"
                         >
                           <Download className="h-3.5 w-3.5" />
                           CSV
@@ -738,7 +724,7 @@ export default function ListsPage() {
                 })
               )}
               {totalOrderPages > 1 && (
-                <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center justify-between pt-3 pb-6 text-xs text-slate-500">
                   <button
                     type="button"
                     disabled={orderPage === 0}
@@ -747,8 +733,8 @@ export default function ListsPage() {
                   >
                     Previous
                   </button>
-                  <span className="text-xs text-slate-500">
-                    {orderPage + 1} / {totalOrderPages}
+                  <span>
+                    Page {orderPage + 1} of {totalOrderPages}
                   </span>
                   <button
                     type="button"
