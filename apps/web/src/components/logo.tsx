@@ -19,7 +19,7 @@ export function Logo({ className = "", showText = true, size = 48 }: LogoProps) 
         priority
       />
       {showText && (
-        <span className="font-extrabold text-2xl tracking-tight text-slate-900 dark:text-white">
+        <span className="font-extrabold text-2xl tracking-tight text-slate-900">
           LeadsDom
         </span>
       )}

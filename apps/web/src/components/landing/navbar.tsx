@@ -23,9 +23,9 @@ export function LandingNavbar() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 w-full bg-white border-b border-slate-100/80 shadow-xs",
-        "md:z-50 md:border-white/10 md:bg-white/80 md:backdrop-blur-xl md:shadow-none",
-        "md:dark:bg-surface-950/80 md:dark:border-surface-800",
+        // Always light: the logo text is dark (text-slate-900), so the bar must stay white in OS dark mode too.
+        "sticky top-0 z-40 w-full bg-white border-b border-slate-200 shadow-xs",
+        "md:z-50 md:shadow-none",
       )}
     >
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
