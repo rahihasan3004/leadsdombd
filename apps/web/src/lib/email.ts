@@ -69,3 +69,64 @@ export async function sendPasswordResetOtpEmail(to: string, otp: string) {
     return { error: err };
   }
 }
+
+function otpEmailHtml(heading: string, body: string, otp: string, footer: string) {
+  return `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 28px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;">
+          <div style="margin-bottom: 24px;">
+            <h2 style="color: #0f172a; margin: 0 0 8px; font-size: 20px; font-weight: 700;">${heading}</h2>
+            <p style="color: #475569; font-size: 14px; margin: 0; line-height: 1.5;">${body}</p>
+          </div>
+          <div style="background: #f8fafc; border: 1px dashed #cbd5e1; padding: 20px; text-align: center; border-radius: 12px; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #2563eb; margin: 24px 0;">
+            ${otp}
+          </div>
+          <p style="color: #94a3b8; font-size: 12px; margin: 0; line-height: 1.4;">${footer}</p>
+        </div>
+      `;
+}
+
+async function sendOtpEmail(to: string, otp: string, subject: string, html: string, devLabel: string) {
+  if (!resend) {
+    console.log(`[EMAIL_DEV_LOG] ${devLabel} OTP for ${to}: ${otp}`);
+    return { success: true };
+  }
+  try {
+    const result = await resend.emails.send({ from: EMAIL_FROM, to, subject, html });
+    if (result.error) {
+      console.error("[RESEND_SEND_ERROR]:", result.error);
+    }
+    return result;
+  } catch (err) {
+    console.error("[RESEND_EXCEPTION]:", err);
+    return { error: err };
+  }
+}
+
+export async function sendEmailChangeOtpEmail(to: string, otp: string, which: "current" | "new") {
+  const body =
+    which === "current"
+      ? "We received a request to change the email address on your LeadsDom account. Enter this code to confirm it was you. It expires in 15 minutes."
+      : "Enter this code to confirm this as the new email address for your LeadsDom account. It expires in 15 minutes.";
+  return sendOtpEmail(
+    to,
+    otp,
+    `${otp} is your LeadsDom email change code`,
+    otpEmailHtml("Confirm your email change", body, otp, "If you didn't request this change, ignore this email and consider updating your password."),
+    `Email change (${which})`,
+  );
+}
+
+export async function sendAccountDeletionOtpEmail(to: string, otp: string) {
+  return sendOtpEmail(
+    to,
+    otp,
+    `${otp} is your LeadsDom account deletion code`,
+    otpEmailHtml(
+      "Confirm account deletion",
+      "Use this code to permanently delete your LeadsDom account and all associated data. This cannot be undone. The code expires in 15 minutes.",
+      otp,
+      "If you didn't request this, do not share this code and update your password immediately.",
+    ),
+    "Account deletion",
+  );
+}

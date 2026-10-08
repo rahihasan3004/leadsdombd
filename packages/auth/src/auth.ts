@@ -231,6 +231,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             if (dbUser.credits !== undefined) {
               token.credits = dbUser.credits;
             }
+            // Keep identity fields in sync with the DB (e.g. after an email or name change).
+            if (dbUser.email) {
+              token.email = dbUser.email;
+            }
+            if (typeof dbUser.name === "string") {
+              token.name = dbUser.name;
+            }
           }
         } catch (dbErr) {
           console.warn("[AUTH_JWT_REFRESH_WARN]", dbErr);

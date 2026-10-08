@@ -2,132 +2,81 @@ import { NextResponse } from "next/server";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
 import { getClientIp } from "@fine-leads/utils";
-import crypto from "crypto";
-
-function hashOTP(otp: string, identifier: string): string {
-  return crypto.createHmac("sha256", identifier).update(otp).digest("hex");
-}
+import { checkOtp, otpErrorMessage, otpIdentifiers } from "@/lib/otp";
 
 export async function DELETE(request: Request) {
   try {
     const session = await auth();
-    if (!session?.user?.id || !session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const body = await request.json();
-    const { otp } = body as { otp: string };
-
-    if (!otp || otp.length !== 6) {
-      return NextResponse.json({ error: "A valid 6-digit OTP is required" }, { status: 400 });
-    }
-
-    const email = session.user.email;
     const userId = session.user.id;
-    const hashedOtp = hashOTP(otp, email);
 
-    const verificationToken = await db.verificationToken.findFirst({
-      where: {
-        identifier: email,
-        token: hashedOtp,
-        expires: { gt: new Date() },
-        OR: [
-          { lockedUntil: null },
-          { lockedUntil: { lt: new Date() } },
-        ],
-      },
-    });
-
-    if (!verificationToken) {
-      return NextResponse.json({ error: "Invalid or expired OTP code" }, { status: 400 });
+    const body = (await request.json().catch(() => ({}))) as { otp?: unknown; confirmText?: unknown };
+    if (body.confirmText !== "DELETE") {
+      return NextResponse.json({ error: "Confirmation text must be DELETE" }, { status: 400 });
+    }
+    if (typeof body.otp !== "string" || !/^\d{6}$/.test(body.otp)) {
+      return NextResponse.json({ error: "A valid 6-digit OTP is required" }, { status: 400 });
     }
 
     const user = await db.user.findUnique({
       where: { id: userId },
       select: { id: true, email: true, organizationId: true },
     });
-
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    const identifier = otpIdentifiers.deleteAccount(userId);
+    const check = await checkOtp(identifier, body.otp);
+    if (check !== "ok") {
+      return NextResponse.json({ error: otpErrorMessage(check, "deletion") }, { status: 400 });
+    }
+
     await db.$transaction(async (tx) => {
+      // Verification codes are keyed by email or by user id, not by relation, so clean them up explicitly.
+      await tx.verificationToken.deleteMany({
+        where: {
+          OR: [
+            { identifier: user.email },
+            { identifier: { startsWith: `email-change:current:${user.id}` } },
+            { identifier: { startsWith: `email-change:new:${user.id}:` } },
+            { identifier },
+          ],
+        },
+      });
+      await tx.auditLog.deleteMany({ where: { userId: user.id } });
+
+      // Accounts, sessions, subscriptions, API keys, search history, saved lists, exports,
+      // purchases (+ unlocked leads) and wallet transactions all cascade from User (onDelete: Cascade).
+      await tx.user.delete({ where: { id: user.id } });
+
+      // Keep a minimal, non-identifying record that a deletion happened.
       await tx.auditLog.create({
         data: {
-          userId: user.id,
+          userId: null,
           action: "delete_account",
           resource: "user",
           resourceId: user.id,
-          details: { email: user.email },
           ipAddress: getClientIp(request),
           userAgent: request.headers.get("user-agent") ?? undefined,
         },
       });
-
-      if (user.email) {
-        await tx.verificationToken.deleteMany({
-          where: { identifier: user.email },
-        });
-      }
-
-      await tx.auditLog.deleteMany({
-        where: { userId: user.id },
-      });
-
-      await tx.session.deleteMany({
-        where: { userId: user.id },
-      });
-
-      await tx.account.deleteMany({
-        where: { userId: user.id },
-      });
-
-      await tx.leadExport.deleteMany({
-        where: { userId: user.id },
-      });
-
-      await tx.searchHistory.deleteMany({
-        where: { userId: user.id },
-      });
-
-      await tx.savedList.deleteMany({
-        where: { userId: user.id },
-      });
-
-      await tx.agentActivity.deleteMany({
-        where: { agentId: { in: [] } },
-      });
-
-      await tx.apiKey.deleteMany({
-        where: { userId: user.id },
-      });
-
-      await tx.leadPurchase.deleteMany({
-        where: { userId: user.id },
-      });
-
-      await tx.walletTransaction.deleteMany({
-        where: { userId: user.id },
-      });
-
-      await tx.subscription.deleteMany({
-        where: { userId: user.id },
-      });
-
-      if (user.organizationId) {
-        const remainingOrgMembers = await tx.user.count({
-          where: {
-            organizationId: user.organizationId,
-            id: { not: user.id },
-          },
-        });
-        if (remainingOrgMembers === 0) {
-          await tx.organization.delete({ where: { id: user.organizationId } }).catch(() => {});
-        }
-      }
-
-      await tx.user.delete({ where: { id: user.id } });
     });
+
+    // Remove the user's organization if they were its last member. Done outside the transaction:
+    // a failed statement inside a Postgres transaction aborts it, which previously broke deletion.
+    if (user.organizationId) {
+      try {
+        const remaining = await db.user.count({ where: { organizationId: user.organizationId } });
+        if (remaining === 0) {
+          await db.organization.delete({ where: { id: user.organizationId } });
+        }
+      } catch (orgErr) {
+        console.warn("Org cleanup after account deletion failed:", orgErr);
+      }
+    }
 
     return NextResponse.json({ success: true, message: "Account permanently deleted" });
   } catch (error) {

@@ -1,44 +1,42 @@
 import { NextResponse } from "next/server";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
-import crypto from "crypto";
-
-function generateSecureOTP(): string {
-  return crypto.randomInt(100000, 999999).toString();
-}
-
-function hashOTP(otp: string, identifier: string): string {
-  return crypto.createHmac("sha256", identifier).update(otp).digest("hex");
-}
+import { checkRateLimit } from "@fine-leads/utils";
+import { sendAccountDeletionOtpEmail } from "@/lib/email";
+import { generateOtp, otpIdentifiers, storeOtp } from "@/lib/otp";
 
 export async function POST(request: Request) {
   try {
     const session = await auth();
-    if (!session?.user?.id || !session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = session.user.id;
 
-    let body: Record<string, unknown> = {};
-    try {
-      body = await request.json();
-    } catch {
-      // body is optional for backward compat
-    }
-
+    const body = (await request.json().catch(() => ({}))) as { confirmText?: unknown };
     if (body.confirmText !== "DELETE") {
       return NextResponse.json({ error: "Confirmation text must be DELETE" }, { status: 400 });
     }
 
-    const email = session.user.email;
-    const otp = generateSecureOTP();
-    const hashedOtp = hashOTP(otp, email);
-    const expires = new Date(Date.now() + 15 * 60 * 1000);
+    const { allowed } = checkRateLimit(`delete-account-otp:${userId}`, 3, 15 * 60 * 1000);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many requests. Please try again in 15 minutes." }, { status: 429 });
+    }
 
-    await db.verificationToken.deleteMany({ where: { identifier: email } });
+    const user = await db.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
-    await db.verificationToken.create({
-      data: { identifier: email, token: hashedOtp, expires },
-    });
+    const identifier = otpIdentifiers.deleteAccount(userId);
+    const otp = generateOtp();
+    await storeOtp(identifier, otp);
+
+    const result = await sendAccountDeletionOtpEmail(user.email, otp);
+    if ("error" in result && result.error) {
+      await db.verificationToken.deleteMany({ where: { identifier } });
+      return NextResponse.json({ error: "We couldn't send the deletion code. Please try again." }, { status: 502 });
+    }
 
     return NextResponse.json({ success: true, message: "Deletion confirmation code sent to your email" });
   } catch (error) {

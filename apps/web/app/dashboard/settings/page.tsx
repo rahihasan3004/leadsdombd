@@ -187,10 +187,12 @@ export default function SettingsPage() {
         toast.error(data.error ?? "Something went wrong");
         return;
       }
-      toast.success("Password updated successfully");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      // The server bumps tokenVersion, which invalidates every session (including this one).
+      toast.success("Password updated. Please sign in with your new password.");
+      await signOut({ callbackUrl: "/login" });
     } catch {
       toast.error("Network error");
     } finally {
@@ -232,7 +234,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/user/delete-account", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ otp: deleteOtp }),
+        body: JSON.stringify({ otp: deleteOtp, confirmText: dangerConfirm }),
       });
       const data = await res.json().catch(() => ({ error: "Something went wrong" }));
       if (!res.ok) {
@@ -257,7 +259,7 @@ export default function SettingsPage() {
   const canDelete = dangerConfirm === "DELETE" && deleteOtp.length === 6;
 
   return (
-    <div className="w-full min-h-screen bg-slate-50 p-3.5 sm:p-6 lg:p-8 pb-3.5 sm:pb-6 lg:pb-8 space-y-4">
+    <div className="w-full min-h-screen bg-slate-50 p-3.5 sm:p-6 lg:p-8 pb-16 sm:pb-16 md:pb-6 lg:pb-8 space-y-4">
       <div>
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900">
           Settings
@@ -320,19 +322,18 @@ export default function SettingsPage() {
                   </p>
                 )}
                 {!securityLoading && securityInfo && !securityInfo.isGoogleUser && (
-                  <div className="flex gap-3 mt-2">
+                  <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 mt-2">
                     <Input
                       type="email"
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
                       placeholder="Enter new email address"
-                      className="flex-1"
+                      className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-white dark:border-slate-200 dark:text-slate-900 md:flex-1"
                     />
                     <Button
                       onClick={handleRequestEmailChange}
                       disabled={emailLoading}
-                      variant="outline"
-                      className="shrink-0"
+                      className="w-full md:w-auto shrink-0 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-0 shadow-none"
                     >
                       {emailLoading ? "Sending..." : "Request Email Change"}
                     </Button>
@@ -398,7 +399,7 @@ export default function SettingsPage() {
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
                       placeholder="Enter current password"
-                      className="pr-10"
+                      className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-white dark:border-slate-200 dark:text-slate-900 pr-10"
                     />
                     <button
                       type="button"
@@ -420,7 +421,7 @@ export default function SettingsPage() {
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="Min 8 characters"
-                      className="pr-10"
+                      className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-white dark:border-slate-200 dark:text-slate-900 pr-10"
                     />
                     <button
                       type="button"
@@ -442,7 +443,7 @@ export default function SettingsPage() {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Re-enter new password"
-                      className="pr-10"
+                      className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-white dark:border-slate-200 dark:text-slate-900 pr-10"
                     />
                     <button
                       type="button"
@@ -508,6 +509,7 @@ export default function SettingsPage() {
                 value={currentEmailCode}
                 onChange={(e) => setCurrentEmailCode(e.target.value.replace(/\D/g, ""))}
                 placeholder="6-digit code"
+                className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-white dark:border-slate-200 dark:text-slate-900"
               />
             </div>
             <div>
@@ -520,6 +522,7 @@ export default function SettingsPage() {
                 value={newEmailCode}
                 onChange={(e) => setNewEmailCode(e.target.value.replace(/\D/g, ""))}
                 placeholder="6-digit code"
+                className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-white dark:border-slate-200 dark:text-slate-900"
               />
             </div>
             {otpError && (
@@ -561,6 +564,7 @@ export default function SettingsPage() {
                 value={dangerConfirm}
                 onChange={(e) => setDangerConfirm(e.target.value)}
                 placeholder="Type DELETE to proceed"
+                className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-white dark:border-slate-200 dark:text-slate-900"
               />
             </div>
 
@@ -582,6 +586,7 @@ export default function SettingsPage() {
                 value={deleteOtp}
                 onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, ""))}
                 placeholder="6-digit OTP code"
+                className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-white dark:border-slate-200 dark:text-slate-900"
               />
             </div>
 

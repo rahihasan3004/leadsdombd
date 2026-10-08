@@ -177,7 +177,7 @@ export default function BillingPage() {
   };
 
   return (
-      <div className="w-full min-h-screen bg-slate-50 p-3.5 sm:p-6 lg:p-8 pb-16 md:pb-6 lg:pb-8 space-y-4">
+      <div className="w-full min-h-screen bg-slate-50 p-3.5 sm:p-6 lg:p-8 pb-16 sm:pb-16 md:pb-6 lg:pb-8 space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
           Billing & Credits

@@ -1,60 +1,72 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
-import crypto from "crypto";
+import { checkRateLimit } from "@fine-leads/utils";
+import { sendEmailChangeOtpEmail } from "@/lib/email";
+import { generateOtp, otpIdentifiers, storeOtp } from "@/lib/otp";
 
-function generateSecureOTP(): string {
-  return crypto.randomInt(100000, 999999).toString();
-}
-
-function hashOTP(otp: string, identifier: string): string {
-  return crypto.createHmac("sha256", identifier).update(otp).digest("hex");
-}
+const schema = z.object({ newEmail: z.string().trim().toLowerCase().email("A valid new email is required") });
 
 export async function POST(request: Request) {
   try {
     const session = await auth();
-    if (!session?.user?.id || !session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = session.user.id;
 
-    const body = await request.json();
-    const { newEmail } = body as { newEmail: string };
+    const { allowed } = checkRateLimit(`email-change-request:${userId}`, 3, 15 * 60 * 1000);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many requests. Please try again in 15 minutes." }, { status: 429 });
+    }
 
-    if (!newEmail || !newEmail.includes("@")) {
+    const parsed = schema.safeParse(await request.json().catch(() => ({})));
+    if (!parsed.success) {
       return NextResponse.json({ error: "A valid new email is required" }, { status: 400 });
     }
+    const newEmail = parsed.data.newEmail;
 
-    const normalizedNewEmail = newEmail.toLowerCase().trim();
-    const currentEmail = session.user.email;
+    // Always use the DB as the source of truth for the current email (the session can be stale).
+    const user = await db.user.findUnique({ where: { id: userId }, select: { email: true, passwordHash: true } });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    if (!user.passwordHash) {
+      return NextResponse.json({ error: "Email is managed by your Google account." }, { status: 400 });
+    }
+    const currentEmail = user.email.toLowerCase();
 
-    if (normalizedNewEmail === currentEmail) {
+    if (newEmail === currentEmail) {
       return NextResponse.json({ error: "New email is the same as current email" }, { status: 400 });
     }
-
-    const existingUser = await db.user.findUnique({ where: { email: normalizedNewEmail } });
+    const existingUser = await db.user.findUnique({ where: { email: newEmail }, select: { id: true } });
     if (existingUser) {
       return NextResponse.json({ error: "Email is already in use" }, { status: 409 });
     }
 
-    const otp1 = generateSecureOTP();
-    const otp2 = generateSecureOTP();
-    const hashedOtp1 = hashOTP(otp1, currentEmail);
-    const hashedOtp2 = hashOTP(otp2, normalizedNewEmail);
-    const expires = new Date(Date.now() + 15 * 60 * 1000);
+    const currentCode = generateOtp();
+    const newCode = generateOtp();
+    const currentId = otpIdentifiers.emailChangeCurrent(userId);
+    const newId = otpIdentifiers.emailChangeNew(userId, newEmail);
 
-    await db.verificationToken.deleteMany({ where: { identifier: currentEmail } });
-    await db.verificationToken.deleteMany({ where: { identifier: normalizedNewEmail } });
-
-    await db.verificationToken.create({
-      data: { identifier: currentEmail, token: hashedOtp1, expires },
+    // Clear codes from any previous email-change attempt (possibly for a different new email).
+    await db.verificationToken.deleteMany({ where: { identifier: { startsWith: `email-change:new:${userId}:` } } });
+    await db.$transaction(async (tx) => {
+      await storeOtp(currentId, currentCode, tx);
+      await storeOtp(newId, newCode, tx);
     });
 
-    await db.verificationToken.create({
-      data: { identifier: normalizedNewEmail, token: hashedOtp2, expires },
-    });
+    const [currentResult, newResult] = await Promise.all([
+      sendEmailChangeOtpEmail(currentEmail, currentCode, "current"),
+      sendEmailChangeOtpEmail(newEmail, newCode, "new"),
+    ]);
+    if (("error" in currentResult && currentResult.error) || ("error" in newResult && newResult.error)) {
+      await db.verificationToken.deleteMany({ where: { identifier: { in: [currentId, newId] } } });
+      return NextResponse.json({ error: "We couldn't send the verification emails. Please try again." }, { status: 502 });
+    }
 
-    return NextResponse.json({ success: true, message: "OTP sent to both emails" });
+    return NextResponse.json({ success: true, message: "Verification codes sent to both email addresses" });
   } catch (error) {
     console.error("Email change request error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

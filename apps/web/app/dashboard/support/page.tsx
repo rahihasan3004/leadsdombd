@@ -38,7 +38,7 @@ export default function SupportPage() {
   }
 
   return (
-    <div className="w-full p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="w-full p-4 sm:p-6 lg:p-8 pb-16 sm:pb-16 md:pb-6 lg:pb-8 space-y-6">
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-neutral-900">
           Support Center
         </h1>

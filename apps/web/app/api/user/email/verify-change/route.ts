@@ -1,71 +1,74 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@fine-leads/auth";
-import { db } from "@fine-leads/database";
-import crypto from "crypto";
+import { db, Prisma } from "@fine-leads/database";
+import { getClientIp } from "@fine-leads/utils";
+import { checkOtp, otpErrorMessage, otpIdentifiers } from "@/lib/otp";
 
-function hashOTP(otp: string, identifier: string): string {
-  return crypto.createHmac("sha256", identifier).update(otp).digest("hex");
-}
+const schema = z.object({
+  newEmail: z.string().trim().toLowerCase().email(),
+  currentEmailCode: z.string().regex(/^\d{6}$/),
+  newEmailCode: z.string().regex(/^\d{6}$/),
+});
 
 export async function POST(request: Request) {
   try {
     const session = await auth();
-    if (!session?.user?.id || !session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = session.user.id;
 
-    const body = await request.json();
-    const { newEmail, currentEmailCode, newEmailCode } = body as {
-      newEmail: string;
-      currentEmailCode: string;
-      newEmailCode: string;
-    };
+    const parsed = schema.safeParse(await request.json().catch(() => ({})));
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Enter both 6-digit codes" }, { status: 400 });
+    }
+    const { newEmail, currentEmailCode, newEmailCode } = parsed.data;
 
-    if (!newEmail || !currentEmailCode || !newEmailCode) {
-      return NextResponse.json({ error: "All fields are required" }, { status: 400 });
+    const user = await db.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const normalizedNewEmail = newEmail.toLowerCase().trim();
-    const currentEmail = session.user.email;
+    const currentId = otpIdentifiers.emailChangeCurrent(userId);
+    const newId = otpIdentifiers.emailChangeNew(userId, newEmail);
 
-    const currentEmailToken = await db.verificationToken.findFirst({
-      where: {
-        identifier: currentEmail,
-        token: hashOTP(currentEmailCode, currentEmail),
-        expires: { gt: new Date() },
-      },
-    });
-
-    if (!currentEmailToken) {
-      return NextResponse.json({ error: "Invalid or expired verification code for current email" }, { status: 400 });
+    const currentCheck = await checkOtp(currentId, currentEmailCode);
+    if (currentCheck !== "ok") {
+      return NextResponse.json({ error: otpErrorMessage(currentCheck, "current email") }, { status: 400 });
+    }
+    const newCheck = await checkOtp(newId, newEmailCode);
+    if (newCheck !== "ok") {
+      return NextResponse.json({ error: otpErrorMessage(newCheck, "new email") }, { status: 400 });
     }
 
-    const newEmailToken = await db.verificationToken.findFirst({
-      where: {
-        identifier: normalizedNewEmail,
-        token: hashOTP(newEmailCode, normalizedNewEmail),
-        expires: { gt: new Date() },
-      },
-    });
-
-    if (!newEmailToken) {
-      return NextResponse.json({ error: "Invalid or expired verification code for new email" }, { status: 400 });
+    try {
+      await db.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: userId },
+          data: { email: newEmail, emailVerified: new Date() },
+        });
+        await tx.verificationToken.deleteMany({ where: { identifier: { in: [currentId, newId] } } });
+        await tx.auditLog.create({
+          data: {
+            userId,
+            action: "change_email",
+            resource: "user",
+            resourceId: userId,
+            details: { from: user.email, to: newEmail },
+            ipAddress: getClientIp(request),
+            userAgent: request.headers.get("user-agent") ?? undefined,
+          },
+        });
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        return NextResponse.json({ error: "Email is already in use by another account" }, { status: 409 });
+      }
+      throw err;
     }
 
-    const existingUser = await db.user.findUnique({ where: { email: normalizedNewEmail } });
-    if (existingUser && existingUser.id !== session.user.id) {
-      return NextResponse.json({ error: "Email is already in use by another account" }, { status: 409 });
-    }
-
-    await db.user.update({
-      where: { id: session.user.id },
-      data: { email: normalizedNewEmail, emailVerified: new Date() },
-    });
-
-    await db.verificationToken.deleteMany({ where: { identifier: currentEmail } });
-    await db.verificationToken.deleteMany({ where: { identifier: normalizedNewEmail } });
-
-    return NextResponse.json({ success: true, message: "Email updated successfully" });
+    return NextResponse.json({ success: true, message: "Email updated successfully", email: newEmail });
   } catch (error) {
     console.error("Email verify change error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
