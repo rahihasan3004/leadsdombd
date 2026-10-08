@@ -83,22 +83,11 @@ function formatPhone(phone: string | null): string {
   return phone;
 }
 
-function formatStatesDisplay(states: string[]): { label: string; title?: string } {
-  if (states.length >= 50) {
-    return { label: "All 50 US States + DC" };
-  }
-  if (states.length > 3) {
-    const firstThree = states.slice(0, 3).join(", ");
-    const remaining = states.length - 3;
-    return {
-      label: `${firstThree} (+${remaining} more)`,
-      title: states.join(", "),
-    };
-  }
-  if (states.length === 0) {
-    return { label: "--" };
-  }
-  return { label: states.join(", ") };
+function formatStateBadge(states: string[]) {
+  if (states.length === 0) return { label: "--" };
+  if (states.length >= 50) return { label: "All States" };
+  if (states.length === 1) return { label: states[0] };
+  return { label: `${states[0]}+${states.length - 1}` };
 }
 
 export default function ListsPage() {
@@ -335,8 +324,8 @@ export default function ListsPage() {
   if (selectedPurchase) {
     return (
       <>
-        <div className="w-full h-screen bg-slate-50 p-6 overflow-hidden flex flex-col">
-          <div className="bg-white shadow-none border-0 rounded-2xl p-6 md:p-8 flex flex-col h-[calc(100vh-48px)] overflow-hidden justify-between">
+        <div className="w-full h-screen bg-white p-3.5 md:bg-slate-50 md:p-6 overflow-hidden flex flex-col">
+          <div className="bg-transparent rounded-none md:bg-white md:rounded-2xl p-0 md:p-6 lg:md:p-8 flex flex-col h-[calc(100vh-44px)] md:h-[calc(100vh-48px)] overflow-hidden justify-between">
             <div className="shrink-0">
               <div className="md:hidden space-y-3">
                 <button
@@ -352,7 +341,7 @@ export default function ListsPage() {
                     Order #{selectedPurchase.referenceId}
                   </h2>
                   <p className="text-xs text-slate-500 mt-1">
-                    {selectedPurchase.unlockedStates.join(", ")} - {formatQuantity(selectedPurchase.quantity)} Verified Leads
+                    {formatStateBadge(selectedPurchase.unlockedStates).label} - {formatQuantity(selectedPurchase.quantity)} Verified Leads
                   </p>
                 </div>
                 <button
@@ -666,8 +655,8 @@ export default function ListsPage() {
   }
 
   return (
-    <div className="w-full h-screen bg-slate-50 p-3.5 sm:p-6 lg:p-8 overflow-hidden flex flex-col">
-      <div className="bg-white shadow-none border-0 rounded-2xl p-6 md:p-8 flex flex-col h-[calc(100vh-48px)] overflow-hidden justify-between">
+    <div className="w-full h-screen bg-white px-3 pt-2 pb-14 md:bg-transparent md:px-3.5 md:pt-0 md:pb-8 sm:md:px-6 lg:md:px-8 overflow-hidden flex flex-col">
+      <div className="bg-transparent rounded-none md:bg-white md:rounded-2xl p-0 md:p-6 lg:md:p-8 flex flex-col h-[calc(100vh-44px)] md:h-[calc(100vh-48px)] overflow-hidden justify-between">
         <div className="shrink-0">
           <div className="flex items-center justify-between">
             <div>
@@ -710,73 +699,50 @@ export default function ListsPage() {
         <div className="w-full flex-1 overflow-hidden my-2">
           <div className="md:hidden w-full overflow-y-auto no-scrollbar bg-slate-50">
             <div className="p-4 space-y-3">
-              <div className="space-y-1">
-                <h1 className="text-xl font-bold text-slate-900 tracking-tight">My Leads Vault</h1>
-                <p className="text-xs text-slate-500">Access, search, and export your unlocked Real Estate Agent databases.</p>
-              </div>
-              <a href="/dashboard/search" className="block w-full text-center px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-none border-0 transition-colors">
-                Order Leads
-              </a>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={orderSearch}
-                    onChange={(e) => setOrderSearch(e.target.value)}
-                    placeholder="Search orders by Order ID or State..."
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs bg-white pl-10 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
-                >
-                  <Filter className="h-4 w-4" />
-                  Filter
-                </button>
-              </div>
               {paginatedPurchases.length === 0 ? (
                 <div className="py-8 text-center text-sm text-slate-400">No orders match your search.</div>
               ) : (
-                paginatedPurchases.map((purchase) => (
-                  <div key={purchase.id} className="bg-white rounded-xl border border-slate-200 p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-900 tabular-nums">{purchase.referenceId}</span>
-                      <span className="inline-flex items-center text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
-                        {purchase.status || "COMPLETED"}
-                      </span>
+                paginatedPurchases.map((purchase) => {
+                  const stateBadge = formatStateBadge(purchase.unlockedStates);
+                  return (
+                    <div key={purchase.id} className="bg-white rounded-xl border border-slate-200 p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-900 tabular-nums">{purchase.referenceId}</span>
+                        <span className="inline-flex items-center text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                          {purchase.status || "COMPLETED"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500">{formatDate(purchase.createdAt)}</p>
+                      <div className="flex items-center gap-3 text-xs text-slate-600">
+                        <span className="inline-flex items-center text-[11px] font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                          {stateBadge.label}
+                        </span>
+                        <span>{formatQuantity(purchase.quantity)} Leads</span>
+                        <span>Real Estate Agents</span>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectPurchase(purchase)}
+                          className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                        >
+                          View Leads
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownloadCsv(purchase.unlockedStates, purchase.id);
+                          }}
+                          className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          CSV
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-500">{formatDate(purchase.createdAt)}</p>
-                    <div className="flex items-center gap-3 text-xs text-slate-600">
-                      <span className="inline-flex items-center text-[11px] font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
-                        {purchase.unlockedStates[0] || "--"}
-                      </span>
-                      <span>{formatQuantity(purchase.quantity)} Leads</span>
-                      <span>Real Estate Agents</span>
-                    </div>
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => handleSelectPurchase(purchase)}
-                        className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors"
-                      >
-                        View Leads
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDownloadCsv(purchase.unlockedStates, purchase.id);
-                        }}
-                        className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        CSV
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
               {totalOrderPages > 1 && (
                 <div className="flex items-center justify-between pt-2">
@@ -842,13 +808,12 @@ export default function ListsPage() {
                       </td>
                       <td className="px-4 align-middle text-xs">
                         {(() => {
-                          const formatted = formatStatesDisplay(purchase.unlockedStates);
+                          const stateBadge = formatStateBadge(purchase.unlockedStates);
                           return (
                             <span
                               className="font-normal text-[11px] text-[#465FFF] bg-[#F0F4FF] px-2.5 py-0.5 rounded-full text-xs whitespace-nowrap"
-                              title={formatted.title}
                             >
-                              {formatted.label}
+                              {stateBadge.label}
                             </span>
                           );
                         })()}
