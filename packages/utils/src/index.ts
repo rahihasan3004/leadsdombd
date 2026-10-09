@@ -160,3 +160,5 @@ export function calculateUpgradePrice(
 // Rate limiting is server-only: import it from "@fine-leads/utils/rate-limit".
 export { getClientIp } from "./client-ip";
 export { generateOrderRef, generateTxnRef } from "./order-ref";
+
+export { LEAD_PACKAGES, getLeadCreditCost, type LeadTier } from "./lead-packages";

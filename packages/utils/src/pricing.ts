@@ -10,10 +10,10 @@ export interface PricingTier {
 export const VOLUME_PRICING_TIERS: readonly PricingTier[] = [
   { id: "tier_500", credits: 500, label: "500", price: 15, unitPrice: 0.030 },
   { id: "tier_1k", credits: 1000, label: "1k", price: 25, unitPrice: 0.025 },
-  { id: "tier_2k", credits: 2000, label: "2k", price: 38, unitPrice: 0.019 },
-  { id: "tier_10k", credits: 10000, label: "10k", price: 170, unitPrice: 0.017 },
-  { id: "tier_30k", credits: 30000, label: "30k", price: 450, unitPrice: 0.015 },
-  { id: "tier_50k", credits: 50000, label: "50k", price: 650, unitPrice: 0.013 },
+  { id: "tier_2k", credits: 2000, label: "2k", price: 39, unitPrice: 0.0195 },
+  { id: "tier_10k", credits: 10000, label: "10k", price: 169, unitPrice: 0.0169 },
+  { id: "tier_30k", credits: 30000, label: "30k", price: 449, unitPrice: 449 / 30000 },
+  { id: "tier_50k", credits: 50000, label: "50k", price: 649, unitPrice: 0.01298 },
 ];
 
 export function getTierByCredits(credits: number): PricingTier {

@@ -49,7 +49,7 @@ export default async function ExportsPage() {
     // Same filter as /api/exports/stream, so counts match what the CSV contains.
     db.agent.groupBy({
       by: ["state"],
-      where: { email: { not: null }, isDeliverable: true, unlockedBy: { some: { userId } } },
+      where: { unlockedBy: { some: { userId, purchase: { status: "COMPLETED" } } } },
       _count: { _all: true },
     }),
     db.leadExport.findMany({
@@ -88,7 +88,7 @@ export default async function ExportsPage() {
           Lead Exports
         </h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Download your unlocked, verified agent lists as CSV.
+          Download your unlocked agent lists as CSV. Email access follows each order’s lead tier.
         </p>
       </div>
       <ExportsClient states={states} history={history} />

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@fine-leads/database";
 import { auth } from "@fine-leads/auth";
+import { getAgentLeadAccess, redactLeadForTier } from "@/lib/lead-access";
+import type { LeadTier } from "@fine-leads/utils";
 
 function maskEmail(email: string): string {
   if (!email) return "";
@@ -54,31 +56,18 @@ export async function GET(
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
 
-    let isUnlocked = false;
-    if (session?.user?.id && agent.state) {
-      const purchases = await db.leadPurchase.findMany({
-        where: {
-          userId: session.user.id,
-          status: "COMPLETED",
-        },
-        select: { unlockedStates: true },
-      });
-
-      const allUnlocked = purchases.flatMap(
-        (p: { unlockedStates: string[] }) => p.unlockedStates
-      );
-      const hasPurchaseUnlock = allUnlocked.includes(agent.state.toUpperCase());
-
-      const subscription = await db.subscription.findFirst({
-        where: {
-          userId: session.user.id,
-          status: "ACTIVE",
-        },
-        select: { id: true },
-      });
-
-      isUnlocked = hasPurchaseUnlock || Boolean(subscription);
+    let tier: LeadTier | undefined;
+    if (session?.user?.id) {
+      const [access, subscription] = await Promise.all([
+        getAgentLeadAccess(session.user.id, [agent]),
+        db.subscription.findFirst({
+          where: { userId: session.user.id, status: "ACTIVE" }, select: { id: true },
+        }),
+      ]);
+      // A pre-existing active subscription is an independent full-data entitlement.
+      tier = subscription ? "VERIFIED_EMAIL" : access.get(agent.id);
     }
+    const isUnlocked = tier !== undefined;
 
     const userRole = session?.user.role;
     const isAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN";
@@ -100,7 +89,7 @@ export async function GET(
       });
     }
 
-    return NextResponse.json(agent);
+    return NextResponse.json(isAdmin ? agent : redactLeadForTier(agent, tier!));
   } catch (error) {
     console.error("[AGENT_DETAIL_ERROR]", error);
     return NextResponse.json(

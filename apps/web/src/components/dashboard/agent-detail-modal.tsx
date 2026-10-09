@@ -23,8 +23,11 @@ import {
   Server,
 } from "lucide-react";
 import { toast } from "sonner";
+import type { LeadTier } from "@fine-leads/utils";
+import { ColdCallingTierBadge } from "./lead-tier-badge";
 
 export interface AgentData {
+  leadTier?: LeadTier;
   id: string;
   fullName: string;
   brokerageName: string | null;
@@ -229,7 +232,7 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
         agent.category ? `Category: ${agent.category}` : null,
         [agent.city, agent.state].filter(Boolean).join(", ") || null,
         agent.phone ? `Phone: ${formatPhone(agent.phone)}` : null,
-        agent.email ? `Email: ${agent.email}` : null,
+        agent.leadTier !== "PHONE_ONLY" && agent.email ? `Email: ${agent.email}` : null,
         agent.websiteUrl ? `Website: ${agent.websiteUrl}` : null,
         agent.brokerageAddress ? `Address: ${agent.brokerageAddress}` : null,
         [agent.city, agent.state, agent.zipCode?.slice(0, 5)].filter(Boolean).join(", ") || null,
@@ -316,7 +319,8 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
             value={formatPhone(agent.phone)}
             copyable
           />
-          {agent.email && (
+          {agent.leadTier === "PHONE_ONLY" && <ColdCallingTierBadge />}
+          {agent.leadTier !== "PHONE_ONLY" && agent.email && (
             <AttrRow
               icon={Mail}
               label="100% Deliverable Email"

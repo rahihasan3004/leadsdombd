@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
+import { getAgentLeadAccess, redactLeadForTier } from "@/lib/lead-access";
 
 const agentsQuerySchema = z.object({
   state: z.string().length(2, "State code must be 2 characters").optional(),
@@ -32,12 +33,6 @@ export async function GET(request: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const purchases = await db.leadPurchase.findMany({
-    where: { userId: session.user.id, status: "COMPLETED" },
-    select: { unlockedStates: true },
-  });
-  const unlockedStates = Array.from(new Set(purchases.flatMap((p) => p.unlockedStates)));
 
   const { searchParams } = new URL(request.url);
 
@@ -103,11 +98,14 @@ export async function GET(request: Request) {
     db.agent.count({ where }),
   ]);
 
+  const access = await getAgentLeadAccess(session.user.id, agents);
   const maskedAgents = agents.map((agent) => {
-    const isUnlocked = unlockedStates.includes(agent.state ?? "");
+    const tier = access.get(agent.id);
+    const isUnlocked = tier !== undefined;
+    const authorized = redactLeadForTier(agent, tier ?? "PHONE_ONLY");
     return {
-      ...agent,
-      email: isUnlocked ? agent.email : maskEmail(agent.email ?? ""),
+      ...authorized,
+      email: isUnlocked ? authorized.email : maskEmail(agent.email ?? ""),
       phone: isUnlocked ? agent.phone : maskPhone(agent.phone ?? ""),
       brokerageAddress: isUnlocked ? agent.brokerageAddress : "Locked - Purchase State Pack to View",
       isLocked: !isUnlocked,

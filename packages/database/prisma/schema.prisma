@@ -74,6 +74,11 @@ enum TransactionStatus {
   REFUNDED
 }
 
+enum LeadTier {
+  PHONE_ONLY
+  VERIFIED_EMAIL
+}
+
 enum PurchaseStatus {
   PENDING
   COMPLETED
@@ -392,6 +397,7 @@ model WebhookEvent {
 }
 
 model LeadPurchase {
+  tier            LeadTier       @default(VERIFIED_EMAIL)
   id              String         @id @default(cuid())
   referenceId     String         @unique
   userId          String

@@ -10,7 +10,7 @@ import {
 describe("priceOrder", () => {
   it("prices wallet top-ups strictly from VOLUME_PRICING_TIERS", () => {
     const order = priceOrder({ type: "WALLET_TOPUP", tierId: "tier_10k" });
-    expect(order).toEqual({ type: "WALLET_TOPUP", tierId: "tier_10k", credits: 10000, amountCents: 17000 });
+    expect(order).toEqual({ type: "WALLET_TOPUP", tierId: "tier_10k", credits: 10000, amountCents: 16900 });
   });
 
   it("prices lead purchases from quantity on the server", () => {
@@ -51,6 +51,24 @@ describe("stateCodesSchema", () => {
 });
 
 describe("signed checkout custom data", () => {
+  it.each([
+    ["tier_2k", 2000, 3800],
+    ["tier_10k", 10000, 17000],
+    ["tier_30k", 30000, 45000],
+    ["tier_50k", 50000, 65000],
+  ])("preserves an authenticated pre-update quote for %s", (tierId, credits, amountCents) => {
+    const oldQuote = { type: "WALLET_TOPUP" as const, tierId, credits, amountCents };
+    const custom = buildCheckoutCustomData("user_1", oldQuote);
+    expect(verifyCheckoutCustomData(custom)).toEqual({ userId: "user_1", order: oldQuote });
+    expect(verifyCheckoutCustomData({ ...custom, amount_cents: "1" })).toBeNull();
+    expect(verifyCheckoutCustomData({ ...custom, amount_cents: String(amountCents + 100) })).toBeNull();
+  });
+
+  it("rejects an invalid quoted amount even with a valid signature", () => {
+    const quote = { type: "WALLET_TOPUP" as const, tierId: "tier_500", credits: 500, amountCents: 0 };
+    expect(verifyCheckoutCustomData(buildCheckoutCustomData("user_1", quote))).toBeNull();
+  });
+
   const topup = priceOrder({ type: "WALLET_TOPUP", tierId: "tier_500" });
 
   it("round-trips a valid signature", () => {

@@ -116,7 +116,7 @@ export function ExportsClient({ states, history }: { states: ExportableState[]; 
           <h2 className="text-base font-semibold text-slate-900">Your unlocked states</h2>
         </div>
         <p className="mt-1 text-sm text-slate-500">
-          Each export is a CSV of every deliverable lead you&apos;ve unlocked in that state.
+          Each export includes your unlocked leads in that state. Cold Calling Pack rows have no email included.
         </p>
 
         <ul className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -133,7 +133,7 @@ export function ExportsClient({ states, history }: { states: ExportableState[]; 
                     {state.name} <span className="font-normal text-slate-400">({state.code})</span>
                   </p>
                   <p className="text-xs text-slate-500">
-                    {state.leadCount > 0 ? `${formatCount(state.leadCount)} leads` : "No deliverable leads yet"}
+                    {state.leadCount > 0 ? `${formatCount(state.leadCount)} leads` : "No unlocked leads yet"}
                   </p>
                 </div>
                 <button

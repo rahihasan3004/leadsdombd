@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@fine-leads/auth";
 import { db, Prisma } from "@fine-leads/database";
-import { calculateLeadPrice, generateOrderRef, generateTxnRef } from "@fine-leads/utils";
+import { calculateLeadPrice, generateOrderRef, generateTxnRef, getLeadCreditCost, type LeadTier } from "@fine-leads/utils";
 import { LEAD_PURCHASE_MAX_QUANTITY, stateCodesSchema } from "@/lib/payments";
 
-/** 1 credit = 1 lead. */
-const CREDITS_PER_LEAD = 1;
+import { leadInventoryWhere } from "@/lib/lead-access";
 
 const orderSchema = z.object({
   states: stateCodesSchema,
+  tier: z.enum(["PHONE_ONLY", "VERIFIED_EMAIL"]).default("VERIFIED_EMAIL"),
   quantity: z.coerce
     .number({ invalid_type_error: "Invalid quantity" })
     .int("Invalid quantity")
@@ -32,6 +32,7 @@ interface OrderResult {
   unlockedCount: number;
   creditsDeducted: number;
   remainingCredits: number;
+  tier: LeadTier;
 }
 
 export async function POST(req: Request) {
@@ -48,8 +49,8 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const { states, quantity } = parsed.data;
-  const requestedCredits = quantity * CREDITS_PER_LEAD;
+  const { states, quantity, tier } = parsed.data;
+  const requestedCredits = getLeadCreditCost(quantity, tier);
 
   try {
     // Fast, non-authoritative pre-check for a friendly error before scanning inventory.
@@ -69,8 +70,7 @@ export async function POST(req: Request) {
         const agents = await tx.agent.findMany({
           where: {
             state: { in: states },
-            isDeliverable: true,
-            AND: [{ email: { not: null } }, { email: { not: "" } }],
+            ...leadInventoryWhere(tier),
             unlockedBy: { none: { userId } },
           },
           take: quantity,
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
         }
 
         const leadCount = agents.length;
-        const creditsToDeduct = leadCount * CREDITS_PER_LEAD;
+        const creditsToDeduct = getLeadCreditCost(leadCount, tier);
 
         // Atomic conditional debit: the balance check and decrement happen in one
         // UPDATE, so concurrent orders can never take the balance below zero.
@@ -107,9 +107,10 @@ export async function POST(req: Request) {
         const purchase = await tx.leadPurchase.create({
           data: {
             userId,
+            tier,
             // amountPaid is a USD amount everywhere (revenue KPIs, refunds, UI), so store
-            // the monetary value of the credits spent at the standard per-lead rate.
-            amountPaid: new Prisma.Decimal(calculateLeadPrice(leadCount)),
+            // the monetary value of the credits spent at the standard per-credit rate.
+            amountPaid: new Prisma.Decimal(calculateLeadPrice(creditsToDeduct)),
             leadCount,
             unlockedStates: states,
             status: "COMPLETED",
@@ -124,9 +125,9 @@ export async function POST(req: Request) {
             amount: -creditsToDeduct,
             balanceAfter: remainingCredits,
             referenceId: generateTxnRef(),
-            description: `Lead purchase: ${leadCount} leads`,
+            description: `Lead purchase: ${leadCount} leads (${tier})`,
             status: "COMPLETED",
-            metadata: { purchaseId: purchase.id, leadCount, creditsSpent: creditsToDeduct },
+            metadata: { purchaseId: purchase.id, leadCount, tier, creditsPerLead: getLeadCreditCost(1, tier), creditsSpent: creditsToDeduct },
           },
         });
 
@@ -138,6 +139,7 @@ export async function POST(req: Request) {
 
         return {
           orderId: purchase.id,
+          tier,
           unlockedCount: leadCount,
           creditsDeducted: creditsToDeduct,
           remainingCredits,

@@ -42,6 +42,21 @@ beforeEach(() => {
 });
 
 describe("POST /api/billing/recharge", () => {
+  it.each([
+    ["tier_500", 500, 1500],
+    ["tier_1k", 1000, 2500],
+    ["tier_2k", 2000, 3900],
+    ["tier_10k", 10000, 16900],
+    ["tier_30k", 30000, 44900],
+    ["tier_50k", 50000, 64900],
+  ])("charges the canonical price for %s", async (tierId, credits, amountCents) => {
+    const res = await recharge(request({ type: "WALLET_TOPUP", tierId, amount: 1, credits: 999999 }));
+    expect(res.status).toBe(200);
+    const { attributes } = sentPayload().data;
+    expect(attributes.custom_price).toBe(amountCents);
+    expect(verifyCheckoutCustomData(attributes.checkout_data.custom)?.order).toMatchObject({ tierId, credits, amountCents });
+  });
+
   it("rejects unauthenticated requests", async () => {
     authMock.mockResolvedValue(null);
     const res = await recharge(request({ type: "WALLET_TOPUP", tierId: "tier_500" }));

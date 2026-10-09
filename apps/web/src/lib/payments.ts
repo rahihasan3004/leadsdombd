@@ -133,13 +133,16 @@ const customDataSchema = z.object({
   type: z.enum(["WALLET_TOPUP", "LEAD_PURCHASE"]),
   sig: z.string().min(1),
   tier_id: z.string().optional(),
+  amount_cents: z.string().regex(/^\d+$/).optional(),
   states: z.string().optional(),
   quantity: z.string().optional(),
 });
 
 /**
- * Re-derives the order from the webhook custom data using server pricing and
- * checks the HMAC. Returns null if anything was tampered with or is unknown.
+ * Re-derives credits from the canonical tier and checks the HMAC. For wallet
+ * top-ups, retain the authenticated checkout quote so a pricing update does not
+ * invalidate an already-created checkout. Never accept a quote without its HMAC.
+ * Returns null if anything was tampered with or is unknown.
  */
 export function verifyCheckoutCustomData(
   raw: unknown
@@ -168,6 +171,14 @@ export function verifyCheckoutCustomData(
     order = priceOrder(request);
   } catch {
     return null;
+  }
+
+  if (order.type === "WALLET_TOPUP" && data.amount_cents !== undefined) {
+    const quotedCents = Number(data.amount_cents);
+    if (!Number.isSafeInteger(quotedCents) || quotedCents < MIN_CHECKOUT_CENTS) return null;
+    // New checkouts are still priced by priceOrder(). The signature below proves
+    // this amount was server-issued, including quotes from before a tier update.
+    order = { ...order, amountCents: quotedCents };
   }
 
   if (!safeEqualHex(data.sig, sign(data.user_id, order))) return null;

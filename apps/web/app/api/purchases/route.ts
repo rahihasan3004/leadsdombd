@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@fine-leads/auth";
 import { db, type Prisma } from "@fine-leads/database";
+import { redactLeadForTier } from "@/lib/lead-access";
 import { PRICE_PER_LEAD, LEAD_STATES } from "@fine-leads/utils";
 
 const STATE_NAME_TO_CODE: Record<string, string> = {};
@@ -160,7 +161,7 @@ export async function GET(request: Request) {
       };
 
       const leads = (purchase.unlockedLeads || [])
-        .map((ul) => ul.agent)
+        .map((ul) => redactLeadForTier(ul.agent, purchase.tier))
         .filter(Boolean);
 
 
@@ -209,6 +210,7 @@ export async function GET(request: Request) {
         select: {
           id: true,
           referenceId: true,
+          tier: true,
           state: true,
           unlockedStates: true,
           amountPaid: true,

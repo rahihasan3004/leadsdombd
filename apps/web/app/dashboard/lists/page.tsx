@@ -14,6 +14,8 @@ import {
   Mail,
   MapPin,
 } from "lucide-react";
+import type { LeadTier } from "@fine-leads/utils";
+import { ColdCallingTierBadge } from "@/components/dashboard/lead-tier-badge";
 import { Skeleton } from "@fine-leads/ui";
 import { BrandedLoader } from "@/components/ui/branded-loader";
 import { DashboardPagination } from "@/components/ui/dashboard-pagination";
@@ -33,6 +35,7 @@ interface OrderRow {
 }
 
 interface Purchase {
+  tier: LeadTier;
   id: string;
   referenceId: string;
   state: string | null;
@@ -132,6 +135,7 @@ export default function ListsPage() {
         if (controller.signal.aborted) return;
         setPurchases((data.purchases ?? []).map((p: Record<string, unknown>) => ({
           id: p.id as string,
+          tier: p.tier === "VERIFIED_EMAIL" ? "VERIFIED_EMAIL" : "PHONE_ONLY",
           referenceId: p.referenceId as string,
           state: p.state as string | null,
           unlockedStates: (p.unlockedStates as string[]) || [],
@@ -182,7 +186,8 @@ export default function ListsPage() {
           fullName: agent.fullName as string,
           firstName: agent.firstName as string | undefined,
           lastName: agent.lastName as string | undefined,
-          email: agent.email as string | undefined,
+          leadTier: data.purchase?.tier === "VERIFIED_EMAIL" ? "VERIFIED_EMAIL" : "PHONE_ONLY",
+          email: data.purchase?.tier === "VERIFIED_EMAIL" ? agent.email as string | undefined : null,
           phone: agent.phone as string | undefined,
           officePhone: agent.officePhone as string | undefined,
           brokerageName: agent.brokerageName as string | undefined,
@@ -331,6 +336,7 @@ export default function ListsPage() {
         <div className="-mx-4 min-h-dvh bg-white px-4 pt-4 pb-20 md:mx-0 md:mt-0 md:min-h-0 md:bg-transparent md:p-0 flex flex-col">
           <div className="bg-transparent rounded-none md:bg-white md:rounded-2xl p-0 md:p-6 lg:p-8 flex flex-col md:h-[calc(100dvh-7rem)] lg:h-[calc(100dvh-3.5rem)] justify-between">
             <div className="shrink-0">
+              {selectedPurchase.tier === "PHONE_ONLY" && <div className="mb-3"><ColdCallingTierBadge /></div>}
               <div className="md:hidden space-y-3">
                 <button
                   type="button"
@@ -345,7 +351,7 @@ export default function ListsPage() {
                     Order #{selectedPurchase.referenceId}
                   </h2>
                   <p className="text-xs text-slate-500 mt-1">
-                    {formatStateBadge(selectedPurchase.unlockedStates).label} - {formatQuantity(selectedPurchase.quantity)} Verified Leads
+                    {formatStateBadge(selectedPurchase.unlockedStates).label} - {formatQuantity(selectedPurchase.quantity)} Leads
                   </p>
                 </div>
                 <button
@@ -354,7 +360,7 @@ export default function ListsPage() {
                   className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors"
                 >
                   <Download className="h-4 w-4" />
-                  Download Full CSV
+                  Download CSV
                 </button>
                 <div className="relative">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -384,7 +390,7 @@ export default function ListsPage() {
                         Order #{selectedPurchase.referenceId}
                       </h2>
                        <p className="text-sm text-slate-500 mt-1.5">
-                         {selectedPurchase.unlockedStates.join(", ")} · {formatQuantity(selectedPurchase.quantity)} Verified Leads
+                         {selectedPurchase.unlockedStates.join(", ")} · {formatQuantity(selectedPurchase.quantity)} Leads
                        </p>
                     </div>
                   </div>
@@ -393,7 +399,7 @@ export default function ListsPage() {
                     onClick={() => handleDownloadCsv(selectedPurchase.unlockedStates, selectedPurchase.id)}
                     className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold shadow-none border-0 transition-all duration-200 flex items-center gap-2 cursor-pointer"
                   >
-                    <Download className="h-3.5 w-3.5" /> Download Full CSV
+                    <Download className="h-3.5 w-3.5" /> Download CSV
                   </button>
                 </div>
 
@@ -405,7 +411,7 @@ export default function ListsPage() {
                       type="text"
                       value={leadSearch}
                       onChange={(e) => setLeadSearch(e.target.value)}
-                      placeholder="Search agents in this order by name, brokerage, city, or email..."
+                      placeholder={selectedPurchase.tier === "PHONE_ONLY" ? "Search by name, brokerage, or city..." : "Search by name, brokerage, city, or email..."}
                       className="w-full sm:w-80 px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:border-[#465FFF] bg-white pl-10 placeholder:text-slate-400 focus:outline-none transition-colors"
                     />
                   </div>
@@ -539,9 +545,9 @@ export default function ListsPage() {
                                 {agent.phone ?? "--"}
                               </td>
                               <td className="px-4 align-middle text-xs">
-                                <span className="text-xs text-slate-800 select-all">
-                                  {agent.email}
-                                </span>
+                                {agent.leadTier === "PHONE_ONLY" ? <ColdCallingTierBadge /> : (
+                                  <span className="text-xs text-slate-800 select-all">{agent.email || "--"}</span>
+                                )}
                               </td>
                               <td className="px-4 align-middle text-xs">
                                 <span className="font-normal text-slate-700">

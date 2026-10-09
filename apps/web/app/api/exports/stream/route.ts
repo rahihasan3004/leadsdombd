@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@fine-leads/auth";
-import { db } from "@fine-leads/database";
+import { db, type Prisma } from "@fine-leads/database";
+import { redactLeadForTier } from "@/lib/lead-access";
 import { LEAD_STATES } from "@fine-leads/utils";
 
 const CSV_HEADERS = [
@@ -90,7 +91,7 @@ function formatCsvRow(agent: {
   ].join(",");
 }
 
-function createCsvStream(stateCode: string, exportId: string, agentIds: string[]): ReadableStream<Uint8Array> {
+function createCsvStream(where: Prisma.UnlockedLeadWhereInput, exportId: string): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
 
   return new ReadableStream({
@@ -103,31 +104,17 @@ function createCsvStream(stateCode: string, exportId: string, agentIds: string[]
         let hasMore = true;
 
         while (hasMore) {
-          const batch = await db.agent.findMany({
-            where: {
-              state: stateCode,
-              email: { not: null },
-              isDeliverable: true,
-              id: { in: agentIds },
-            },
+          const batch = await db.unlockedLead.findMany({
+            where,
             select: {
               id: true,
-              brokerageName: true,
-              phone: true,
-              category: true,
-              brokerageAddress: true,
-              city: true,
-              state: true,
-              zipCode: true,
-              timezone: true,
-              websiteUrl: true,
-              email: true,
-              googlePlaceId: true,
-              dataSource: true,
-              rating: true,
-              reviewCount: true,
-              scrapedAt: true,
-              googleMapsLink: true,
+              purchase: { select: { tier: true } },
+              agent: { select: {
+                brokerageName: true, phone: true, category: true, brokerageAddress: true,
+                city: true, state: true, zipCode: true, timezone: true, websiteUrl: true,
+                email: true, emailStatus: true, isDeliverable: true, googlePlaceId: true,
+                dataSource: true, rating: true, reviewCount: true, scrapedAt: true, googleMapsLink: true,
+              } },
             },
             take: BATCH_SIZE,
             orderBy: { id: "asc" },
@@ -139,7 +126,7 @@ function createCsvStream(stateCode: string, exportId: string, agentIds: string[]
             break;
           }
 
-          const lines = batch.map((agent) => formatCsvRow(agent)).join("\n") + "\n";
+          const lines = batch.map((unlock) => formatCsvRow(redactLeadForTier(unlock.agent, unlock.purchase.tier))).join("\n") + "\n";
           controller.enqueue(encoder.encode(lines));
 
           cursor = batch[batch.length - 1].id;
@@ -205,73 +192,26 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Invalid state code" }, { status: 400 });
     }
 
-    let agentIds: string[] = [];
-
     if (purchaseId) {
       const purchase = await db.leadPurchase.findFirst({
         where: { id: purchaseId, userId: session.user.id, status: "COMPLETED" },
-        include: {
-          unlockedLeads: {
-            where: {
-              agent: {
-                state: stateCode,
-                email: { not: null },
-                isDeliverable: true,
-              },
-            },
-            select: { agentId: true },
-          },
-        },
+        select: { id: true },
       });
-
       if (!purchase) {
-        return NextResponse.json(
-          { error: "Purchase not found or not authorized" },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: "Purchase not found or not authorized" }, { status: 403 });
       }
-
-      agentIds = (purchase.unlockedLeads || []).map((ul) => ul.agentId);
-    } else {
-      const purchases = await db.leadPurchase.findMany({
-        where: { userId: session.user.id, status: "COMPLETED" },
-        select: { unlockedStates: true },
-      });
-
-      const unlockedStates = new Set(
-        purchases.flatMap((p) => p.unlockedStates).map((s) => s.toUpperCase())
-      );
-
-      if (!unlockedStates.has(stateCode)) {
-        return NextResponse.json(
-          { error: "You have not purchased this state" },
-          { status: 403 }
-        );
-      }
-
-      const unlockedLeads = await db.unlockedLead.findMany({
-        where: {
-          userId: session.user.id,
-          agent: {
-            state: stateCode,
-            email: { not: null },
-            isDeliverable: true,
-          },
-        },
-        select: { agentId: true },
-      });
-
-      agentIds = unlockedLeads.map((ul) => ul.agentId);
     }
 
-    if (agentIds.length === 0) {
-      return NextResponse.json(
-        { error: "No unlocked leads available for this state" },
-        { status: 404 }
-      );
+    const where: Prisma.UnlockedLeadWhereInput = {
+      userId: session.user.id,
+      ...(purchaseId ? { purchaseId } : {}),
+      purchase: { status: "COMPLETED" },
+      agent: { state: stateCode },
+    };
+    const agentCount = await db.unlockedLead.count({ where });
+    if (agentCount === 0) {
+      return NextResponse.json({ error: "No unlocked leads available for this state" }, { status: 404 });
     }
-
-    const agentCount = agentIds.length;
 
     const exportRecord = await db.leadExport.create({
       data: {
@@ -290,13 +230,13 @@ export async function GET(req: Request) {
     const stateName = validState.name.toLowerCase().replace(/\s+/g, "-");
     const filename = `leadsdom-export-${stateName}-${Date.now()}.csv`;
 
-    const stream = createCsvStream(stateCode, exportRecord.id, agentIds);
+    const stream = createCsvStream(where, exportRecord.id);
 
     return new NextResponse(stream, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="${filename}"`,
-        "Transfer-Encoding": "chunked",
+        "Cache-Control": "private, no-store",
       },
     });
   } catch (err) {
