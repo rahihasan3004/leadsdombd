@@ -45,10 +45,11 @@ export function TerritoryOrder() {
       const res = await fetch("/api/lemon-squeezy/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // Price is computed server-side from states + quantity.
         body: JSON.stringify({
           type: "LEAD_PURCHASE",
-          unlockedStates: selectedStates,
-          amount: quantity * 0.019,
+          states: selectedStates,
+          quantity,
         }),
       });
 

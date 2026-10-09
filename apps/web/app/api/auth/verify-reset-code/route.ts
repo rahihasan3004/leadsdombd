@@ -1,99 +1,33 @@
 import { NextResponse } from "next/server";
-import { db } from "@fine-leads/database";
-import { checkRateLimit, getClientIp } from "@fine-leads/utils";
-import crypto from "crypto";
+import { z } from "zod";
+import { getClientIp } from "@fine-leads/utils";
+import { checkOtp, normalizeEmail, OTP_CODE_REGEX, otpErrorMessage, otpIdentifiers } from "@/lib/otp";
+import { rateLimitOrNull } from "@/lib/rate-limit-response";
 
-const MAX_VERIFY_RESET_CODE_ATTEMPTS = 5;
-const VERIFY_RESET_CODE_WINDOW_MS = 15 * 60 * 1000;
-const MAX_OTP_ATTEMPTS = 5;
+const verifyResetCodeSchema = z.object({
+  email: z.string().min(1, "Email is required").email("Invalid email address"),
+  code: z.string().trim().regex(OTP_CODE_REGEX, "Verification code must be 6 digits"),
+});
 
-function hashOTP(otp: string, identifier: string): string {
-  return crypto.createHmac("sha256", identifier).update(otp).digest("hex");
-}
-
+/** Pre-checks a reset code (UI step). Counts failed attempts; the code is consumed only by reset-password. */
 export async function POST(request: Request) {
+  const limited = rateLimitOrNull(`verify-reset-code:${getClientIp(request)}`, 10, 15 * 60 * 1000);
+  if (limited) return limited;
+
   try {
-    const clientIp = getClientIp(request);
-    const rateLimitKey = `verify-reset-code:${clientIp}`;
-    const { allowed, remaining, resetAt } = checkRateLimit(rateLimitKey, MAX_VERIFY_RESET_CODE_ATTEMPTS, VERIFY_RESET_CODE_WINDOW_MS);
-
-    if (!allowed) {
-      const retryAfter = Math.ceil((resetAt - Date.now()) / 1000);
-      return NextResponse.json(
-        { error: "Too many requests. Please try again later." },
-        {
-          status: 429,
-          headers: { "Retry-After": String(retryAfter) },
-        }
-      );
+    const parsed = verifyResetCodeSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues.map((i) => i.message).join(", ") }, { status: 400 });
     }
 
-    const body = await request.json();
-    const { email, code } = body as { email: string; code: string };
-
-    if (!email || !code) {
-      return NextResponse.json(
-        { error: "Email and code are required" },
-        { status: 400 }
-      );
+    const result = await checkOtp(otpIdentifiers.passwordReset(normalizeEmail(parsed.data.email)), parsed.data.code);
+    if (result !== "ok") {
+      return NextResponse.json({ error: otpErrorMessage(result, "verification") }, { status: 400 });
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
-    const enteredCode = code.trim();
-    const hashedCode = hashOTP(enteredCode, normalizedEmail);
-
-    const verificationToken = await db.verificationToken.findFirst({
-      where: {
-        identifier: normalizedEmail,
-        token: hashedCode,
-        expires: { gt: new Date() },
-        OR: [
-          { lockedUntil: null },
-          { lockedUntil: { lt: new Date() } },
-        ],
-      },
-    });
-
-    if (!verificationToken) {
-      const staleToken = await db.verificationToken.findFirst({
-        where: {
-          identifier: normalizedEmail,
-          token: hashedCode,
-          OR: [
-            { expires: { lte: new Date() } },
-            { lockedUntil: { gte: new Date() } },
-          ],
-        },
-      });
-
-      if (staleToken) {
-        await db.verificationToken.update({
-          where: { id: staleToken.id },
-          data: {
-            failedAttempts: staleToken.failedAttempts + 1,
-            lockedUntil:
-              staleToken.failedAttempts + 1 >= MAX_OTP_ATTEMPTS
-                ? new Date(Date.now() + 24 * 60 * 60 * 1000)
-                : null,
-          },
-        });
-      }
-
-      return NextResponse.json(
-        { error: "Invalid or expired verification code." },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Verification code is valid.",
-    });
-  } catch (error) {
-    console.error("Verify reset code error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true, message: "Verification code is valid." });
+  } catch (error: unknown) {
+    console.error("[VERIFY_RESET_CODE_ERROR]:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

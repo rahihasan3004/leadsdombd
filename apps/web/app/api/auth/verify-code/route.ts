@@ -1,107 +1,50 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@fine-leads/database";
-import { checkRateLimit, getClientIp } from "@fine-leads/utils";
-import crypto from "crypto";
-
-function hashOTP(otp: string, identifier: string): string {
-  return crypto.createHmac("sha256", identifier).update(otp).digest("hex");
-}
-
-const MAX_VERIFY_CODE_ATTEMPTS = 5;
-const VERIFY_CODE_WINDOW_MS = 15 * 60 * 1000;
-const MAX_OTP_ATTEMPTS = 5;
+import { getClientIp } from "@fine-leads/utils";
+import { checkOtp, consumeOtp, normalizeEmail, OTP_CODE_REGEX, otpErrorMessage, otpIdentifiers } from "@/lib/otp";
+import { rateLimitOrNull } from "@/lib/rate-limit-response";
 
 const verifyCodeSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email address"),
-  code: z.string().min(1, "Verification code is required").max(6, "Verification code must be 6 digits"),
+  code: z.string().trim().regex(OTP_CODE_REGEX, "Verification code must be 6 digits"),
 });
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const parsed = verifyCodeSchema.safeParse(body);
-
+    const parsed = verifyCodeSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues.map((i) => i.message).join(", ") },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: parsed.error.issues.map((i) => i.message).join(", ") }, { status: 400 });
     }
 
-    const { email, code } = parsed.data;
-    const normalizedEmail = email.toLowerCase().trim();
-    const enteredCode = code.trim();
-
-    const clientIp = getClientIp(request);
-    const rateLimitKey = `verify-code:${normalizedEmail}`;
-    const { allowed, remaining, resetAt } = checkRateLimit(rateLimitKey, MAX_VERIFY_CODE_ATTEMPTS, VERIFY_CODE_WINDOW_MS);
-
-    if (!allowed) {
-      const retryAfter = Math.ceil((resetAt - Date.now()) / 1000);
-      return NextResponse.json(
-        { error: "Too many failed attempts. Please request a new code or try again in 15 minutes." },
-        {
-          status: 429,
-          headers: { "Retry-After": String(retryAfter) },
-        }
+    const email = normalizeEmail(parsed.data.email);
+    const limited =
+      rateLimitOrNull(`verify-code:ip:${getClientIp(request)}`, 20, 15 * 60 * 1000) ??
+      rateLimitOrNull(
+        `verify-code:${email}`,
+        10,
+        15 * 60 * 1000,
+        "Too many attempts. Please request a new code or try again in 15 minutes."
       );
+    if (limited) return limited;
+
+    const identifier = otpIdentifiers.signup(email);
+    const result = await checkOtp(identifier, parsed.data.code);
+    if (result !== "ok") {
+      return NextResponse.json({ error: otpErrorMessage(result, "verification") }, { status: 400 });
     }
 
-    const hashedCode = hashOTP(enteredCode, normalizedEmail);
-
-    const verificationToken = await db.verificationToken.findFirst({
-      where: {
-        identifier: normalizedEmail,
-        token: hashedCode,
-        expires: { gt: new Date() },
-        OR: [
-          { lockedUntil: null },
-          { lockedUntil: { lt: new Date() } },
-        ],
-      },
-    });
-
-    if (!verificationToken) {
-      const staleToken = await db.verificationToken.findFirst({
-        where: {
-          identifier: normalizedEmail,
-          token: hashedCode,
-          OR: [
-            { expires: { lte: new Date() } },
-            { lockedUntil: { gte: new Date() } },
-          ],
-        },
+    await db.$transaction(async (tx) => {
+      await tx.user.updateMany({
+        where: { email, emailVerified: null },
+        data: { emailVerified: new Date() },
       });
-
-      if (staleToken) {
-        await db.verificationToken.update({
-          where: { id: staleToken.id },
-          data: {
-            failedAttempts: staleToken.failedAttempts + 1,
-            lockedUntil:
-              staleToken.failedAttempts + 1 >= MAX_OTP_ATTEMPTS
-                ? new Date(Date.now() + 24 * 60 * 60 * 1000)
-                : null,
-          },
-        });
-      }
-
-      return NextResponse.json({ error: "Invalid or expired verification code." }, { status: 400 });
-    }
-
-    await db.user.update({
-      where: { email: normalizedEmail },
-      data: { emailVerified: new Date() },
-    });
-
-    await db.verificationToken.deleteMany({
-      where: { identifier: normalizedEmail },
+      await consumeOtp(identifier, tx);
     });
 
     return NextResponse.json({ success: true, message: "Email verified successfully" });
-  } catch (error) {
-    console.error("Verify code error:", error);
+  } catch (error: unknown) {
+    console.error("[VERIFY_CODE_ERROR]:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -6,7 +6,7 @@ import { VOLUME_PRICING_TIERS, type PricingTier, getDefaultTier } from "@fine-le
 interface VolumePricingSliderProps {
   selectedTier: PricingTier | null;
   onTierChange: (tier: PricingTier) => void;
-  onConfirm: (params: { amount: number; credits: number }) => void;
+  onConfirm: (tier: PricingTier) => void;
   loading: boolean;
   disabled?: boolean;
 }
@@ -168,7 +168,7 @@ export default function VolumePricingSlider({
 
       <button
         type="button"
-        onClick={() => onConfirm({ amount: currentTier.price, credits: currentTier.credits })}
+        onClick={() => onConfirm(currentTier)}
         disabled={loading || disabled}
         className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-none border-0 transition-all duration-200 block text-center disabled:opacity-50"
       >

@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { db } from "@fine-leads/database";
+import { getAuthSecret } from "@fine-leads/auth/env";
 
 export const OTP_TTL_MS = 15 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 5;
@@ -11,12 +12,16 @@ const LOCK_MS = 60 * 60 * 1000;
  * replayed in another, and requesting one code never wipes out another.
  */
 export const otpIdentifiers = {
+  signup: (email: string) => `signup:${normalizeEmail(email)}`,
+  passwordReset: (email: string) => `password-reset:${normalizeEmail(email)}`,
   emailChangeCurrent: (userId: string) => `email-change:current:${userId}`,
   emailChangeNew: (userId: string, newEmail: string) => `email-change:new:${userId}:${newEmail}`,
   deleteAccount: (userId: string) => `delete-account:${userId}`,
 };
 
-const OTP_SECRET = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "";
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
 
 export function generateOtp(): string {
   return crypto.randomInt(100000, 1000000).toString();
@@ -24,10 +29,7 @@ export function generateOtp(): string {
 
 export function hashOtp(otp: string, identifier: string): string {
   // Keyed with the server secret so leaked hashes can't be brute-forced offline.
-  return crypto
-    .createHmac("sha256", OTP_SECRET || identifier)
-    .update(`${identifier}:${otp}`)
-    .digest("hex");
+  return crypto.createHmac("sha256", getAuthSecret()).update(`${identifier}:${otp}`).digest("hex");
 }
 
 type Tx = Pick<typeof db, "verificationToken">;
@@ -38,6 +40,11 @@ export async function storeOtp(identifier: string, otp: string, client: Tx = db)
   await client.verificationToken.create({
     data: { identifier, token: hashOtp(otp, identifier), expires: new Date(Date.now() + OTP_TTL_MS) },
   });
+}
+
+/** Delete all codes for this identifier (call after a successful, state-changing verification). */
+export async function consumeOtp(identifier: string, client: Tx = db) {
+  await client.verificationToken.deleteMany({ where: { identifier } });
 }
 
 export type OtpCheck = "ok" | "invalid" | "expired" | "locked";
@@ -53,7 +60,7 @@ export async function checkOtp(identifier: string, code: string): Promise<OtpChe
   if (record.expires <= new Date()) return "expired";
 
   const expected = Buffer.from(record.token, "hex");
-  const actual = Buffer.from(hashOtp(String(code), identifier), "hex");
+  const actual = Buffer.from(hashOtp(String(code).trim(), identifier), "hex");
   const matches = expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
   if (matches) return "ok";
 
@@ -78,3 +85,6 @@ export function otpErrorMessage(result: Exclude<OtpCheck, "ok">, label: string):
       return `Invalid ${label} code.`;
   }
 }
+
+/** Shared zod-friendly shape for 6-digit codes. */
+export const OTP_CODE_REGEX = /^\d{6}$/;

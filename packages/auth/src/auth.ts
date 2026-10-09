@@ -1,49 +1,32 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
-import GitHub from "next-auth/providers/github";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "@fine-leads/database";
 import { verifyPassword } from "./password";
+import { resolveAuthSecretForConfig } from "./env";
 import crypto from "crypto";
-
-const isDev = process.env.NODE_ENV !== "production";
-
-const defaultAuthUrl =
-  isDev ? "http://localhost:3000" : process.env.NEXT_PUBLIC_APP_URL ?? "https://getleadsdom.com";
 
 const googleId = process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID;
 const googleSecret = process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET;
 
-console.error("[AUTH_INIT_DIAGNOSTICS]", {
-  has_AUTH_GOOGLE_ID: !!process.env.AUTH_GOOGLE_ID,
-  has_GOOGLE_CLIENT_ID: !!process.env.GOOGLE_CLIENT_ID,
-  has_AUTH_GOOGLE_SECRET: !!process.env.AUTH_GOOGLE_SECRET,
-  has_GOOGLE_CLIENT_SECRET: !!process.env.GOOGLE_CLIENT_SECRET,
-  googleId_length: googleId ? googleId.length : 0,
-  googleSecret_length: googleSecret ? googleSecret.length : 0,
-  has_AUTH_SECRET: !!process.env.AUTH_SECRET,
-  has_NEXTAUTH_SECRET: !!process.env.NEXTAUTH_SECRET,
-  has_AUTH_URL: !!process.env.AUTH_URL,
-  has_NEXTAUTH_URL: !!process.env.NEXTAUTH_URL,
-  NODE_ENV: process.env.NODE_ENV,
-});
+class EmailNotVerifiedError extends CredentialsSignin {
+  code = "email_not_verified";
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "leadsdom_production_auth_secret_key_2026",
+  // Throws at startup if AUTH_SECRET is missing (no hard-coded fallback).
+  secret: resolveAuthSecretForConfig(),
   adapter: PrismaAdapter(db),
   trustHost: true,
-  debug: true,
+  debug: false,
   logger: {
     error(error) {
-      console.error("[AUTH_ERROR_FULL_RAW]", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
-      console.error("[AUTH_ERROR_STACK]", (error as any)?.stack || error);
+      if (error instanceof CredentialsSignin) return; // expected: bad password / unverified email
+      console.error("[AUTH_ERROR]", error);
     },
     warn(code) {
-      console.warn("[AUTH_WARN_RAW]", code);
-    },
-    debug(code, ...message) {
-      console.log("[AUTH_DEBUG_RAW]", code, ...message);
+      console.warn("[AUTH_WARN]", code);
     },
   },
   session: {
@@ -61,28 +44,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           Google({
             clientId: googleId,
             clientSecret: googleSecret,
+            // Safe only because signIn() requires Google's email_verified and
+            // jwt() wipes any password set on a previously unverified account.
             allowDangerousEmailAccountLinking: true,
           }),
         ]
-      : [
-          Google({
-            clientId: googleId || "MISSING_GOOGLE_CLIENT_ID",
-            clientSecret: googleSecret || "MISSING_GOOGLE_CLIENT_SECRET",
-            allowDangerousEmailAccountLinking: true,
-          }),
-        ]),
-    GitHub({
-      clientId: process.env.AUTH_GITHUB_ID || process.env.GITHUB_CLIENT_ID || "",
-      clientSecret:
-        process.env.AUTH_GITHUB_SECRET || process.env.GITHUB_CLIENT_SECRET || "",
-      allowDangerousEmailAccountLinking: false,
-      checks: ["state"],
-      authorization: {
-        params: {
-          scope: "read:user user:email",
-        },
-      },
-    }),
+      : []),
     Credentials({
       name: "Credentials",
       credentials: {
@@ -90,7 +57,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        console.error("[AUTH_DEBUG_TRACE]", { credentials: { email: credentials?.email, password: credentials?.password ? "***" : null }, timestamp: new Date().toISOString() });
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
@@ -101,16 +67,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const user = await db.user.findUnique({
           where: { email },
         });
-        console.error("[AUTH_DEBUG_TRACE]", { email, userFound: !!user, hasPasswordHash: !!user?.passwordHash, timestamp: new Date().toISOString() });
 
         if (!user || !user.passwordHash) {
           return null;
         }
 
         const isValid = await verifyPassword(password, user.passwordHash);
-        console.error("[AUTH_DEBUG_TRACE]", { email, isValid, timestamp: new Date().toISOString() });
         if (!isValid) {
           return null;
+        }
+
+        // Checked only after the password, so verification status isn't leaked to non-owners.
+        if (!user.emailVerified) {
+          throw new EmailNotVerifiedError();
         }
 
         return {
@@ -125,13 +94,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ account, profile }) {
       if (account?.provider === "credentials") {
-        return true;
+        return true; // verification enforced in authorize()
       }
-      return true;
+      if (account?.provider === "google") {
+        return profile?.email_verified === true;
+      }
+      return false;
     },
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user, trigger, session, account, profile }) {
       if (trigger === "update" && session?.name) {
         token.name = String(session.name);
       }
@@ -163,10 +135,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.walletBalance = dbUser.walletBalance ? (typeof dbUser.walletBalance.toNumber === "function" ? dbUser.walletBalance.toNumber() : Number(dbUser.walletBalance)) : 0;
           token.tokenVersion = dbUser.tokenVersion ?? 0;
 
-          if (!dbUser.emailVerified) {
+          // Only a provider-verified Google email may mark the account verified.
+          // Any password on a previously unverified account could have been set by
+          // someone else (pre-account-takeover), so it is removed; the owner can
+          // set one via "Forgot password".
+          if (!dbUser.emailVerified && account?.provider === "google" && profile?.email_verified === true) {
             await db.user.update({
               where: { id: dbUser.id },
-              data: { emailVerified: new Date() },
+              data: { emailVerified: new Date(), passwordHash: null },
             });
           }
 

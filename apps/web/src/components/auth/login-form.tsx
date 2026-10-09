@@ -53,6 +53,13 @@ export function LoginForm() {
       redirect: false,
     });
 
+    if (res?.code === "email_not_verified") {
+      toast.info("Please verify your email to continue.");
+      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+      setIsLoading(false);
+      return;
+    }
+
     if (res?.error) {
       setError("Invalid email or password, or your email has not been verified. Please check your inbox for a verification code.");
     } else if (res?.ok) {
@@ -70,11 +77,6 @@ export function LoginForm() {
           <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
             {displayError}
           </p>
-          <pre className="text-xs font-mono bg-red-950 text-red-200 p-3 rounded-lg mt-2 overflow-x-auto">
-            {`Raw Error Type: ${searchParams.get("error")}`}
-{`\nAll Search Params: ${Array.from(searchParams.entries()).map(([k, v]) => `${k}=${v}`).join("&")}`}
-{`\nFull URL Path / Callback Info: ${typeof window !== "undefined" ? window.location.href : ""}`}
-          </pre>
         </div>
       )}
 

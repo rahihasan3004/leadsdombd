@@ -90,11 +90,9 @@ export default function BillingPage() {
     setCurrentPage(1);
   }, [data.transactions.length]);
 
-  const handleAddFunds = useCallback(async (params?: { amount: number; credits: number }) => {
-    // Always have a valid tier: use what the slider confirmed, else the selected/default tier.
-    const tier = selectedTier ?? VOLUME_PRICING_TIERS[0];
-    const amount = params?.amount ?? tier.price;
-    const credits = params?.credits ?? tier.credits;
+  const handleAddFunds = useCallback(async (confirmedTier?: PricingTier) => {
+    // Only the tier id is sent; the server resolves price and credits.
+    const tier = confirmedTier ?? selectedTier ?? VOLUME_PRICING_TIERS[0];
 
     setLoading(true);
     setError(null);
@@ -105,7 +103,7 @@ export default function BillingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ amount, credits }),
+        body: JSON.stringify({ type: "WALLET_TOPUP", tierId: tier.id }),
       });
 
       const json = await res.json();

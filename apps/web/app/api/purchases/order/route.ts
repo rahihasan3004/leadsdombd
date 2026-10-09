@@ -1,136 +1,163 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@fine-leads/auth";
-import { db } from "@fine-leads/database";
-import { generateOrderRef, generateTxnRef } from "@fine-leads/utils";
+import { db, Prisma } from "@fine-leads/database";
+import { calculateLeadPrice, generateOrderRef, generateTxnRef } from "@fine-leads/utils";
+import { LEAD_PURCHASE_MAX_QUANTITY, stateCodesSchema } from "@/lib/payments";
+
+/** 1 credit = 1 lead. */
+const CREDITS_PER_LEAD = 1;
+
+const orderSchema = z.object({
+  states: stateCodesSchema,
+  quantity: z.coerce
+    .number({ invalid_type_error: "Invalid quantity" })
+    .int("Invalid quantity")
+    .min(1, "Invalid quantity")
+    .max(LEAD_PURCHASE_MAX_QUANTITY, `Maximum ${LEAD_PURCHASE_MAX_QUANTITY.toLocaleString()} leads per order`),
+});
+
+/** Thrown inside the transaction to abort (and roll back) with a specific HTTP response. */
+class OrderError extends Error {
+  constructor(
+    readonly status: number,
+    readonly body: { error: string } & Record<string, unknown>,
+  ) {
+    super(body.error);
+  }
+}
+
+interface OrderResult {
+  orderId: string;
+  unlockedCount: number;
+  creditsDeducted: number;
+  remainingCredits: number;
+}
 
 export async function POST(req: Request) {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const parsed = orderSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid order" },
+      { status: 400 },
+    );
+  }
+  const { states, quantity } = parsed.data;
+  const requestedCredits = quantity * CREDITS_PER_LEAD;
+
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const body = await req.json().catch(() => ({}));
-    const { states = [], quantity } = body;
-
-    if (!Array.isArray(states) || states.length === 0) {
-      return NextResponse.json({ error: "No states selected" }, { status: 400 });
-    }
-
-    const parsedQuantity = typeof quantity === "number" ? quantity : parseInt(String(quantity), 10);
-    if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
-      return NextResponse.json({ error: "Invalid quantity" }, { status: 400 });
-    }
-
-    const user = await db.user.findUnique({
-      where: { id: session.user.id },
-      select: { credits: true, id: true },
-    });
-
-    if (!user) {
+    // Fast, non-authoritative pre-check for a friendly error before scanning inventory.
+    const current = await db.user.findUnique({ where: { id: userId }, select: { credits: true } });
+    if (!current) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-
-    const requiredCredits = parsedQuantity;
-
-    if (user.credits < requiredCredits) {
+    if (current.credits < requestedCredits) {
       return NextResponse.json(
-        {
-          error: "INSUFFICIENT_CREDITS",
-          required: requiredCredits,
-          current: user.credits,
-        },
+        { error: "INSUFFICIENT_CREDITS", required: requestedCredits, current: current.credits },
         { status: 402 },
       );
     }
 
-    const result = await db.$transaction(async (tx) => {
-      const existingUnlocked = await tx.unlockedLead.findMany({
-        where: { userId: session.user.id },
-        select: { agentId: true },
-      });
+    const result = await db.$transaction(
+      async (tx): Promise<OrderResult> => {
+        const agents = await tx.agent.findMany({
+          where: {
+            state: { in: states },
+            isDeliverable: true,
+            AND: [{ email: { not: null } }, { email: { not: "" } }],
+            unlockedBy: { none: { userId } },
+          },
+          take: quantity,
+          select: { id: true },
+        });
 
-      const existingAgentIds = new Set(existingUnlocked.map((u) => u.agentId));
+        if (agents.length === 0) {
+          throw new OrderError(400, { error: "No new leads available for selected states" });
+        }
 
-      const availableAgents = await tx.agent.findMany({
-        where: {
-          state: { in: states },
-          isDeliverable: true,
-          AND: [
-            { email: { not: null } },
-            { email: { not: "" } },
-          ],
-          id: { notIn: Array.from(existingAgentIds) },
-        },
-        take: requiredCredits,
-        select: { id: true },
-      });
+        const leadCount = agents.length;
+        const creditsToDeduct = leadCount * CREDITS_PER_LEAD;
 
-      if (availableAgents.length === 0) {
-        return NextResponse.json(
-          { error: "No new leads available for selected states" },
-          { status: 400 },
-        );
-      }
+        // Atomic conditional debit: the balance check and decrement happen in one
+        // UPDATE, so concurrent orders can never take the balance below zero.
+        const debit = await tx.user.updateMany({
+          where: { id: userId, credits: { gte: creditsToDeduct } },
+          data: { credits: { decrement: creditsToDeduct } },
+        });
+        if (debit.count === 0) {
+          const latest = await tx.user.findUnique({ where: { id: userId }, select: { credits: true } });
+          throw new OrderError(402, {
+            error: "INSUFFICIENT_CREDITS",
+            required: creditsToDeduct,
+            current: latest?.credits ?? 0,
+          });
+        }
 
-      const finalQuantity = availableAgents.length;
-      const newCredits = user.credits - finalQuantity;
+        const { credits: remainingCredits } = await tx.user.findUniqueOrThrow({
+          where: { id: userId },
+          select: { credits: true },
+        });
 
-      await tx.user.update({
-        where: { id: session.user.id },
-        data: { credits: newCredits },
-      });
+        const purchase = await tx.leadPurchase.create({
+          data: {
+            userId,
+            // amountPaid is a USD amount everywhere (revenue KPIs, refunds, UI), so store
+            // the monetary value of the credits spent at the standard per-lead rate.
+            amountPaid: new Prisma.Decimal(calculateLeadPrice(leadCount)),
+            leadCount,
+            unlockedStates: states,
+            status: "COMPLETED",
+            referenceId: generateOrderRef(),
+          },
+        });
 
-      const purchase = await tx.leadPurchase.create({
-        data: {
-          userId: session.user.id,
-          amountPaid: finalQuantity,
-          leadCount: finalQuantity,
-          unlockedStates: states,
-          status: "COMPLETED",
-          referenceId: generateOrderRef(),
-        },
-      });
+        await tx.walletTransaction.create({
+          data: {
+            userId,
+            type: "PURCHASE",
+            amount: -creditsToDeduct,
+            balanceAfter: remainingCredits,
+            referenceId: generateTxnRef(),
+            description: `Lead purchase: ${leadCount} leads`,
+            status: "COMPLETED",
+            metadata: { purchaseId: purchase.id, leadCount, creditsSpent: creditsToDeduct },
+          },
+        });
 
-      const walletTransaction = await tx.walletTransaction.create({
-        data: {
-          userId: session.user.id,
-          type: "PURCHASE",
-          amount: -finalQuantity,
-          balanceAfter: newCredits,
-          referenceId: generateTxnRef(),
-          description: `Lead purchase: ${finalQuantity} leads`,
-          status: "COMPLETED",
-          metadata: { purchaseId: purchase.id, leadCount: finalQuantity },
-        },
-      });
+        // Unique (userId, agentId): if a concurrent order unlocked the same lead, this
+        // throws P2002 and the whole transaction (including the debit) rolls back.
+        await tx.unlockedLead.createMany({
+          data: agents.map((agent) => ({ userId, agentId: agent.id, purchaseId: purchase.id })),
+        });
 
-      const unlockedLeadsData = availableAgents.map((agent) => ({
-        userId: session.user.id,
-        agentId: agent.id,
-        purchaseId: purchase.id,
-      }));
-
-      await tx.unlockedLead.createMany({
-        data: unlockedLeadsData,
-      });
-
-      return NextResponse.json({
-        success: true,
-        orderId: purchase.id,
-        unlockedCount: finalQuantity,
-        creditsDeducted: finalQuantity,
-        remainingCredits: newCredits,
-      });
-    });
-
-    return result;
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Failed to process lead purchase";
-    console.error("[PURCHASE_ORDER_ERROR]:", err);
-    return NextResponse.json(
-      { error: message },
-      { status: 500 },
+        return {
+          orderId: purchase.id,
+          unlockedCount: leadCount,
+          creditsDeducted: creditsToDeduct,
+          remainingCredits,
+        };
+      },
+      { maxWait: 10_000, timeout: 30_000 },
     );
+
+    return NextResponse.json({ success: true, ...result });
+  } catch (err: unknown) {
+    if (err instanceof OrderError) {
+      return NextResponse.json(err.body, { status: err.status });
+    }
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return NextResponse.json(
+        { error: "Another order is in progress for these leads. Please try again." },
+        { status: 409 },
+      );
+    }
+    console.error("[PURCHASE_ORDER_ERROR]:", err);
+    return NextResponse.json({ error: "Failed to process lead purchase" }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
 export { auth, signIn, signOut, handlers } from "./auth";
+export { getAuthSecret, assertAuthEnv } from "./env";
 
 export { hashPassword, verifyPassword } from "./password";
 export * from "./password";

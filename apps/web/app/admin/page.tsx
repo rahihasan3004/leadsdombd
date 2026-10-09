@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import { getAdminAnalytics } from "@/lib/admin/analytics-service";
+import { requireAdmin } from "@/lib/admin-guard";
 import {
   Card,
   CardContent,
@@ -77,6 +78,8 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default async function AdminPage() {
+  // Guard here too: layouts are not re-run for every segment request.
+  await requireAdmin();
   const analytics = await getAdminAnalytics();
 
   const {
