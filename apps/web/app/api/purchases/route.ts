@@ -86,6 +86,8 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const purchaseId = searchParams.get("purchaseId") || undefined;
+    // view=orders: the Leads Vault order list only needs purchases, not every unlocked lead.
+    const ordersOnly = searchParams.get("view") === "orders";
     const page = Math.max(
       DEFAULT_PAGE,
       parseInt(searchParams.get("page") || String(DEFAULT_PAGE), 10)
@@ -231,6 +233,7 @@ export async function GET(request: Request) {
 
     const unlockedLeads = await db.unlockedLead.findMany({
       where: { userId: session.user.id },
+      ...(ordersOnly ? { take: 0 } : {}),
       include: {
         agent: {
           select: {

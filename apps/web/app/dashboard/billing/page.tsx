@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import VolumePricingSlider from "@/components/dashboard/billing/volume-pricing-slider";
@@ -17,7 +18,34 @@ interface WalletData {
     balanceAfter?: number | null;
     status: string;
     createdAt: string;
+    /** LD-ORD-... for lead purchases, otherwise a short LD-TXN-... reference. */
+    displayRef?: string;
+    orderRef?: string | null;
   }>;
+}
+
+type LedgerTx = WalletData["transactions"][number];
+
+/** Human-readable reference; lead purchases link to the matching order in Leads Vault. */
+function TxRef({ tx }: { tx: LedgerTx }) {
+  const ref = tx.displayRef || `LD-TXN-${tx.id.slice(-8).toUpperCase()}`;
+  const base = "block max-w-full truncate whitespace-nowrap font-mono text-xs sm:text-sm tracking-tight";
+  if (tx.orderRef) {
+    return (
+      <Link
+        href={`/dashboard/lists?order=${encodeURIComponent(tx.orderRef)}`}
+        title="View this order in Leads Vault"
+        className={`${base} text-blue-600 hover:text-blue-700 hover:underline`}
+      >
+        {ref}
+      </Link>
+    );
+  }
+  return (
+    <span className={`${base} text-slate-900`} title={ref}>
+      {ref}
+    </span>
+  );
 }
 
 export default function BillingPage() {
@@ -303,7 +331,7 @@ export default function BillingPage() {
                   <li key={tx.id} className="py-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-sm text-slate-900 break-all">{tx.id}</p>
+                        <TxRef tx={tx} />
                         <p className="mt-0.5 text-xs text-slate-400">
                           {formatDate(tx.createdAt)} · {getTypeLabel(tx.type)}
                         </p>
@@ -330,7 +358,7 @@ export default function BillingPage() {
             <table className="w-full text-left text-sm min-w-[600px]">
               <thead className="border-b border-slate-100 text-xs font-normal text-slate-400 uppercase">
                 <tr className="h-8">
-                  <th className="py-2 px-4 font-medium">Transaction ID & Date</th>
+                  <th className="py-2 px-4 font-medium">Reference & Date</th>
                   <th className="py-2 px-4 font-medium">Type</th>
                   <th className="py-2 px-4 font-medium">Description</th>
                   <th className="py-2 px-4 font-medium text-right">Amount</th>
@@ -346,9 +374,7 @@ export default function BillingPage() {
                   return (
                      <tr key={tx.id} className="h-11 hover:bg-slate-50/70 text-xs transition-colors">
                     <td className="py-2 px-4 whitespace-nowrap">
-                      <div className="text-xs font-sans font-normal text-sm text-slate-900">
-                        {tx.id}
-                      </div>
+                      <TxRef tx={tx} />
                       <div className="text-xs text-slate-400 mt-0.5">
                         {formatDate(tx.createdAt)}
                       </div>

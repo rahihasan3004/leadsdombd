@@ -107,24 +107,26 @@ export default function ListsPage() {
   useEffect(() => {
     const fetchPurchases = async () => {
       try {
-        const t0 = performance.now();
-        const res = await fetch("/api/purchases");
-        const t1 = performance.now();
-        console.log(`[LATENCY][client /api/purchases] fetch+parse: ${(t1 - t0).toFixed(2)}ms`);
-        if (res.ok) {
+        // /api/purchases is paginated (20 per page by default), so walk every page.
+        const raw: Record<string, unknown>[] = [];
+        for (let page = 1; page <= 50; page++) {
+          const res = await fetch(`/api/purchases?view=orders&page=${page}&limit=100`);
+          if (!res.ok) break;
           const data = await res.json();
-          const mapped: Purchase[] = (data.purchases || []).map((p: Record<string, unknown>) => ({
-            id: p.id as string,
-            referenceId: p.referenceId as string,
-            state: p.state as string | null,
-            unlockedStates: (p.unlockedStates as string[]) || [],
-            amountPaid: Number(p.amountPaid) || 0,
-            status: p.status as string,
-            createdAt: p.createdAt as string,
-            quantity: Number(p.quantity) || 0,
-          }));
-          setPurchases(mapped);
+          raw.push(...((data.purchases as Record<string, unknown>[] | undefined) ?? []));
+          if (!data.pagination?.hasMore) break;
         }
+        const mapped: Purchase[] = raw.map((p) => ({
+          id: p.id as string,
+          referenceId: p.referenceId as string,
+          state: p.state as string | null,
+          unlockedStates: (p.unlockedStates as string[]) || [],
+          amountPaid: Number(p.amountPaid) || 0,
+          status: p.status as string,
+          createdAt: p.createdAt as string,
+          quantity: Number(p.quantity) || 0,
+        }));
+        setPurchases(mapped);
       } catch {
         // handle error silently, show empty state
       } finally {
@@ -132,6 +134,12 @@ export default function ListsPage() {
       }
     };
     fetchPurchases();
+  }, []);
+
+  // Deep link from Billing: /dashboard/lists?order=LD-ORD-XXXX pre-fills the order search.
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get("order");
+    if (ref) setOrderSearch(ref);
   }, []);
 
   useEffect(() => {
@@ -642,8 +650,8 @@ export default function ListsPage() {
   }
 
   return (
-    <div className="-mx-4 min-h-0 h-auto bg-white px-4 pt-4 pb-6 md:mx-0 md:mt-0 md:min-h-0 md:bg-transparent md:p-0 overflow-hidden flex flex-col">
-      <div className="bg-transparent rounded-none md:bg-white md:rounded-2xl p-0 md:p-6 lg:p-8 flex flex-col h-[calc(100dvh-10.5rem)] md:h-[calc(100dvh-7rem)] lg:h-[calc(100dvh-3.5rem)] overflow-hidden justify-between">
+    <div className="-mx-4 min-h-0 h-auto bg-white px-4 pt-4 pb-20 md:mx-0 md:mt-0 md:min-h-0 md:bg-transparent md:p-0 overflow-x-clip md:overflow-hidden flex flex-col">
+      <div className="bg-transparent rounded-none md:bg-white md:rounded-2xl p-0 md:p-6 lg:p-8 flex flex-col md:h-[calc(100dvh-7rem)] lg:h-[calc(100dvh-3.5rem)] md:overflow-hidden justify-between">
         <div className="shrink-0">
           <div className="flex items-center justify-between">
             <div>
@@ -676,8 +684,8 @@ export default function ListsPage() {
           </div>
         </div>
 
-        <div className="w-full flex-1 overflow-hidden my-2">
-          <div className="md:hidden w-full overflow-y-auto no-scrollbar">
+        <div className="w-full flex-1 min-h-0 md:overflow-hidden my-2">
+          <div className="md:hidden w-full">
             <div className="w-full bg-white divide-y divide-slate-100 border-t border-b border-slate-100 my-2">
               {paginatedPurchases.length === 0 ? (
                 <div className="py-8 text-center text-sm text-slate-400">No orders match your search.</div>
@@ -748,7 +756,7 @@ export default function ListsPage() {
               )}
             </div>
           </div>
-          <div className="hidden md:block">
+          <div className="hidden md:block h-full overflow-y-auto no-scrollbar">
             <div className="w-full overflow-x-auto no-scrollbar">
             <table className="w-full text-left text-sm min-w-[600px]">
               <thead className="border-b border-slate-100 text-xs font-normal text-slate-400 uppercase tracking-wider">
