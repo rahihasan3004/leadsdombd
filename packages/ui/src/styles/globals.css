@@ -132,3 +132,34 @@ html.dark {
 .dark .recharts-text {
   fill: #A1A1AA;
 }
+
+/* Dashboard owns the viewport; do not lock public/marketing routes. The rule
+   disappears automatically on client navigation when the shell unmounts. */
+@layer base {
+  html:has([data-dashboard-shell]),
+  html:has([data-dashboard-shell]) body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Keep the main area's native scrollbar; nested tables/drawers still scroll
+     with mouse, touch and keyboard, but cannot display a redundant scrollbar. */
+  [data-dashboard-shell] :where(.overflow-auto, .overflow-x-auto, .overflow-y-auto):not([data-dashboard-scroll]) {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  [data-dashboard-shell] :where(.overflow-auto, .overflow-x-auto, .overflow-y-auto):not([data-dashboard-scroll])::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Tailwind v4 utility: existing no-scrollbar classes previously had no definition. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

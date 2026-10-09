@@ -45,9 +45,9 @@ export default function DashboardLayout({
   };
 
   return (
-    <div className="h-dvh max-h-dvh w-full flex overflow-hidden bg-surface-50 dark:bg-surface-950">
+    <div data-dashboard-shell className="h-dvh max-h-dvh min-h-0 w-full flex overflow-hidden bg-slate-50 dark:bg-slate-950">
       <Sidebar user={user} mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
-      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col h-full min-h-0 min-w-0 overflow-hidden">
         {/* Mobile header: fixed to the viewport, outside the scroll container, so nothing can scroll it away. */}
         <header className="fixed top-0 left-0 right-0 w-full h-14 z-[80] bg-white/95 backdrop-blur-md border-b border-slate-200/80 flex items-center px-4 lg:hidden">
           <Button
@@ -61,11 +61,14 @@ export default function DashboardLayout({
           <span className="ml-3 font-semibold text-sm text-neutral-900">Dashboard</span>
         </header>
         <main
-          className={`flex-1 overflow-y-auto overscroll-y-contain pt-14 lg:pt-0 ${
+          data-dashboard-scroll
+          tabIndex={0}
+          aria-label="Dashboard content"
+          className={`relative h-full min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pt-14 lg:pt-0 ${
             whiteOnMobile ? "bg-white md:bg-slate-50" : "bg-slate-50"
           }`}
         >
-          <div className="px-4 pt-4 pb-14 md:px-8 md:pt-6 md:pb-8">{children}</div>
+          <div className="min-h-full px-4 pt-4 pb-12 md:px-8 md:pt-6">{children}</div>
         </main>
       </div>
     </div>
