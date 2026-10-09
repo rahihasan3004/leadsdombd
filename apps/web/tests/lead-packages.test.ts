@@ -140,13 +140,15 @@ describe("lead package UI", () => {
       expect(selectedInput).toContain('checked=""');
       expect(html).toContain("Recommended");
       if (tier === "PHONE_ONLY") {
-        expect(html).toContain("Included Phone &amp; Business Data (No Email)");
+        expect(html).toContain("PHONE &amp; DIRECT DIALS (NO EMAIL)");
         expect(html).toContain("Not included");
         expect(html).not.toContain(
-          "Included Data Guarantee (17 Verified Fields)",
+          "17 GUARANTEED FIELDS + 100% SMTP DELIVERABLE EMAIL",
         );
       } else {
-        expect(html).toContain("Included Data Guarantee (17 Verified Fields)");
+        expect(html).toContain(
+          "17 GUARANTEED FIELDS + 100% SMTP DELIVERABLE EMAIL",
+        );
         expect(html).toContain("100% Deliverable");
       }
     },
@@ -179,6 +181,86 @@ describe("lead package UI", () => {
         tier,
       });
       expect(controls.push).toHaveBeenCalledWith("/dashboard/lists");
+    },
+  );
+});
+
+describe("lead package border and enriched checklist regressions", () => {
+  it.each(["PHONE_ONLY", "VERIFIED_EMAIL"] as const)(
+    "renders %s with exactly one selected-card border",
+    (tier) => {
+      controls.tier = tier;
+      const html = renderToStaticMarkup(createElement(LeadOrderEngine));
+      const cards = (html.match(/<label[^>]*>[\s\S]*?<\/label>/g) ?? []).filter(
+        (card) => card.includes('name="lead-package"'),
+      );
+      expect(cards).toHaveLength(2);
+      for (const card of cards) {
+        const classes =
+          card.match(/^<label[^>]*class="([^"]*)"/)?.[1].split(/\s+/) ?? [];
+        expect(
+          classes.some(
+            (name) => name.includes("ring-") || name.includes("outline-"),
+          ),
+        ).toBe(false);
+        if (card.includes(`value="${tier}"`)) {
+          expect(classes).toEqual(
+            expect.arrayContaining([
+              "border-2",
+              "border-blue-600",
+              "bg-blue-50/20",
+              "shadow-sm",
+              "p-[15px]",
+            ]),
+          );
+          expect(classes).not.toContain("border");
+        } else {
+          expect(classes).toEqual(
+            expect.arrayContaining(["border", "border-slate-200", "p-4"]),
+          );
+          expect(classes).not.toContain("border-2");
+        }
+      }
+    },
+  );
+
+  it.each(["PHONE_ONLY", "VERIFIED_EMAIL"] as const)(
+    "keeps %s core fields and labels every bonus as optional",
+    (tier) => {
+      controls.tier = tier;
+      const html = renderToStaticMarkup(createElement(LeadOrderEngine));
+      const section = html.match(
+        new RegExp(
+          `<section[^>]*data-lead-tier="${tier}"[^>]*>[\\s\\S]*?</section>`,
+        ),
+      )?.[0];
+      expect(section).toBeDefined();
+      const core =
+        section!.match(
+          /<ul[^>]*aria-label="Core included fields"[^>]*>([\s\S]*?)<\/ul>/,
+        )?.[1] ?? "";
+      expect(core.match(/<li[ >]/g)).toHaveLength(
+        tier === "VERIFIED_EMAIL" ? 17 : 16,
+      );
+      expect(core).toContain("Company Name");
+      expect(core).toContain("Direct Phone Number");
+      expect(core).toContain("Live Google Maps Link");
+      if (tier === "PHONE_ONLY") expect(core).not.toContain("Email");
+      else expect(core).toContain("100% SMTP Deliverable Email");
+      const bonus =
+        section!.match(
+          /<ul[^>]*aria-label="Optional bonus profiles"[^>]*>([\s\S]*?)<\/ul>/,
+        )?.[1] ?? "";
+      expect(bonus.match(/<li[ >]/g)).toHaveLength(5);
+      for (const label of [
+        "LinkedIn Profile (if available)",
+        "Facebook Page (if available)",
+        "Instagram (if available)",
+        "WhatsApp Contact (if available)",
+        "Twitter / X (if available)",
+      ]) {
+        expect(bonus).toContain(label);
+      }
     },
   );
 });

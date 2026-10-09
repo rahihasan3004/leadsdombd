@@ -27,7 +27,7 @@ const DATA_GUARANTEES = [
   "Zip Code",
   "Timezone",
   "Website",
-  "100% Deliverable Email",
+  "100% SMTP Deliverable Email",
   "Google Place ID",
   "Data Source",
   "Brokerage Name",
@@ -35,6 +35,14 @@ const DATA_GUARANTEES = [
   "Star Rating",
   "Scraped Timestamp",
   "Live Google Maps Link",
+] as const;
+
+const BONUS_DIGITAL_PROFILES = [
+  "LinkedIn Profile (if available)",
+  "Facebook Page (if available)",
+  "Instagram (if available)",
+  "WhatsApp Contact (if available)",
+  "Twitter / X (if available)",
 ] as const;
 
 export function LeadOrderEngine() {
@@ -346,7 +354,7 @@ function SectionLeadPackage({
           return (
             <label
               key={pack.tier}
-              className={`relative flex min-w-0 cursor-pointer flex-col gap-3 rounded-xl border p-4 transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${selected ? "border-blue-600 bg-blue-50/60" : "border-slate-200 bg-white hover:border-blue-300"}`}
+              className={`relative flex min-w-0 cursor-pointer flex-col gap-3 rounded-xl transition-colors ${selected ? "border-2 border-blue-600 bg-blue-50/20 shadow-sm p-[15px]" : "border border-slate-200 bg-white hover:border-blue-300 p-4"}`}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-semibold text-blue-700">
@@ -602,25 +610,60 @@ function SectionGuarantee({ tier }: { tier: LeadTier }) {
   const fields =
     tier === "VERIFIED_EMAIL"
       ? DATA_GUARANTEES
-      : DATA_GUARANTEES.filter((field) => field !== "100% Deliverable Email");
+      : DATA_GUARANTEES.filter(
+          (field) => field !== "100% SMTP Deliverable Email",
+        );
+  const headingId = `included-data-${tier.toLowerCase()}`;
   return (
-    <div className="space-y-3">
-      <span className="text-xs font-bold tracking-wider text-slate-400 uppercase block mb-3">
+    <section
+      data-lead-tier={tier}
+      aria-labelledby={headingId}
+      className="space-y-3"
+    >
+      <h3
+        id={headingId}
+        className="text-xs font-bold tracking-wider text-slate-400 uppercase leading-relaxed"
+      >
         {tier === "VERIFIED_EMAIL"
-          ? "Included Data Guarantee (17 Verified Fields)"
-          : "Included Phone & Business Data (No Email)"}
-      </span>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2.5 text-xs text-slate-600">
+          ? "17 GUARANTEED FIELDS + 100% SMTP DELIVERABLE EMAIL"
+          : "PHONE & DIRECT DIALS (NO EMAIL)"}
+      </h3>
+      <ul
+        aria-label="Core included fields"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2.5 text-xs text-slate-600"
+      >
         {fields.map((item) => (
-          <div
+          <li
             key={item}
-            className="flex items-center gap-2.5 text-xs text-slate-600"
+            className="flex items-start gap-2.5 text-xs text-slate-600"
           >
-            <Check className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-            {item}
-          </div>
+            <Check
+              aria-hidden="true"
+              className="mt-0.5 h-3.5 w-3.5 text-emerald-500 flex-shrink-0"
+            />
+            <span>{item}</span>
+          </li>
         ))}
+      </ul>
+      <div className="space-y-2.5 border-t border-slate-100 pt-3">
+        <h4 className="text-xs font-semibold text-slate-500">
+          Bonus Enriched Profiles
+        </h4>
+        <ul
+          aria-label="Optional bonus profiles"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2.5 text-xs text-slate-600"
+        >
+          {BONUS_DIGITAL_PROFILES.map((item) => (
+            <li key={item} className="flex items-start gap-2.5">
+              <Check
+                aria-hidden="true"
+                className="mt-0.5 h-3.5 w-3.5 text-emerald-500 flex-shrink-0"
+              />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
       </div>
-    </div>
+    </section>
   );
 }
