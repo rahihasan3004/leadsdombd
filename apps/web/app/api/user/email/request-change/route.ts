@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
-import { checkRateLimit } from "@fine-leads/utils";
+import { checkRateLimit } from "@fine-leads/utils/rate-limit";
 import { sendEmailChangeOtpEmail } from "@/lib/email";
 import { generateOtp, otpIdentifiers, storeOtp } from "@/lib/otp";
 
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     }
     const userId = session.user.id;
 
-    const { allowed } = checkRateLimit(`email-change-request:${userId}`, 3, 15 * 60 * 1000);
+    const { allowed } = await checkRateLimit(`email-change-request:${userId}`, 3, 15 * 60 * 1000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests. Please try again in 15 minutes." }, { status: 429 });
     }

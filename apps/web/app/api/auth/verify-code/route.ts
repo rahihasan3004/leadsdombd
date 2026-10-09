@@ -19,13 +19,13 @@ export async function POST(request: Request) {
 
     const email = normalizeEmail(parsed.data.email);
     const limited =
-      rateLimitOrNull(`verify-code:ip:${getClientIp(request)}`, 20, 15 * 60 * 1000) ??
-      rateLimitOrNull(
+      (await rateLimitOrNull(`verify-code:ip:${getClientIp(request)}`, 20, 15 * 60 * 1000)) ??
+      (await rateLimitOrNull(
         `verify-code:${email}`,
         10,
         15 * 60 * 1000,
         "Too many attempts. Please request a new code or try again in 15 minutes."
-      );
+      ));
     if (limited) return limited;
 
     const identifier = otpIdentifiers.signup(email);

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
-import { checkRateLimit } from "@fine-leads/utils";
+import { checkRateLimit } from "@fine-leads/utils/rate-limit";
 import { sendAccountDeletionOtpEmail } from "@/lib/email";
 import { generateOtp, otpIdentifiers, storeOtp } from "@/lib/otp";
 
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Confirmation text must be DELETE" }, { status: 400 });
     }
 
-    const { allowed } = checkRateLimit(`delete-account-otp:${userId}`, 3, 15 * 60 * 1000);
+    const { allowed } = await checkRateLimit(`delete-account-otp:${userId}`, 3, 15 * 60 * 1000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests. Please try again in 15 minutes." }, { status: 429 });
     }

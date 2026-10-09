@@ -13,7 +13,7 @@ const resendCodeSchema = z.object({
 const GENERIC_OK = { success: true, message: "If the account exists and is unverified, a new code has been sent." };
 
 export async function POST(request: Request) {
-  const limited = rateLimitOrNull(`resend-code:${getClientIp(request)}`, 3, 15 * 60 * 1000);
+  const limited = await rateLimitOrNull(`resend-code:${getClientIp(request)}`, 3, 15 * 60 * 1000);
   if (limited) return limited;
 
   try {
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     }
 
     const email = normalizeEmail(parsed.data.email);
-    const emailLimited = rateLimitOrNull(`resend-code:email:${email}`, 3, 15 * 60 * 1000);
+    const emailLimited = await rateLimitOrNull(`resend-code:email:${email}`, 3, 15 * 60 * 1000);
     if (emailLimited) return emailLimited;
 
     const user = await db.user.findUnique({ where: { email }, select: { emailVerified: true } });

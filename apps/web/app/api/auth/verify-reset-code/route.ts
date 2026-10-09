@@ -11,7 +11,7 @@ const verifyResetCodeSchema = z.object({
 
 /** Pre-checks a reset code (UI step). Counts failed attempts; the code is consumed only by reset-password. */
 export async function POST(request: Request) {
-  const limited = rateLimitOrNull(`verify-reset-code:${getClientIp(request)}`, 10, 15 * 60 * 1000);
+  const limited = await rateLimitOrNull(`verify-reset-code:${getClientIp(request)}`, 10, 15 * 60 * 1000);
   if (limited) return limited;
 
   try {

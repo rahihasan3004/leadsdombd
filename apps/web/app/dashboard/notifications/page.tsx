@@ -1,15 +1,19 @@
+import { Bell } from "lucide-react";
+import { ComingSoon } from "@/components/dashboard/coming-soon";
+
 export default function NotificationsPage() {
   return (
-    <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Notifications</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Your account notifications and alerts.
-        </p>
-      </div>
-      <div className="rounded-2xl border-0 bg-white p-12 text-center shadow-none">
-        <p className="text-slate-400 dark:text-slate-500">No new notifications.</p>
-      </div>
-    </div>
+    <ComingSoon
+      title="Notifications"
+      description="Your account notifications and alerts."
+      icon={Bell}
+      highlights={[
+        "Alerts when your orders are fulfilled and exports are ready",
+        "Low credit balance reminders",
+        "Security notices for sign-ins, password and email changes",
+      ]}
+      note="Until then, important account updates are sent to your email."
+      cta={{ href: "/dashboard/settings", label: "Account settings" }}
+    />
   );
 }

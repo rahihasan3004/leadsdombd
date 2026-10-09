@@ -11,7 +11,7 @@ const forgotPasswordSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const limited = rateLimitOrNull(`forgot-password:${getClientIp(request)}`, 5, 15 * 60 * 1000);
+  const limited = await rateLimitOrNull(`forgot-password:${getClientIp(request)}`, 5, 15 * 60 * 1000);
   if (limited) return limited;
 
   try {
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     }
 
     const email = normalizeEmail(parsed.data.email);
-    const emailLimited = rateLimitOrNull(`forgot-password:email:${email}`, 3, 15 * 60 * 1000);
+    const emailLimited = await rateLimitOrNull(`forgot-password:email:${email}`, 3, 15 * 60 * 1000);
     if (emailLimited) return emailLimited;
 
     const user = await db.user.findUnique({ where: { email }, select: { id: true } });

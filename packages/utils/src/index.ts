@@ -157,5 +157,6 @@ export function calculateUpgradePrice(
   return { canUpgrade: true, upgradePrice: Math.round(upgradePrice * 100) / 100 };
 }
 
-export { checkRateLimit, createRateLimiter, getClientIp, type RateLimitOptions, type RateLimitResult } from "./rate-limit";
+// Rate limiting is server-only: import it from "@fine-leads/utils/rate-limit".
+export { getClientIp } from "./client-ip";
 export { generateOrderRef, generateTxnRef } from "./order-ref";

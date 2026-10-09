@@ -1,15 +1,19 @@
+import { Gift } from "lucide-react";
+import { ComingSoon } from "@/components/dashboard/coming-soon";
+
 export default function ReferralPage() {
   return (
-    <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Referral Program</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Earn 10% commission on every referred customer.
-        </p>
-      </div>
-      <div className="rounded-2xl border-0 bg-white p-12 text-center shadow-none">
-        <p className="text-slate-400 dark:text-slate-500">Referral program details coming soon.</p>
-      </div>
-    </div>
+    <ComingSoon
+      title="Referral Program"
+      description="Invite colleagues to LeadsDom and get rewarded."
+      icon={Gift}
+      highlights={[
+        "A personal referral link to share with your network",
+        "Commission on purchases made by customers you refer",
+        "A dashboard to track sign-ups and earnings",
+      ]}
+      note="Interested in early access? Let our team know."
+      cta={{ href: "/dashboard/support", label: "Contact support" }}
+    />
   );
 }

@@ -1,15 +1,19 @@
+import { ShieldCheck } from "lucide-react";
+import { ComingSoon } from "@/components/dashboard/coming-soon";
+
 export default function ValidationsPage() {
   return (
-    <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Validations</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Email and phone verification results for your leads.
-        </p>
-      </div>
-      <div className="rounded-2xl border-0 bg-white p-12 text-center shadow-none">
-        <p className="text-slate-400 dark:text-slate-500">No validations run yet. Purchase a state pack to verify leads.</p>
-      </div>
-    </div>
+    <ComingSoon
+      title="Validations"
+      description="Email and phone verification results for your leads."
+      icon={ShieldCheck}
+      highlights={[
+        "Per-lead verification details for email and phone",
+        "On-demand re-validation of previously unlocked lists",
+        "Deliverability trends across your territories",
+      ]}
+      note="Every lead you unlock is already email-verified before delivery."
+      cta={{ href: "/dashboard/lists", label: "View my verified leads" }}
+    />
   );
 }

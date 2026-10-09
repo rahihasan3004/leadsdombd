@@ -16,7 +16,7 @@ const signupSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const limited = rateLimitOrNull(
+  const limited = await rateLimitOrNull(
     `signup:${getClientIp(request)}`,
     5,
     15 * 60 * 1000,

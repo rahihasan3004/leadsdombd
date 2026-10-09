@@ -13,7 +13,7 @@ const resetPasswordSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const limited = rateLimitOrNull(`reset-password:${getClientIp(request)}`, 5, 15 * 60 * 1000);
+  const limited = await rateLimitOrNull(`reset-password:${getClientIp(request)}`, 5, 15 * 60 * 1000);
   if (limited) return limited;
 
   try {

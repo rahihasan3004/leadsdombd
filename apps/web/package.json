@@ -18,10 +18,8 @@
     "@fine-leads/ui": "workspace:*",
     "@fine-leads/utils": "workspace:*",
     "@hookform/resolvers": "^3.9.1",
-    "@lemonsqueezy/lemonsqueezy.js": "^4.0.0",
     "@sentry/nextjs": "^8.47.0",
     "@tanstack/react-query": "^5.62.8",
-    "@tanstack/react-table": "^8.20.6",
     "bcryptjs": "^2.4.3",
     "lucide-react": "^0.468.0",
     "next": "^15.1.0",
@@ -33,7 +31,6 @@
     "recharts": "^2.15.0",
     "resend": "^4.0.0",
     "sonner": "^1.7.1",
-    "xlsx": "^0.18.5",
     "zod": "^3.24.1"
   },
   "devDependencies": {

@@ -24,8 +24,5 @@
     "eslint-plugin-turbo": "^2.3.3",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.70.0"
-  },
-  "dependencies": {
-    "@lemonsqueezy/lemonsqueezy.js": "^4.0.0"
   }
 }
