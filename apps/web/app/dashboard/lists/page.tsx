@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@fine-leads/ui";
 import { BrandedLoader } from "@/components/ui/branded-loader";
+import { DashboardPagination } from "@/components/ui/dashboard-pagination";
 import {
   AgentDetailModal,
   type AgentData,
@@ -483,27 +484,12 @@ export default function ListsPage() {
                           <span className="font-medium text-slate-900 tabular-nums">{filteredLeads.length}</span>{" "}
                           agents
                         </p>
-                        <nav aria-label="Leads pagination" className="flex items-center justify-between gap-3">
-                          <button
-                            type="button"
-                            disabled={leadPage === 0}
-                            onClick={() => setLeadPage((p) => Math.max(0, p - 1))}
-                            className="h-10 px-4 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            Previous
-                          </button>
-                          <span className="text-xs font-medium text-slate-500 tabular-nums">
-                            Page {leadPage + 1} of {totalLeadPages}
-                          </span>
-                          <button
-                            type="button"
-                            disabled={leadPage >= totalLeadPages - 1}
-                            onClick={() => setLeadPage((p) => p + 1)}
-                            className="h-10 px-4 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            Next
-                          </button>
-                        </nav>
+                        <DashboardPagination
+                          label="Leads pagination"
+                          currentPage={leadPage + 1}
+                          totalPages={totalLeadPages}
+                          onPageChange={(page) => setLeadPage(page - 1)}
+                        />
                       </div>
                     )}
                   </div>
@@ -601,7 +587,7 @@ export default function ListsPage() {
               )}
             </div>
 
-            <div className="hidden md:flex shrink-0 flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 mt-2 border-t border-slate-100">
+            <div className="hidden md:flex shrink-0 flex-col lg:flex-row items-center lg:justify-between gap-4 pt-4 mt-2 border-t border-slate-100">
               <p className="text-sm text-slate-500">
                 Showing{" "}
                 <span className="font-medium text-slate-900 tabular-nums">{leadShowingFrom}</span>&ndash;<span className="font-medium text-slate-900 tabular-nums">{leadShowingTo}</span>{" "}
@@ -609,39 +595,12 @@ export default function ListsPage() {
                 <span className="font-medium text-slate-900 tabular-nums">{filteredLeads.length}</span>{" "}
                 agents
               </p>
-              <nav aria-label="Leads pagination" className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  disabled={leadPage === 0}
-                  onClick={() => setLeadPage((p) => Math.max(0, p - 1))}
-                  className="h-9 px-3.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Previous
-                </button>
-                {Array.from({ length: totalLeadPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    type="button"
-                    onClick={() => setLeadPage(page - 1)}
-                    aria-current={leadPage === page - 1 ? "page" : undefined}
-                    className={`h-9 min-w-9 px-2 rounded-lg border text-xs font-medium tabular-nums transition-colors ${
-                      leadPage === page - 1
-                        ? "border-blue-600 bg-blue-600 text-white"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  disabled={leadPage >= totalLeadPages - 1}
-                  onClick={() => setLeadPage((p) => p + 1)}
-                  className="h-9 px-3.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Next
-                </button>
-              </nav>
+              <DashboardPagination
+                label="Leads pagination"
+                currentPage={leadPage + 1}
+                totalPages={totalLeadPages}
+                onPageChange={(page) => setLeadPage(page - 1)}
+              />
             </div>
           </div>
         </div>
@@ -748,27 +707,12 @@ export default function ListsPage() {
                     <span className="font-medium text-slate-900 tabular-nums">{totalOrders}</span>{" "}
                     orders
                   </p>
-                  <nav aria-label="Orders pagination" className="flex items-center justify-between gap-3">
-                    <button
-                      type="button"
-                      disabled={orderPage === 0}
-                      onClick={() => setOrderPage((p) => Math.max(0, p - 1))}
-                      className="h-10 px-4 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Previous
-                    </button>
-                    <span className="text-xs font-medium text-slate-500 tabular-nums">
-                      Page {orderPage + 1} of {totalOrderPages}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={orderPage >= totalOrderPages - 1}
-                      onClick={() => setOrderPage((p) => p + 1)}
-                      className="h-10 px-4 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Next
-                    </button>
-                  </nav>
+                  <DashboardPagination
+                    label="Orders pagination"
+                    currentPage={orderPage + 1}
+                    totalPages={totalOrderPages}
+                    onPageChange={(page) => setOrderPage(page - 1)}
+                  />
                 </div>
               )}
             </div>
@@ -872,7 +816,7 @@ export default function ListsPage() {
           </div>
         </div>
 
-        <div className="hidden md:flex shrink-0 flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 mt-2 border-t border-slate-100">
+        <div className="hidden md:flex shrink-0 flex-col lg:flex-row items-center lg:justify-between gap-4 pt-4 mt-2 border-t border-slate-100">
           <p className="text-sm text-slate-500">
             Showing{" "}
             <span className="font-medium text-slate-900 tabular-nums">{showingFrom}</span>&ndash;<span className="font-medium text-slate-900 tabular-nums">{showingTo}</span>{" "}
@@ -880,39 +824,12 @@ export default function ListsPage() {
             <span className="font-medium text-slate-900 tabular-nums">{totalOrders}</span>{" "}
             orders
           </p>
-          <nav aria-label="Orders pagination" className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              disabled={orderPage === 0}
-              onClick={() => setOrderPage((p) => Math.max(0, p - 1))}
-              className="h-9 px-3.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Previous
-            </button>
-            {Array.from({ length: totalOrderPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                type="button"
-                onClick={() => setOrderPage(page - 1)}
-                aria-current={orderPage === page - 1 ? "page" : undefined}
-                className={`h-9 min-w-9 px-2 rounded-lg border text-xs font-medium tabular-nums transition-colors ${
-                  orderPage === page - 1
-                    ? "border-blue-600 bg-blue-600 text-white"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              type="button"
-              disabled={orderPage >= totalOrderPages - 1}
-              onClick={() => setOrderPage((p) => p + 1)}
-              className="h-9 px-3.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Next
-            </button>
-          </nav>
+          <DashboardPagination
+            label="Orders pagination"
+            currentPage={orderPage + 1}
+            totalPages={totalOrderPages}
+            onPageChange={(page) => setOrderPage(page - 1)}
+          />
         </div>
       </div>
     </div>

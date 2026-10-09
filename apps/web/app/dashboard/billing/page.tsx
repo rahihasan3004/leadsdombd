@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import VolumePricingSlider from "@/components/dashboard/billing/volume-pricing-slider";
 import { VOLUME_PRICING_TIERS, type PricingTier } from "@fine-leads/utils";
 import { BrandedLoader } from "@/components/ui/branded-loader";
+import { DashboardPagination } from "@/components/ui/dashboard-pagination";
 
 interface WalletData {
   credits: number;
@@ -417,7 +418,7 @@ export default function BillingPage() {
         </div>
 
         {/* Bottom: Pagination Bar (Always fixed at bottom of card) */}
-        <div className="shrink-0 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 pb-2 md:pt-3 md:pb-0 text-xs text-slate-500">
+        <div className="shrink-0 border-t border-slate-100 flex flex-col lg:flex-row items-center justify-between gap-3 pt-4 pb-2 md:pt-3 md:pb-0 text-xs text-slate-500">
           <span className="whitespace-nowrap font-medium text-slate-500 md:font-normal">
             Showing{" "}
             <strong className="text-slate-900 tabular-nums font-semibold">
@@ -431,35 +432,12 @@ export default function BillingPage() {
             </strong>{" "}
             transactions
           </span>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="h-10 sm:h-auto px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Previous
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`h-10 min-w-10 sm:h-auto sm:min-w-0 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all duration-200 ${
-                  currentPage === page
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="h-10 sm:h-auto px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Next
-            </button>
-          </div>
+          <DashboardPagination
+            label="Billing pagination"
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
     </div>
