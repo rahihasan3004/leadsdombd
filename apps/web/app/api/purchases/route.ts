@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@fine-leads/auth";
-import { db } from "@fine-leads/database";
+import { db, type Prisma } from "@fine-leads/database";
 import { PRICE_PER_LEAD, LEAD_STATES } from "@fine-leads/utils";
 
 const STATE_NAME_TO_CODE: Record<string, string> = {};
@@ -86,46 +86,6 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const purchaseId = searchParams.get("purchaseId") || undefined;
-    // view=orders: the Leads Vault order list only needs purchases, not every unlocked lead.
-    const ordersOnly = searchParams.get("view") === "orders";
-    const page = Math.max(
-      DEFAULT_PAGE,
-      parseInt(searchParams.get("page") || String(DEFAULT_PAGE), 10)
-    );
-    const rawLimit = parseInt(searchParams.get("limit") || String(DEFAULT_LIMIT), 10);
-    const limit = Math.min(MAX_LIMIT, Math.max(1, rawLimit));
-    const skip = (page - 1) * limit;
-
-    let purchases: any[] = [];
-    let totalPurchases = 0;
-
-    try {
-      purchases = await db.leadPurchase.findMany({
-        where: { userId: session.user.id, status: "COMPLETED" },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-        include: {
-          unlockedLeads: { select: { id: true } },
-        },
-      });
-
-      totalPurchases = await db.leadPurchase.count({
-        where: { userId: session.user.id, status: "COMPLETED" },
-      });
-    } catch (err) {
-      console.error("Purchase fetch error:", err);
-      return NextResponse.json(
-        { error: "Failed to fetch purchases" },
-        { status: 500 },
-      );
-    }
-
-    const mappedPurchases = purchases.map((p) => ({
-      ...p,
-      quantity: p.leadCount ?? p.unlockedLeads?.length ?? 0,
-    }));
-
     if (purchaseId) {
       const purchase = await db.leadPurchase.findFirst({
         where: { id: purchaseId, userId: session.user.id, status: "COMPLETED" },
@@ -192,9 +152,11 @@ export async function GET(request: Request) {
         );
       }
 
+      // Avoid serializing the same full agent records twice.
+      const { unlockedLeads, ...purchaseSummary } = purchase;
       const purchaseWithQuantity = {
-        ...purchase,
-        quantity: purchase.leadCount ?? purchase.unlockedLeads?.length ?? 0,
+        ...purchaseSummary,
+        quantity: purchase.leadCount ?? unlockedLeads.length,
       };
 
       const leads = (purchase.unlockedLeads || [])
@@ -214,105 +176,69 @@ export async function GET(request: Request) {
       });
     }
 
-    if (purchases.length === 0) {
-      return NextResponse.json({
-        purchases: [],
-        leads: [],
-        pagination: {
-          total: 0,
-          pages: 0,
-          currentPage: page,
-          limit,
-        },
-      });
+
+    const page = Number(searchParams.get("page") ?? DEFAULT_PAGE);
+    const rawLimit = Number(searchParams.get("limit") ?? DEFAULT_LIMIT);
+    if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(rawLimit) || rawLimit < 1) {
+      return NextResponse.json({ error: "Invalid pagination" }, { status: 400 });
     }
+    const limit = Math.min(MAX_LIMIT, rawLimit);
+    const skip = (page - 1) * limit;
+    if (!Number.isSafeInteger(skip)) {
+      return NextResponse.json({ error: "Invalid pagination" }, { status: 400 });
+    }
+    const q = (searchParams.get("q") ?? "").trim().slice(0, 100);
+    const matchingStates = LEAD_STATES
+      .filter((state) => state.code.toLowerCase().includes(q.toLowerCase()))
+      .map((state) => state.code);
+    const where: Prisma.LeadPurchaseWhereInput = {
+      userId: session.user.id,
+      status: "COMPLETED",
+      ...(q ? { OR: [
+        { referenceId: { contains: q, mode: "insensitive" } },
+        ...(matchingStates.length ? [{ unlockedStates: { hasSome: matchingStates } }] : []),
+      ] } : {}),
+    };
 
-    const purchasedStates: string[] = purchases.flatMap((p) => p.unlockedStates || []);
-    const uniquePurchasedStates = Array.from(new Set(purchasedStates));
-    const totalAmountPaid = purchases.reduce((sum, p) => sum + Number(p.amountPaid), 0);
-
-    const unlockedLeads = await db.unlockedLead.findMany({
-      where: { userId: session.user.id },
-      ...(ordersOnly ? { take: 0 } : {}),
-      include: {
-        agent: {
-          select: {
-            id: true,
-            fullName: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-            officePhone: true,
-            brokerageName: true,
-            city: true,
-            state: true,
-            zipCode: true,
-            county: true,
-            category: true,
-            rating: true,
-            reviewCount: true,
-            timezone: true,
-            googlePlaceId: true,
-            googleMapsLink: true,
-            scrapedAt: true,
-            verificationScore: true,
-            dataSource: true,
-            photoUrl: true,
-            websiteUrl: true,
-            brokerageAddress: true,
-            licenseNumber: true,
-            licenseState: true,
-            licenseStatus: true,
-            licenseExpiry: true,
-            nmlsId: true,
-            marketArea: true,
-            propertyTypes: true,
-            transactionCount: true,
-            totalVolume: true,
-            averagePrice: true,
-            yearsExperience: true,
-            specializations: true,
-            bio: true,
-            socialProfiles: true,
-            lastVerifiedAt: true,
-            isVerified: true,
-            emailStatus: true,
-            isDeliverable: true,
-            createdAt: true,
-            updatedAt: true,
-          },
+    const [purchases, totalPurchases] = await Promise.all([
+      db.leadPurchase.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          referenceId: true,
+          state: true,
+          unlockedStates: true,
+          amountPaid: true,
+          leadCount: true,
+          status: true,
+          createdAt: true,
+          _count: { select: { unlockedLeads: true } },
         },
-      },
-    });
+      }),
+      db.leadPurchase.count({ where }),
+    ]);
+    const mappedPurchases = purchases.map(({ _count, amountPaid, ...purchase }) => ({
+      ...purchase,
+      amountPaid: Number(amountPaid),
+      quantity: purchase.leadCount ?? _count.unlockedLeads,
+    }));
 
-    const leads = unlockedLeads
-      .map((ul) => ul.agent)
-      .filter((agent): agent is NonNullable<typeof agent> => Boolean(agent));
-
-
+    // Collection requests return order summaries only. Lead details are opt-in via purchaseId.
     return NextResponse.json({
       purchases: mappedPurchases,
-      purchasedStates: uniquePurchasedStates,
-      purchasedCount: uniquePurchasedStates.length,
-      totalAmountPaid,
-      upgradePrice: 0,
-      canUpgrade: false,
-      leads,
-      totalUnlocked: leads.length,
       pagination: {
         page,
         limit,
         total: totalPurchases,
         totalPages: Math.ceil(totalPurchases / limit),
-        hasMore: skip + limit < totalPurchases,
+        hasMore: skip + purchases.length < totalPurchases,
       },
     });
   } catch (error) {
     console.error("Purchase fetch error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch purchases" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to fetch purchases" }, { status: 500 });
   }
 }

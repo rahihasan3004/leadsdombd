@@ -1,5 +1,6 @@
 import { auth } from "@fine-leads/auth";
 import { db } from "@fine-leads/database";
+import { getMonthlyLeadCounts } from "@/lib/lead-aggregates";
 import { DashboardClient } from "./dashboard-client";
 
 interface MonthlyData {
@@ -18,31 +19,31 @@ interface DashboardMetrics {
 }
 
 function getMonthKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 function getMonthLabel(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "short" });
+  return date.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
 }
 
 async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
   const t0 = performance.now();
   const tAuth = performance.now();
+  const now = new Date();
+  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 11, 1));
+  const until = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
   const [
     user,
     totalLeads,
     deliverableUnlockedLeads,
     deliveredFiles,
-    purchases,
+    monthlyCounts,
   ] = await Promise.all([
     db.user.findUnique({ where: { id: userId }, select: { credits: true } }),
     db.unlockedLead.count({ where: { userId } }),
     db.unlockedLead.count({ where: { userId, agent: { isDeliverable: true } } }),
     db.leadPurchase.count({ where: { userId, status: "COMPLETED" } }),
-    db.leadPurchase.findMany({
-      where: { userId, status: "COMPLETED" },
-      orderBy: { createdAt: "asc" },
-    }),
+    getMonthlyLeadCounts(userId, from, until),
   ]);
   const t1 = performance.now();
   console.log(`[LATENCY][dashboard] auth+initial-db: ${(t1 - tAuth).toFixed(2)}ms`);
@@ -54,56 +55,12 @@ async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
       : 100;
   const deliverability = Math.min(rawDeliverability, 99);
 
-  const monthlyBuckets = new Map<string, { leads: number }>();
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date();
-    d.setMonth(d.getMonth() - i);
-    d.setDate(1);
-    monthlyBuckets.set(getMonthKey(d), { leads: 0 });
-  }
-
-  const twelveMonthsAgo = new Date();
-  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
-  twelveMonthsAgo.setDate(1);
-  twelveMonthsAgo.setHours(0, 0, 0, 0);
-
-  const unlockedLeads = await db.unlockedLead.findMany({
-    where: {
-      userId,
-      createdAt: { gte: twelveMonthsAgo },
-    },
-    select: { createdAt: true },
-  });
-  const t2 = performance.now();
-  console.log(`[LATENCY][dashboard] monthly-unlockedLead-fetch: ${(t2 - t1).toFixed(2)}ms`);
-
-  const hasUnlockedLeads = unlockedLeads.length > 0;
-
-  for (const ul of unlockedLeads) {
-    const key = getMonthKey(new Date(ul.createdAt));
-    if (monthlyBuckets.has(key)) {
-      monthlyBuckets.get(key)!.leads += 1;
-    }
-  }
-
-  if (!hasUnlockedLeads) {
-    for (const purchase of purchases) {
-      const key = getMonthKey(new Date(purchase.createdAt));
-      if (monthlyBuckets.has(key)) {
-        monthlyBuckets.get(key)!.leads += purchase.leadCount;
-      }
-    }
-  }
-
-  const monthKeys = Array.from(monthlyBuckets.keys());
-  const monthlyTrends = monthKeys.map((key) => {
-    const [year, month] = key.split("-").map(Number);
-    const d = new Date(year, month - 1, 1);
-    const bucket = monthlyBuckets.get(key) ?? { leads: 0 };
+  const monthlyTrends = Array.from({ length: 12 }, (_, i) => {
+    const date = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + i, 1));
     return {
-      month: getMonthLabel(d),
-      leads: bucket.leads,
-      year,
+      month: getMonthLabel(date),
+      leads: monthlyCounts.get(getMonthKey(date)) ?? 0,
+      year: date.getUTCFullYear(),
     };
   });
 

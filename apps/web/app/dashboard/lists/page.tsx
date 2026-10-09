@@ -92,6 +92,9 @@ function formatStateBadge(states: string[]) {
 export default function ListsPage() {
   const [loading, setLoading] = useState(true);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [ordersReady, setOrdersReady] = useState(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
   const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
   const [orderSearch, setOrderSearch] = useState("");
   const [leadSearch, setLeadSearch] = useState("");
@@ -104,19 +107,29 @@ export default function ListsPage() {
   const [totalLeads, setTotalLeads] = useState(0);
   const leadSearchRef = useRef<HTMLInputElement>(null);
 
+  // Resolve the billing deep link before issuing the first (and only) page request.
   useEffect(() => {
-    const fetchPurchases = async () => {
+    const ref = new URLSearchParams(window.location.search).get("order");
+    if (ref) setOrderSearch(ref);
+    setOrdersReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!ordersReady) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
       try {
-        // /api/purchases is paginated (20 per page by default), so walk every page.
-        const raw: Record<string, unknown>[] = [];
-        for (let page = 1; page <= 50; page++) {
-          const res = await fetch(`/api/purchases?view=orders&page=${page}&limit=100`);
-          if (!res.ok) break;
-          const data = await res.json();
-          raw.push(...((data.purchases as Record<string, unknown>[] | undefined) ?? []));
-          if (!data.pagination?.hasMore) break;
-        }
-        const mapped: Purchase[] = raw.map((p) => ({
+        const params = new URLSearchParams({
+          view: "orders",
+          page: String(orderPage + 1),
+          limit: String(PAGE_SIZE),
+        });
+        if (orderSearch.trim()) params.set("q", orderSearch.trim());
+        const res = await fetch(`/api/purchases?${params}`, { signal: controller.signal });
+        if (!res.ok) throw new Error("Failed to load orders. Please try again.");
+        const data = await res.json();
+        if (controller.signal.aborted) return;
+        setPurchases((data.purchases ?? []).map((p: Record<string, unknown>) => ({
           id: p.id as string,
           referenceId: p.referenceId as string,
           state: p.state as string | null,
@@ -125,49 +138,32 @@ export default function ListsPage() {
           status: p.status as string,
           createdAt: p.createdAt as string,
           quantity: Number(p.quantity) || 0,
-        }));
-        setPurchases(mapped);
-      } catch {
-        // handle error silently, show empty state
+        })));
+        setTotalOrders(data.pagination?.total ?? 0);
+        setOrdersError(null);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setOrdersError(error instanceof Error ? error.message : "Failed to load orders.");
+        }
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
+    }, orderSearch.trim() ? 250 : 0);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
     };
-    fetchPurchases();
-  }, []);
-
-  // Deep link from Billing: /dashboard/lists?order=LD-ORD-XXXX pre-fills the order search.
-  useEffect(() => {
-    const ref = new URLSearchParams(window.location.search).get("order");
-    if (ref) setOrderSearch(ref);
-  }, []);
-
-  useEffect(() => {
-    setOrderPage(0);
-  }, [orderSearch]);
+  }, [ordersReady, orderPage, orderSearch]);
 
   useEffect(() => {
     setLeadPage(0);
   }, [leadSearch]);
 
-  const filteredPurchases = useMemo(() => {
-    const q = orderSearch.toLowerCase().trim();
-    if (!q) return purchases;
-    return purchases.filter(
-      (p) =>
-        p.referenceId.toLowerCase().includes(q) ||
-        p.unlockedStates.some((s) => s.toLowerCase().includes(q))
-    );
-  }, [orderSearch, purchases]);
-
-  const totalOrderPages = Math.ceil(filteredPurchases.length / PAGE_SIZE);
-  const paginatedPurchases = useMemo(() => {
-    const start = orderPage * PAGE_SIZE;
-    return filteredPurchases.slice(start, start + PAGE_SIZE);
-  }, [filteredPurchases, orderPage]);
-
-  const showingFrom = filteredPurchases.length === 0 ? 0 : orderPage * PAGE_SIZE + 1;
-  const showingTo = Math.min((orderPage + 1) * PAGE_SIZE, filteredPurchases.length);
+  const totalOrderPages = Math.ceil(totalOrders / PAGE_SIZE);
+  // The API already returns the current page. Do not paginate it a second time.
+  const paginatedPurchases = purchases;
+  const showingFrom = purchases.length === 0 ? 0 : orderPage * PAGE_SIZE + 1;
+  const showingTo = purchases.length === 0 ? 0 : orderPage * PAGE_SIZE + purchases.length;
 
   const handleSelectPurchase = useCallback(async (purchase: Purchase) => {
     setSelectedPurchase(purchase);
@@ -292,7 +288,7 @@ export default function ListsPage() {
     return <BrandedLoader />;
   }
 
-  if (purchases.length === 0 && !selectedPurchase) {
+  if (totalOrders === 0 && !orderSearch.trim() && !ordersError && !selectedPurchase) {
     return (
       <div className="w-full min-h-dvh bg-white md:bg-slate-50 p-0 pb-4 md:p-6 md:pb-4 space-y-4">
         <div className="bg-white shadow-none border-0 rounded-2xl p-7 md:p-9 space-y-6">
@@ -686,13 +682,15 @@ export default function ListsPage() {
               <input
                 type="text"
                 value={orderSearch}
-                onChange={(e) => setOrderSearch(e.target.value)}
+                onChange={(e) => { setOrderPage(0); setOrderSearch(e.target.value); }}
                 placeholder="Search orders by Order ID or State..."
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:border-[#465FFF] bg-white pl-10 placeholder:text-slate-400 focus:outline-none transition-colors"
               />
             </div>
           </div>
         </div>
+
+        {ordersError && <p role="alert" className="text-sm text-red-600">{ordersError}</p>}
 
         <div className="w-full flex-1 min-h-0 md:overflow-hidden my-2">
           <div className="md:hidden w-full">
@@ -747,7 +745,7 @@ export default function ListsPage() {
                     Showing{" "}
                     <span className="font-medium text-slate-900 tabular-nums">{showingFrom}</span>&ndash;<span className="font-medium text-slate-900 tabular-nums">{showingTo}</span>{" "}
                     of{" "}
-                    <span className="font-medium text-slate-900 tabular-nums">{filteredPurchases.length}</span>{" "}
+                    <span className="font-medium text-slate-900 tabular-nums">{totalOrders}</span>{" "}
                     orders
                   </p>
                   <nav aria-label="Orders pagination" className="flex items-center justify-between gap-3">
@@ -879,7 +877,7 @@ export default function ListsPage() {
             Showing{" "}
             <span className="font-medium text-slate-900 tabular-nums">{showingFrom}</span>&ndash;<span className="font-medium text-slate-900 tabular-nums">{showingTo}</span>{" "}
             of{" "}
-            <span className="font-medium text-slate-900 tabular-nums">{filteredPurchases.length}</span>{" "}
+            <span className="font-medium text-slate-900 tabular-nums">{totalOrders}</span>{" "}
             orders
           </p>
           <nav aria-label="Orders pagination" className="flex flex-wrap items-center gap-2">

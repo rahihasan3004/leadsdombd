@@ -1,4 +1,5 @@
 import { db } from "@fine-leads/database";
+import { getScraperDailyCounts } from "@/lib/lead-aggregates";
 
 function getStartOfToday(): Date {
   const now = new Date();
@@ -101,30 +102,7 @@ export async function getScraperStats() {
 }
 
 export async function getScraperDailyTrend(days = 14) {
-  const trend: { date: string; count: number }[] = [];
-
-  for (let i = days - 1; i >= 0; i--) {
-    const dayStart = new Date();
-    dayStart.setDate(dayStart.getDate() - i);
-    dayStart.setHours(0, 0, 0, 0);
-
-    const dayEnd = new Date(dayStart);
-    dayEnd.setDate(dayEnd.getDate() + 1);
-
-    const count = await db.agent.count({
-      where: {
-        dataSource: "SCRAPER_ENGINE",
-        scrapedAt: { gte: dayStart, lt: dayEnd },
-      },
-    });
-
-    trend.push({
-      date: dayStart.toISOString().split("T")[0] ?? "",
-      count,
-    });
-  }
-
-  return trend;
+  return getScraperDailyCounts(days);
 }
 
 export async function getScraperCoverage() {
