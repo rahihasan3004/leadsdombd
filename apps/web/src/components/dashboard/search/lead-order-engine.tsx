@@ -2,7 +2,12 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { US_STATES, LEAD_PACKAGES, getLeadCreditCost, type LeadTier } from "@fine-leads/utils";
+import {
+  US_STATES,
+  LEAD_PACKAGES,
+  getLeadCreditCost,
+  type LeadTier,
+} from "@fine-leads/utils";
 import { Popover, PopoverTrigger, PopoverContent } from "@fine-leads/ui";
 import { Check, Search, X, ChevronDown, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -41,51 +46,47 @@ export function LeadOrderEngine() {
   const [submitting, setSubmitting] = useState(false);
   const [selectedTier, setSelectedTier] = useState<LeadTier>("VERIFIED_EMAIL");
 
-  const { data: userCredits = 0, isLoading: creditsLoading } = useQuery<number>({
-    queryKey: ["user", "credits"],
-    queryFn: async () => {
-      const res = await fetch("/api/user/profile");
-      if (!res.ok) throw new Error("Failed to fetch user credits");
-      const json = await res.json();
-      return Number(json.credits ?? 0);
+  const { data: userCredits = 0, isLoading: creditsLoading } = useQuery<number>(
+    {
+      queryKey: ["user", "credits"],
+      queryFn: async () => {
+        const res = await fetch("/api/user/profile");
+        if (!res.ok) throw new Error("Failed to fetch user credits");
+        const json = await res.json();
+        return Number(json.credits ?? 0);
+      },
+      staleTime: 0,
+      refetchOnMount: true,
+      refetchOnWindowFocus: true,
     },
-    staleTime: 0,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-  });
+  );
 
   const parsedQty = parseInt(quantityInput, 10) || 0;
   const requiredCredits = getLeadCreditCost(parsedQty, selectedTier);
-  const selectedPackage = LEAD_PACKAGES.find((pack) => pack.tier === selectedTier)!;
+  const selectedPackage = LEAD_PACKAGES.find(
+    (pack) => pack.tier === selectedTier,
+  )!;
   const minLeads = Math.max(10, selectedStates.length);
   const isValidQty = parsedQty >= minLeads && parsedQty <= 50000;
   const isFormValid = selectedStates.length > 0 && isValidQty;
 
+  const handleQuantityChange = useCallback((val: number) => {
+    setQuantity(val);
+    setQuantityInput(val > 0 ? String(val) : "");
+  }, []);
 
-  const handleQuantityChange = useCallback(
-    (val: number) => {
-      setQuantity(val);
-      setQuantityInput(val > 0 ? String(val) : "");
-    },
-    [],
-  );
-
-  const handleQuantityInputChange = useCallback(
-    (val: string) => {
-      const num = parseInt(val, 10) || 0;
-      const clamped = Math.max(0, Math.min(num, 50000));
-      const finalVal = clamped > 0 ? String(clamped) : "";
-      setQuantityInput(finalVal);
-      setQuantity(clamped);
-    },
-    [],
-  );
+  const handleQuantityInputChange = useCallback((val: string) => {
+    const num = parseInt(val, 10) || 0;
+    const clamped = Math.max(0, Math.min(num, 50000));
+    const finalVal = clamped > 0 ? String(clamped) : "";
+    setQuantityInput(finalVal);
+    setQuantity(clamped);
+  }, []);
 
   const minQuantity = useMemo(
     () => Math.max(10, selectedStates.length || 10),
     [selectedStates.length],
   );
-
 
   const handleCheckout = useCallback(async () => {
     if (!isFormValid) return;
@@ -96,6 +97,7 @@ export function LeadOrderEngine() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           states: selectedStates,
+          category: "real estate agents",
           quantity: parsedQty,
           tier: selectedTier,
         }),
@@ -124,9 +126,15 @@ export function LeadOrderEngine() {
       queryClient.invalidateQueries({ queryKey: ["stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
 
-      toast.success("Purchase successful", {
-        description: `${data.unlockedCount} leads unlocked. Redirecting to your vault...`,
-      });
+      toast.success(
+        data.status === "PROCESSING" ? "Order queued" : "Purchase successful",
+        {
+          description:
+            data.status === "PROCESSING"
+              ? "We’re collecting your leads. Your credits are held and the Vault will update automatically."
+              : `${data.unlockedCount} leads unlocked. Redirecting to your vault...`,
+        },
+      );
 
       router.push("/dashboard/lists");
     } catch (err) {
@@ -135,7 +143,14 @@ export function LeadOrderEngine() {
     } finally {
       setSubmitting(false);
     }
-  }, [isFormValid, selectedStates, parsedQty, selectedTier, router, queryClient]);
+  }, [
+    isFormValid,
+    selectedStates,
+    parsedQty,
+    selectedTier,
+    router,
+    queryClient,
+  ]);
 
   if (creditsLoading) {
     return <BrandedLoader />;
@@ -143,7 +158,9 @@ export function LeadOrderEngine() {
 
   const handleToggleState = (code: string) => {
     setSelectedStates((prev) => {
-      const next = prev.includes(code) ? prev.filter((s) => s !== code) : [...prev, code];
+      const next = prev.includes(code)
+        ? prev.filter((s) => s !== code)
+        : [...prev, code];
       return next;
     });
   };
@@ -156,7 +173,6 @@ export function LeadOrderEngine() {
     setSelectedStates([]);
   };
 
-
   return (
     <div className="w-full p-4 sm:p-6 lg:p-8 pb-14 md:pb-8 space-y-6">
       <div className="px-0 sm:px-0 lg:px-0">
@@ -164,14 +180,18 @@ export function LeadOrderEngine() {
           Order Real Estate Leads
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Configure your target US territories, select lead volume, and unlock verified agent datasets.
+          Configure your target US territories, select lead volume, and unlock
+          verified agent datasets.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         <div className="lg:col-span-7 xl:col-span-8 bg-white shadow-none border-0 rounded-2xl p-6 sm:p-8 space-y-7">
           <SectionNiche />
-          <SectionLeadPackage selectedTier={selectedTier} onTierChange={setSelectedTier} />
+          <SectionLeadPackage
+            selectedTier={selectedTier}
+            onTierChange={setSelectedTier}
+          />
           <SectionStates
             selectedStates={selectedStates}
             onToggleState={handleToggleState}
@@ -198,11 +218,15 @@ export function LeadOrderEngine() {
             <div className="space-y-3 text-sm">
               <div className="flex items-center justify-between gap-4">
                 <span className="text-slate-500">Lead Package</span>
-                <span className="text-right font-semibold text-slate-900">{selectedPackage.name}</span>
+                <span className="text-right font-semibold text-slate-900">
+                  {selectedPackage.name}
+                </span>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-slate-500">Credits per Lead</span>
-                <span className="font-semibold text-slate-900">{selectedPackage.creditsPerLead}</span>
+                <span className="font-semibold text-slate-900">
+                  {selectedPackage.creditsPerLead}
+                </span>
               </div>
               <div className="flex items-center justify-between gap-4 text-sm">
                 <span className="text-slate-500">Target States</span>
@@ -222,9 +246,9 @@ export function LeadOrderEngine() {
                     ? "None selected"
                     : selectedStates.length === ALL_US_STATES.length
                       ? "All 50 US States + DC"
-                    : selectedStates.length <= 4
-                      ? selectedStates.join(", ")
-                      : `${selectedStates.slice(0, 3).join(", ")} (+${selectedStates.length - 3} more)`}
+                      : selectedStates.length <= 4
+                        ? selectedStates.join(", ")
+                        : `${selectedStates.slice(0, 3).join(", ")} (+${selectedStates.length - 3} more)`}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -236,7 +260,9 @@ export function LeadOrderEngine() {
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">Required Credits</span>
                 <span className="font-semibold text-slate-900 tabular-nums">
-                  {parsedQty > 0 ? `${requiredCredits.toLocaleString()} Credits` : "—"}
+                  {parsedQty > 0
+                    ? `${requiredCredits.toLocaleString()} Credits`
+                    : "—"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -247,12 +273,18 @@ export function LeadOrderEngine() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">Delivery Speed</span>
-                <span className="font-semibold text-slate-900 truncate">Instant</span>
+                <span className="font-semibold text-slate-900 truncate">
+                  Instant
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">Verified Email</span>
-                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${selectedTier === "VERIFIED_EMAIL" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                  {selectedTier === "VERIFIED_EMAIL" ? "100% Deliverable" : "Not included"}
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${selectedTier === "VERIFIED_EMAIL" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}
+                >
+                  {selectedTier === "VERIFIED_EMAIL"
+                    ? "100% Deliverable"
+                    : "Not included"}
                 </span>
               </div>
             </div>
@@ -261,7 +293,9 @@ export function LeadOrderEngine() {
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold text-slate-900">Total</span>
                 <span className="text-2xl font-extrabold text-slate-900 tabular-nums tracking-tight truncate">
-                  {parsedQty > 0 ? `${requiredCredits.toLocaleString()} Credits` : "—"}
+                  {parsedQty > 0
+                    ? `${requiredCredits.toLocaleString()} Credits`
+                    : "—"}
                 </span>
               </div>
             </div>
@@ -272,12 +306,20 @@ export function LeadOrderEngine() {
               disabled={!isFormValid || submitting}
               className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-none border-0 transition-all duration-200 block text-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting ? "Processing..." : `Unlock ${parsedQty > 0 ? parsedQty.toLocaleString() : ""} Leads (${parsedQty > 0 ? requiredCredits.toLocaleString() : ""} Credits) →`}
+              {submitting
+                ? "Processing..."
+                : `Unlock ${parsedQty > 0 ? parsedQty.toLocaleString() : ""} Leads (${parsedQty > 0 ? requiredCredits.toLocaleString() : ""} Credits) →`}
             </button>
 
             <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
               <Lock className="h-3.5 w-3.5" />
-              <span className="text-center">Secured Checkout · {selectedTier === "VERIFIED_EMAIL" ? "Verified Email · " : "No Email Included · "}Instant Download</span>
+              <span className="text-center">
+                Secured Checkout ·{" "}
+                {selectedTier === "VERIFIED_EMAIL"
+                  ? "Verified Email · "
+                  : "No Email Included · "}
+                Instant Download
+              </span>
             </div>
           </div>
         </div>
@@ -295,7 +337,9 @@ function SectionLeadPackage({
 }) {
   return (
     <fieldset className="min-w-0">
-      <legend className="mb-3 text-sm font-bold text-slate-900">Choose Lead Package</legend>
+      <legend className="mb-3 text-sm font-bold text-slate-900">
+        Choose Lead Package
+      </legend>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {LEAD_PACKAGES.map((pack) => {
           const selected = selectedTier === pack.tier;
@@ -305,9 +349,14 @@ function SectionLeadPackage({
               className={`relative flex min-w-0 cursor-pointer flex-col gap-3 rounded-xl border p-4 transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${selected ? "border-blue-600 bg-blue-50/60" : "border-slate-200 bg-white hover:border-blue-300"}`}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-blue-700">{pack.creditsPerLead} Credit{pack.creditsPerLead === 1 ? "" : "s"} / Lead</span>
+                <span className="text-xs font-semibold text-blue-700">
+                  {pack.creditsPerLead} Credit
+                  {pack.creditsPerLead === 1 ? "" : "s"} / Lead
+                </span>
                 {pack.recommended && (
-                  <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white">Recommended</span>
+                  <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                    Recommended
+                  </span>
                 )}
               </div>
               <div className="flex items-start gap-2.5">
@@ -319,9 +368,13 @@ function SectionLeadPackage({
                   onChange={() => onTierChange(pack.tier)}
                   className="mt-0.5 h-4 w-4 shrink-0 accent-blue-600"
                 />
-                <span className="text-sm font-bold text-slate-900">{pack.name}</span>
+                <span className="text-sm font-bold text-slate-900">
+                  {pack.name}
+                </span>
               </div>
-              <p className="text-xs leading-relaxed text-slate-500">{pack.description}</p>
+              <p className="text-xs leading-relaxed text-slate-500">
+                {pack.description}
+              </p>
             </label>
           );
         })}
@@ -337,7 +390,9 @@ function SectionNiche() {
         Target Industry & Category
       </span>
       <div className="w-full h-12 bg-white border border-slate-200 rounded-xl px-4 flex items-center text-sm text-slate-900">
-        <span className="font-semibold text-slate-900">Real Estate Agents & Brokers</span>
+        <span className="font-semibold text-slate-900">
+          Real Estate Agents & Brokers
+        </span>
       </div>
     </div>
   );
@@ -364,8 +419,7 @@ function SectionStates({
     const q = search.toLowerCase();
     return US_STATES.filter(
       (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.code.toLowerCase().includes(q)
+        s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q),
     );
   }, [search]);
 
@@ -380,7 +434,9 @@ function SectionStates({
             type="button"
             className="w-full h-12 flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 text-sm text-slate-900 hover:border-[#465FFF] transition-colors"
           >
-            <span className={selectedStates.length === 0 ? "text-slate-400" : ""}>
+            <span
+              className={selectedStates.length === 0 ? "text-slate-400" : ""}
+            >
               {selectedStates.length === 0
                 ? "Select states..."
                 : `${selectedStates.length} selected`}
@@ -428,7 +484,9 @@ function SectionStates({
 
           <div className="max-h-72 min-h-0 overflow-auto overscroll-contain p-1">
             {filteredStates.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-6">No states found</p>
+              <p className="text-xs text-slate-400 text-center py-6">
+                No states found
+              </p>
             ) : (
               filteredStates.map((state) => (
                 <label
@@ -444,9 +502,7 @@ function SectionStates({
                   <span className="text-xs text-slate-700 font-normal">
                     {state.code}
                   </span>
-                  <span className="text-xs text-slate-700">
-                    {state.name}
-                  </span>
+                  <span className="text-xs text-slate-700">{state.name}</span>
                 </label>
               ))
             )}
@@ -519,19 +575,23 @@ function SectionQuantity({
 
       {parsedQty > 0 && !isValidQty && (
         <p className="text-xs text-red-500 mt-2 font-medium">
-          Minimum {minQuantity.toLocaleString()} leads required ({selectedStatesCount} state{selectedStatesCount !== 1 ? "s" : ""} selected · 1 lead/state min)
+          Minimum {minQuantity.toLocaleString()} leads required (
+          {selectedStatesCount} state{selectedStatesCount !== 1 ? "s" : ""}{" "}
+          selected · 1 lead/state min)
         </p>
       )}
 
       {parsedQty > 0 && isValidQty && (
         <p className="text-xs text-slate-400 mt-2 font-normal">
-          Min: {minQuantity.toLocaleString()} leads · Max: 50,000 leads per order
+          Min: {minQuantity.toLocaleString()} leads · Max: 50,000 leads per
+          order
         </p>
       )}
 
       {parsedQty === 0 && (
         <p className="text-xs text-slate-400 mt-2 font-normal">
-          Min: {minQuantity.toLocaleString()} leads · Max: 50,000 leads per order
+          Min: {minQuantity.toLocaleString()} leads · Max: 50,000 leads per
+          order
         </p>
       )}
     </div>
@@ -539,11 +599,16 @@ function SectionQuantity({
 }
 
 function SectionGuarantee({ tier }: { tier: LeadTier }) {
-  const fields = tier === "VERIFIED_EMAIL" ? DATA_GUARANTEES : DATA_GUARANTEES.filter((field) => field !== "100% Deliverable Email");
+  const fields =
+    tier === "VERIFIED_EMAIL"
+      ? DATA_GUARANTEES
+      : DATA_GUARANTEES.filter((field) => field !== "100% Deliverable Email");
   return (
     <div className="space-y-3">
       <span className="text-xs font-bold tracking-wider text-slate-400 uppercase block mb-3">
-        {tier === "VERIFIED_EMAIL" ? "Included Data Guarantee (17 Verified Fields)" : "Included Phone & Business Data (No Email)"}
+        {tier === "VERIFIED_EMAIL"
+          ? "Included Data Guarantee (17 Verified Fields)"
+          : "Included Phone & Business Data (No Email)"}
       </span>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2.5 text-xs text-slate-600">
         {fields.map((item) => (

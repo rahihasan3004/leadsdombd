@@ -12,11 +12,16 @@ const { authMock, dbMock, cacheMock } = vi.hoisted(() => ({
 }));
 vi.mock("@fine-leads/auth", () => ({ auth: authMock }));
 vi.mock("@fine-leads/database", () => ({ db: dbMock }));
-vi.mock("@fine-leads/utils/redis-cache", () => ({ cachedAggregate: cacheMock }));
+vi.mock("@fine-leads/utils/redis-cache", () => ({
+  cachedAggregate: cacheMock,
+}));
 
 import { GET as purchasesGET } from "../app/api/purchases/route";
 import { GET as statsGET } from "../app/api/leads/stats/route";
-import { getMonthlyLeadCounts, getScraperDailyCounts } from "@/lib/lead-aggregates";
+import {
+  getMonthlyLeadCounts,
+  getScraperDailyCounts,
+} from "@/lib/lead-aggregates";
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -28,17 +33,26 @@ beforeEach(() => {
   dbMock.$queryRaw.mockResolvedValue([]);
 });
 
-const request = (query = "") => new Request(`https://app.test/api/purchases?${query}`);
+const request = (query = "") =>
+  new Request(`https://app.test/api/purchases?${query}`);
 
 describe("bounded purchase summaries", () => {
   it("selects only summaries and counts, never individual unlocked leads", async () => {
     const response = await purchasesGET(request("view=orders&page=2&limit=10"));
     expect(response.status).toBe(200);
-    expect(dbMock.leadPurchase.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      skip: 10, take: 10,
-      where: { userId: "user-1", status: "COMPLETED" },
-      select: expect.objectContaining({ _count: { select: { unlockedLeads: true } } }),
-    }));
+    expect(dbMock.leadPurchase.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 10,
+        take: 10,
+        where: {
+          userId: "user-1",
+          status: { in: ["COMPLETED", "PROCESSING", "REFUNDED", "FAILED"] },
+        },
+        select: expect.objectContaining({
+          _count: { select: { unlockedLeads: true } },
+        }),
+      }),
+    );
     const query = dbMock.leadPurchase.findMany.mock.calls[0][0];
     expect(query.include).toBeUndefined();
     expect(query.select.unlockedLeads).toBeUndefined();
@@ -47,24 +61,44 @@ describe("bounded purchase summaries", () => {
 
   it("starts the independent count before the order query resolves", async () => {
     let finish!: (value: unknown[]) => void;
-    dbMock.leadPurchase.findMany.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    dbMock.leadPurchase.findMany.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
     const pending = purchasesGET(request("view=orders&limit=10"));
-    await vi.waitFor(() => expect(dbMock.leadPurchase.count).toHaveBeenCalledOnce());
+    await vi.waitFor(() =>
+      expect(dbMock.leadPurchase.count).toHaveBeenCalledOnce(),
+    );
     finish([]);
     await pending;
   });
 
   it("returns compact quantities and accurate pagination", async () => {
-    dbMock.leadPurchase.findMany.mockResolvedValue([{
-      id: "p1", referenceId: "LD-ORD-ONE", amountPaid: "19.00", leadCount: 1000,
-      _count: { unlockedLeads: 1000 }, unlockedStates: ["CA"],
-    }]);
+    dbMock.leadPurchase.findMany.mockResolvedValue([
+      {
+        id: "p1",
+        referenceId: "LD-ORD-ONE",
+        amountPaid: "19.00",
+        leadCount: 1000,
+        _count: { unlockedLeads: 1000 },
+        unlockedStates: ["CA"],
+      },
+    ]);
     dbMock.leadPurchase.count.mockResolvedValue(21);
-    const body = await (await purchasesGET(request("view=orders&page=2&limit=10"))).json();
+    const body = await (
+      await purchasesGET(request("view=orders&page=2&limit=10"))
+    ).json();
     expect(body.purchases[0]).toMatchObject({ quantity: 1000, amountPaid: 19 });
     expect(body.purchases[0]._count).toBeUndefined();
     expect(body.purchases[0].unlockedLeads).toBeUndefined();
-    expect(body.pagination).toMatchObject({ page: 2, limit: 10, total: 21, totalPages: 3, hasMore: true });
+    expect(body.pagination).toMatchObject({
+      page: 2,
+      limit: 10,
+      total: 21,
+      totalPages: 3,
+      hasMore: true,
+    });
   });
 
   it("rejects invalid pagination without issuing queries", async () => {
@@ -76,19 +110,27 @@ describe("bounded purchase summaries", () => {
     await purchasesGET(request("q=ca&limit=500"));
     const query = dbMock.leadPurchase.findMany.mock.calls[0][0];
     expect(query.take).toBe(100);
-    expect(query.where.OR).toContainEqual({ unlockedStates: { hasSome: ["CA"] } });
-    expect(dbMock.leadPurchase.count).toHaveBeenCalledWith({ where: query.where });
+    expect(query.where.OR).toContainEqual({
+      unlockedStates: { hasSome: ["CA"] },
+    });
+    expect(dbMock.leadPurchase.count).toHaveBeenCalledWith({
+      where: query.where,
+    });
   });
 
   it("branches to authorized detail lookup without querying the order list", async () => {
     dbMock.leadPurchase.findFirst.mockResolvedValue({
-      id: "p1", userId: "user-1", leadCount: 1,
+      id: "p1",
+      userId: "user-1",
+      leadCount: 1,
       unlockedLeads: [{ agent: { id: "agent-1", fullName: "Agent" } }],
     });
     const body = await (await purchasesGET(request("purchaseId=p1"))).json();
-    expect(dbMock.leadPurchase.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "p1", userId: "user-1", status: "COMPLETED" },
-    }));
+    expect(dbMock.leadPurchase.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "p1", userId: "user-1", status: "COMPLETED" },
+      }),
+    );
     expect(dbMock.leadPurchase.findMany).not.toHaveBeenCalled();
     expect(dbMock.leadPurchase.count).not.toHaveBeenCalled();
     expect(body.leads).toHaveLength(1);
@@ -97,7 +139,9 @@ describe("bounded purchase summaries", () => {
 
   it("returns 404 for an inaccessible order", async () => {
     dbMock.leadPurchase.findFirst.mockResolvedValue(null);
-    expect((await purchasesGET(request("purchaseId=someone-elses-order"))).status).toBe(404);
+    expect(
+      (await purchasesGET(request("purchaseId=someone-elses-order"))).status,
+    ).toBe(404);
   });
 
   it("does not query purchases without authentication", async () => {
@@ -110,7 +154,10 @@ describe("bounded purchase summaries", () => {
 describe("database-side time buckets", () => {
   it("returns fourteen zero-filled UTC days with one query across a year boundary", async () => {
     dbMock.$queryRaw.mockResolvedValue([{ bucket: "2025-12-31", count: 7n }]);
-    const result = await getScraperDailyCounts(14, new Date("2026-01-02T23:59:00Z"));
+    const result = await getScraperDailyCounts(
+      14,
+      new Date("2026-01-02T23:59:00Z"),
+    );
     expect(dbMock.$queryRaw).toHaveBeenCalledOnce();
     expect(result).toHaveLength(14);
     expect(result[0]).toEqual({ date: "2025-12-20", count: 0 });
@@ -153,18 +200,45 @@ describe("inventory cache boundary", () => {
   it("uses a 60 second TTL and bypasses Postgres on a cache hit", async () => {
     cacheMock.mockResolvedValue({ CA: 123 });
     expect(await (await statsGET()).json()).toEqual({ CA: 123 });
-    expect(cacheMock).toHaveBeenCalledWith("lead-state-inventory:v1", 60, expect.any(Function));
+    expect(cacheMock).toHaveBeenCalledWith(
+      "lead-state-inventory:v1",
+      60,
+      expect.any(Function),
+    );
     expect(dbMock.agent.groupBy).not.toHaveBeenCalled();
   });
 
   it("computes deliverable inventory and zero-fills missing states on a miss", async () => {
-    dbMock.agent.groupBy.mockResolvedValue([{ state: "CA", _count: { id: 42 } }]);
+    dbMock.agent.groupBy.mockResolvedValue([
+      { state: "CA", _count: { id: 42 } },
+    ]);
     const response = await statsGET();
     const body = await response.json();
     expect(body.CA).toBe(42);
     expect(body.NY).toBe(0);
     expect(dbMock.agent.groupBy).toHaveBeenCalledOnce();
-    expect(dbMock.agent.groupBy.mock.calls[0][0].where.isDeliverable).toBe(true);
+    expect(dbMock.agent.groupBy.mock.calls[0][0].where.isDeliverable).toBe(
+      true,
+    );
     expect(response.headers.get("Cache-Control")).toBe("no-store, max-age=0");
   });
+});
+
+it("returns a pending order's target quantity without loading its lead records", async () => {
+  dbMock.leadPurchase.findMany.mockResolvedValue([
+    {
+      id: "pending",
+      status: "PROCESSING",
+      leadCount: 10,
+      amountPaid: "0.19",
+      _count: { unlockedLeads: 0 },
+    },
+  ]);
+  dbMock.leadPurchase.count.mockResolvedValue(1);
+  const body = await (await purchasesGET(request("view=orders"))).json();
+  expect(body.purchases[0]).toMatchObject({
+    status: "PROCESSING",
+    quantity: 10,
+  });
+  expect(body.purchases[0]).not.toHaveProperty("unlockedLeads");
 });

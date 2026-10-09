@@ -35,16 +35,23 @@ export async function POST(req: Request) {
     const { states = [], baseUrl } = body;
 
     if (!states.length) {
-      return NextResponse.json({ error: "No states selected" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No states selected" },
+        { status: 400 },
+      );
     }
 
     const existingPurchases = await db.leadPurchase.findMany({
       where: { userId: session.user.id, status: "COMPLETED" },
     });
 
-    const purchasedStateCodes = existingPurchases.flatMap((p) => p.unlockedStates || []);
+    const purchasedStateCodes = existingPurchases.flatMap(
+      (p) => p.unlockedStates || [],
+    );
 
-    const newStates = states.filter((s: string) => !purchasedStateCodes.includes(s));
+    const newStates = states.filter(
+      (s: string) => !purchasedStateCodes.includes(s),
+    );
 
     if (newStates.length === 0) {
       return NextResponse.json(
@@ -66,15 +73,12 @@ export async function POST(req: Request) {
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
     const successUrl = `${appUrl}/dashboard?purchase=success`;
 
-
     return NextResponse.json({ url: successUrl });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Failed to create checkout session";
+    const message =
+      err instanceof Error ? err.message : "Failed to create checkout session";
     console.error("[CRITICAL CHECKOUT ERROR]:", err);
-    return NextResponse.json(
-      { error: message },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -164,7 +168,6 @@ export async function GET(request: Request) {
         .map((ul) => redactLeadForTier(ul.agent, purchase.tier))
         .filter(Boolean);
 
-
       return NextResponse.json({
         purchase: purchaseWithQuantity,
         leads,
@@ -177,28 +180,44 @@ export async function GET(request: Request) {
       });
     }
 
-
     const page = Number(searchParams.get("page") ?? DEFAULT_PAGE);
     const rawLimit = Number(searchParams.get("limit") ?? DEFAULT_LIMIT);
-    if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(rawLimit) || rawLimit < 1) {
-      return NextResponse.json({ error: "Invalid pagination" }, { status: 400 });
+    if (
+      !Number.isSafeInteger(page) ||
+      page < 1 ||
+      !Number.isSafeInteger(rawLimit) ||
+      rawLimit < 1
+    ) {
+      return NextResponse.json(
+        { error: "Invalid pagination" },
+        { status: 400 },
+      );
     }
     const limit = Math.min(MAX_LIMIT, rawLimit);
     const skip = (page - 1) * limit;
     if (!Number.isSafeInteger(skip)) {
-      return NextResponse.json({ error: "Invalid pagination" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid pagination" },
+        { status: 400 },
+      );
     }
     const q = (searchParams.get("q") ?? "").trim().slice(0, 100);
-    const matchingStates = LEAD_STATES
-      .filter((state) => state.code.toLowerCase().includes(q.toLowerCase()))
-      .map((state) => state.code);
+    const matchingStates = LEAD_STATES.filter((state) =>
+      state.code.toLowerCase().includes(q.toLowerCase()),
+    ).map((state) => state.code);
     const where: Prisma.LeadPurchaseWhereInput = {
       userId: session.user.id,
-      status: "COMPLETED",
-      ...(q ? { OR: [
-        { referenceId: { contains: q, mode: "insensitive" } },
-        ...(matchingStates.length ? [{ unlockedStates: { hasSome: matchingStates } }] : []),
-      ] } : {}),
+      status: { in: ["COMPLETED", "PROCESSING", "REFUNDED", "FAILED"] },
+      ...(q
+        ? {
+            OR: [
+              { referenceId: { contains: q, mode: "insensitive" } },
+              ...(matchingStates.length
+                ? [{ unlockedStates: { hasSome: matchingStates } }]
+                : []),
+            ],
+          }
+        : {}),
     };
 
     const [purchases, totalPurchases] = await Promise.all([
@@ -222,11 +241,13 @@ export async function GET(request: Request) {
       }),
       db.leadPurchase.count({ where }),
     ]);
-    const mappedPurchases = purchases.map(({ _count, amountPaid, ...purchase }) => ({
-      ...purchase,
-      amountPaid: Number(amountPaid),
-      quantity: purchase.leadCount ?? _count.unlockedLeads,
-    }));
+    const mappedPurchases = purchases.map(
+      ({ _count, amountPaid, ...purchase }) => ({
+        ...purchase,
+        amountPaid: Number(amountPaid),
+        quantity: purchase.leadCount ?? _count.unlockedLeads,
+      }),
+    );
 
     // Collection requests return order summaries only. Lead details are opt-in via purchaseId.
     return NextResponse.json({
@@ -241,6 +262,9 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("Purchase fetch error:", error);
-    return NextResponse.json({ error: "Failed to fetch purchases" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch purchases" },
+      { status: 500 },
+    );
   }
 }

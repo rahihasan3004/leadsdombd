@@ -80,6 +80,7 @@ enum LeadTier {
 }
 
 enum PurchaseStatus {
+  PROCESSING
   PENDING
   COMPLETED
   FAILED
@@ -323,6 +324,7 @@ model Agent {
   updatedAt         DateTime           @updatedAt
   agentActivities   AgentActivity[]
   unlockedBy        UnlockedLead[]
+  fulfillmentCandidates LeadFulfillmentCandidate[]
 
   @@index([state])
   @@index([licenseState, licenseNumber])
@@ -412,6 +414,8 @@ model LeadPurchase {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   unlockedLeads   UnlockedLead[]
+  lobstrRunId     String?
+  fulfillmentJob LeadFulfillmentJob?
 
   @@index([userId])
   @@index([userId, createdAt])
@@ -433,4 +437,57 @@ model WalletTransaction {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+
+// Durable outbox: created atomically with the order and full credit hold.
+model LeadFulfillmentJob {
+  id            String @id @default(cuid())
+  purchaseId    String @unique
+  purchase      LeadPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  status        String @default("QUEUED")
+  category      String
+  creditsHeld   Int
+  expiresAt     DateTime
+  nextAttemptAt DateTime @default(now())
+  leaseToken    String?
+  leaseUntil    DateTime?
+  failureCount  Int @default(0)
+  lastError     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  runs          LeadFulfillmentRun[]
+  candidates    LeadFulfillmentCandidate[]
+
+  @@index([status, nextAttemptAt])
+}
+
+model LeadFulfillmentRun {
+  id             String @id @default(cuid())
+  jobId          String
+  job            LeadFulfillmentJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  state          String
+  targetQuantity Int
+  status         String @default("QUEUED")
+  runId          String? @unique
+  resultPage     Int @default(1)
+  resultOffset   Int @default(0)
+  processedCount Int @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([jobId, status])
+}
+
+model LeadFulfillmentCandidate {
+  jobId                String
+  agentId              String
+  job                  LeadFulfillmentJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  agent                Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  verificationDone     Boolean @default(false)
+  verificationAttempts Int @default(0)
+  nextVerificationAt   DateTime @default(now())
+
+  @@id([jobId, agentId])
+  @@index([agentId])
 }
