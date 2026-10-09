@@ -160,6 +160,16 @@ export default function BillingPage() {
     return <BrandedLoader />;
   }
 
+  const getTypeLabel = (type: string) =>
+    type === "TOPUP" || type === "RECHARGE" ? "Top-up" : type === "PURCHASE" ? "Purchase" : type === "REFUND" ? "Refund" : type;
+
+  const STATUS_DISPLAY: Record<string, { label: string; className: string }> = {
+    COMPLETED: { label: "Completed", className: "text-emerald-600" },
+    PENDING: { label: "Pending", className: "text-amber-600" },
+    FAILED: { label: "Failed", className: "text-red-600" },
+    REFUNDED: { label: "Refunded", className: "text-slate-500" },
+  };
+
   const getTypeConfig = (type: string) => {
     switch (type) {
       case "TOPUP":
@@ -175,7 +185,7 @@ export default function BillingPage() {
   };
 
   return (
-      <div className="w-full min-h-screen bg-slate-50 p-3.5 sm:p-6 lg:p-8 pb-16 sm:pb-16 md:pb-6 lg:pb-8 space-y-4">
+      <div className="w-full min-h-dvh bg-slate-50 p-3.5 sm:p-6 lg:p-8 pb-16 sm:pb-16 md:pb-6 lg:pb-8 space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
           Billing & Credits
@@ -189,7 +199,7 @@ export default function BillingPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
         <div className="lg:col-span-8 bg-white shadow-none border-0 rounded-2xl p-5 md:p-6 flex flex-col justify-between space-y-4">
           <div className="space-y-1 mb-6 pb-6 border-b border-slate-100 md:mb-0 md:pb-0 md:border-b-0">
-            <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+            <div className="text-xs font-bold tracking-wider text-slate-400 uppercase">
               Available Credits
             </div>
             <div className="flex items-center gap-3">
@@ -283,9 +293,42 @@ export default function BillingPage() {
          {/* Middle: 5 Rows Table OR Empty State (Same Fixed Space) */}
         <div className="flex-1 flex flex-col justify-center my-2 overflow-hidden">
           {transactions.length > 0 ? (
-            <div className="w-full overflow-x-auto no-scrollbar">
+            <>
+            {/* Below sm: stacked cards instead of a sideways-scrolling table */}
+            <ul className="divide-y divide-slate-100 sm:hidden">
+              {paginatedTransactions.map((tx) => {
+                const typeConfig = getTypeConfig(tx.type);
+                const status = STATUS_DISPLAY[tx.status];
+                return (
+                  <li key={tx.id} className="py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm text-slate-900 break-all">{tx.id}</p>
+                        <p className="mt-0.5 text-xs text-slate-400">
+                          {formatDate(tx.createdAt)} · {getTypeLabel(tx.type)}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 text-sm font-semibold tabular-nums ${typeConfig.amountClass}`}>
+                        {tx.amount >= 0 ? "+" : ""}
+                        {tx.amount.toLocaleString()} Credits
+                      </span>
+                    </div>
+                    {tx.description && (
+                      <p className="mt-1 text-xs text-slate-600 break-words">{tx.description}</p>
+                    )}
+                    <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+                      <span className="text-slate-500 tabular-nums">
+                        Balance after: {tx.balanceAfter != null ? tx.balanceAfter.toLocaleString() : "—"}
+                      </span>
+                      {status && <span className={`font-medium ${status.className}`}>{status.label}</span>}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="hidden sm:block w-full overflow-x-auto no-scrollbar">
             <table className="w-full text-left text-sm min-w-[600px]">
-              <thead className="border-b border-slate-100 text-[11px] font-normal text-slate-400 uppercase">
+              <thead className="border-b border-slate-100 text-xs font-normal text-slate-400 uppercase">
                 <tr className="h-8">
                   <th className="py-2 px-4 font-medium">Transaction ID & Date</th>
                   <th className="py-2 px-4 font-medium">Type</th>
@@ -306,7 +349,7 @@ export default function BillingPage() {
                       <div className="text-xs font-sans font-normal text-sm text-slate-900">
                         {tx.id}
                       </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
+                      <div className="text-xs text-slate-400 mt-0.5">
                         {formatDate(tx.createdAt)}
                       </div>
                     </td>
@@ -339,6 +382,7 @@ export default function BillingPage() {
               </tbody>
             </table>
             </div>
+            </>
           ) : (
             <div className="text-center py-8 text-xs text-slate-400">
               No transactions recorded yet. Your top-ups and purchases will appear here.
@@ -365,7 +409,7 @@ export default function BillingPage() {
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="h-10 sm:h-auto px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Previous
             </button>
@@ -373,7 +417,7 @@ export default function BillingPage() {
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all duration-200 ${
+                className={`h-10 min-w-10 sm:h-auto sm:min-w-0 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all duration-200 ${
                   currentPage === page
                     ? "bg-blue-600 text-white border-blue-600"
                     : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
@@ -385,7 +429,7 @@ export default function BillingPage() {
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="h-10 sm:h-auto px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>

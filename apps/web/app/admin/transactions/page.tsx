@@ -336,7 +336,7 @@ export default function AdminTransactionsPage() {
                         <div className="flex flex-wrap gap-1">
                           {purchase.unlockedStates.length > 0 ? (
                             purchase.unlockedStates.map((code) => (
-                              <Badge key={code} variant="outline" className="text-[10px] px-1.5">
+                              <Badge key={code} variant="outline" className="text-xs px-1.5">
                                 {code}
                               </Badge>
                             ))
@@ -351,7 +351,7 @@ export default function AdminTransactionsPage() {
                       <TableCell>
                         <Badge
                           variant={PURCHASE_STATUS_BADGE_VARIANT[purchase.status] ?? "secondary"}
-                          className="text-[11px]"
+                          className="text-xs"
                         >
                           {purchase.status}
                         </Badge>
@@ -491,7 +491,7 @@ export default function AdminTransactionsPage() {
                       <TableCell>
                         <Badge
                           variant={TX_TYPE_BADGE_VARIANT[tx.type] ?? "secondary"}
-                          className="text-[11px]"
+                          className="text-xs"
                         >
                           {tx.type}
                         </Badge>
@@ -517,7 +517,7 @@ export default function AdminTransactionsPage() {
                                 ? "destructive"
                                 : "secondary"
                           }
-                          className="text-[11px]"
+                          className="text-xs"
                         >
                           {tx.status}
                         </Badge>

@@ -154,14 +154,14 @@ export default function InventoryPage() {
 
       <Card className="border-surface-200 dark:border-surface-800">
         <CardHeader>
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div>
               <CardTitle className="text-base">Territory Catalog</CardTitle>
               <p className="text-sm text-surface-500 mt-0.5">
                 {filteredStates.length} state{filteredStates.length !== 1 ? "s" : ""} shown
               </p>
             </div>
-            <div className="relative w-64">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-400" />
               <Input
                 placeholder="Search state..."
@@ -213,7 +213,7 @@ export default function InventoryPage() {
                         <span className="font-medium text-surface-950 dark:text-white text-sm">
                           {state.name}
                         </span>
-                        <Badge variant="outline" className="text-[11px] font-mono">
+                        <Badge variant="outline" className="text-xs font-mono">
                           {state.code}
                         </Badge>
                       </div>
@@ -277,7 +277,7 @@ export default function InventoryPage() {
                             <Badge
                               key={city}
                               variant="secondary"
-                              className="text-[11px] max-w-[100px] truncate"
+                              className="text-xs max-w-[100px] truncate"
                             >
                               {city}
                             </Badge>

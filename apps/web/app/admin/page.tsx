@@ -71,7 +71,7 @@ function StatusBadge({ status }: { status: string }) {
   const variant = colorMap[status] ?? "secondary";
 
   return (
-    <Badge variant={variant} className="text-[11px]">
+    <Badge variant={variant} className="text-xs">
       {status}
     </Badge>
   );
@@ -147,7 +147,7 @@ export default async function AdminPage() {
             <div className="flex flex-col gap-0.5 mt-1">
               <p className="text-xs text-surface-400">
                 {formatNumber(agents.deliverable)} deliverable
-                <Badge variant="success" className="ml-1.5 text-[10px] px-1.5 py-0">
+                <Badge variant="success" className="ml-1.5 text-xs px-1.5 py-0">
                   deliverable
                 </Badge>
               </p>
@@ -298,7 +298,7 @@ export default async function AdminPage() {
                         {log.user?.name ?? log.user?.email ?? "System"}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-[11px]">
+                        <Badge variant="outline" className="text-xs">
                           {log.action}
                         </Badge>
                       </TableCell>

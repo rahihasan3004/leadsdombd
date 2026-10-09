@@ -51,7 +51,7 @@ export function KpiCard({
         {badge && (
           <span
             className={cn(
-              "text-[10px] sm:text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 leading-tight whitespace-nowrap shrink-0",
+              "text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 leading-tight whitespace-nowrap shrink-0",
               badgeColor
             )}
           >

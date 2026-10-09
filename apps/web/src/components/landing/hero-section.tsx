@@ -380,11 +380,11 @@ function DashboardMockup() {
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <p className="text-sm font-semibold text-neutral-900">Dashboard</p>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 w-44 h-7 text-[11px] bg-white border border-neutral-200 rounded-md px-2.5 text-neutral-400">
+                  <div className="flex items-center gap-1.5 w-44 h-7 text-xs bg-white border border-neutral-200 rounded-md px-2.5 text-neutral-400">
                     <Search className="h-3 w-3 shrink-0" />
                     <span>Search agents...</span>
                   </div>
-                  <div className="hidden sm:flex items-center gap-1 h-7 text-[10px] font-medium text-neutral-500 bg-white border border-neutral-200 rounded-md px-2.5">
+                  <div className="hidden sm:flex items-center gap-1 h-7 text-xs font-medium text-neutral-500 bg-white border border-neutral-200 rounded-md px-2.5">
                     <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
                     Full Screen
                   </div>
@@ -400,7 +400,7 @@ function DashboardMockup() {
                     >
                       <div className="flex items-center gap-1 text-neutral-400 mb-1">
                         <kpi.icon className="h-3 w-3" />
-                        <p className="text-[10px] font-medium uppercase tracking-wider">
+                        <p className="text-xs font-medium uppercase tracking-wider">
                           {kpi.label}
                         </p>
                       </div>
@@ -411,18 +411,18 @@ function DashboardMockup() {
                   ))}
                 </div>
                 <div className="mt-3 rounded-2xl border border-neutral-200/60 bg-white p-4 min-h-[160px]">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-2">
+                  <p className="text-xs font-medium uppercase tracking-wider text-neutral-400 mb-2">
                     Sales / Lead Trends
                   </p>
                   <LineChart />
                   <div className="flex items-center gap-4 mt-1.5 pl-1">
                     <div className="flex items-center gap-1.5">
                       <div className="h-2 w-2 rounded-full bg-blue-500" />
-                      <span className="text-[10px] text-neutral-500">Leads</span>
+                      <span className="text-xs text-neutral-500">Leads</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div className="h-2 w-2 rounded-full bg-red-500" />
-                      <span className="text-[10px] text-neutral-500">Sales</span>
+                      <span className="text-xs text-neutral-500">Sales</span>
                     </div>
                   </div>
                 </div>
@@ -437,7 +437,7 @@ function DashboardMockup() {
                     >
                       <div className="flex items-center gap-1.5 text-neutral-400 mb-1.5">
                         <kpi.icon className="h-3.5 w-3.5" />
-                        <p className="text-[10px] font-medium uppercase tracking-wider">
+                        <p className="text-xs font-medium uppercase tracking-wider">
                           {kpi.label}
                         </p>
                       </div>
@@ -450,31 +450,31 @@ function DashboardMockup() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
                   <div className="rounded-2xl border border-neutral-200/60 bg-white p-5 min-h-[220px]">
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-3">
+                    <p className="text-xs font-medium uppercase tracking-wider text-neutral-400 mb-3">
                       Sales / Lead Trends
                     </p>
                     <LineChart />
                     <div className="flex items-center gap-4 mt-1.5 pl-1">
                       <div className="flex items-center gap-1.5">
                         <div className="h-2 w-2 rounded-full bg-blue-500" />
-                        <span className="text-[10px] text-neutral-500">Leads</span>
+                        <span className="text-xs text-neutral-500">Leads</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <div className="h-2 w-2 rounded-full bg-red-500" />
-                        <span className="text-[10px] text-neutral-500">Sales</span>
+                        <span className="text-xs text-neutral-500">Sales</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="rounded-2xl border border-neutral-200/60 bg-white p-5 min-h-[220px]">
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-3">
+                    <p className="text-xs font-medium uppercase tracking-wider text-neutral-400 mb-3">
                       User Acquisition
                     </p>
                     <BarChart />
                   </div>
 
                   <div className="rounded-2xl border border-neutral-200/60 bg-white p-5 min-h-[220px]">
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-400 mb-3">
+                    <p className="text-xs font-medium uppercase tracking-wider text-neutral-400 mb-3">
                       Top States Distribution
                     </p>
                     <DonutChart />

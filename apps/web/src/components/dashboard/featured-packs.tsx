@@ -54,7 +54,7 @@ export function FeaturedPacks({ packs = [] }: FeaturedPacksProps) {
                   <span className="font-semibold tabular-nums text-surface-950 dark:text-white">
                     {pack.leadCount.toLocaleString()}
                   </span>
-                  <span className="inline-flex items-center gap-0.5 text-[11px] text-status-verified font-medium">
+                  <span className="inline-flex items-center gap-0.5 text-xs text-status-verified font-medium">
                     <ShieldCheck className="h-3 w-3" />
                     Verified Leads
                   </span>

@@ -9,7 +9,7 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-white flex flex-col selection:bg-neutral-900 selection:text-white">
+    <div className="min-h-dvh bg-white flex flex-col selection:bg-neutral-900 selection:text-white">
       <LandingNavbar />
 
       <main className="flex-1 w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-16">
@@ -30,19 +30,19 @@ export default function PrivacyPage() {
         <div className="flex flex-row items-center justify-center gap-1.5 sm:gap-3 my-6 w-full overflow-x-auto no-scrollbar py-1">
           <Link 
             href="/terms" 
-            className="text-[11px] sm:text-xs px-3 sm:px-4 py-1.5 rounded-full font-medium whitespace-nowrap transition-all text-slate-600 hover:text-slate-900 bg-slate-100"
+            className="text-xs px-3 sm:px-4 py-1.5 rounded-full font-medium whitespace-nowrap transition-all text-slate-600 hover:text-slate-900 bg-slate-100"
           >
             Terms of Service
           </Link>
           <Link 
             href="/privacy" 
-            className="text-[11px] sm:text-xs px-3 sm:px-4 py-1.5 rounded-full font-medium whitespace-nowrap transition-all bg-blue-600 text-white shadow-none border-0"
+            className="text-xs px-3 sm:px-4 py-1.5 rounded-full font-medium whitespace-nowrap transition-all bg-blue-600 text-white shadow-none border-0"
           >
             Privacy Policy
           </Link>
           <Link 
             href="/refund" 
-            className="text-[11px] sm:text-xs px-3 sm:px-4 py-1.5 rounded-full font-medium whitespace-nowrap transition-all text-slate-600 hover:text-slate-900 bg-slate-100"
+            className="text-xs px-3 sm:px-4 py-1.5 rounded-full font-medium whitespace-nowrap transition-all text-slate-600 hover:text-slate-900 bg-slate-100"
           >
             Refund Policy
           </Link>

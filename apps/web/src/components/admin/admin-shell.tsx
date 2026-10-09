@@ -16,7 +16,7 @@ export function AdminShell({ user, children }: AdminShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="h-screen max-h-screen w-full flex overflow-hidden bg-surface-50 dark:bg-surface-950">
+    <div className="h-dvh max-h-dvh w-full flex overflow-hidden bg-surface-50 dark:bg-surface-950">
       <AdminSidebar user={user} mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
         <AdminHeader onMenuClick={() => setMobileOpen(true)} />

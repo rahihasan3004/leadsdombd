@@ -265,7 +265,7 @@ export default function AdminUsersPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={ROLE_BADGE_VARIANT[user.role] ?? "secondary"} className="text-[11px]">
+                    <Badge variant={ROLE_BADGE_VARIANT[user.role] ?? "secondary"} className="text-xs">
                       {user.role.replace("_", " ")}
                     </Badge>
                   </TableCell>
@@ -274,7 +274,7 @@ export default function AdminUsersPage() {
                   </TableCell>
                   <TableCell>
                     {user.subscriptionTier ? (
-                      <Badge variant={TIER_BADGE_VARIANT[user.subscriptionTier] ?? "outline"} className="text-[11px]">
+                      <Badge variant={TIER_BADGE_VARIANT[user.subscriptionTier] ?? "outline"} className="text-xs">
                         {user.subscriptionTier}
                       </Badge>
                     ) : (

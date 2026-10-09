@@ -218,7 +218,7 @@ export function LeadOrderEngine() {
           <SectionGuarantee />
         </div>
 
-        <div className="lg:col-span-5 xl:col-span-4 sticky top-6">
+        <div className="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-6">
           <div className="bg-white shadow-none border-0 rounded-2xl p-6 sm:p-8 space-y-6">
             <h2 className="text-lg font-bold text-slate-900 tracking-tight">
               Order Summary
@@ -310,7 +310,7 @@ export function LeadOrderEngine() {
 function SectionNiche() {
   return (
     <div>
-      <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase block mb-2.5">
+      <span className="text-xs font-bold tracking-wider text-slate-400 uppercase block mb-2.5">
         Target Industry & Category
       </span>
       <div className="w-full h-12 bg-white border border-slate-200 rounded-xl px-4 flex items-center text-sm text-slate-900">
@@ -368,7 +368,7 @@ function SectionStates({
           </button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-[var(--radix-popover-trigger-width)] p-0"
+          className="w-[var(--radix-popover-trigger-width)] p-0 flex flex-col overflow-hidden"
           align="start"
           sideOffset={4}
         >
@@ -379,7 +379,7 @@ function SectionStates({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search state by name or code..."
-              className="flex-1 text-sm bg-transparent outline-none text-slate-900 placeholder:text-slate-400"
+              className="flex-1 text-base sm:text-sm bg-transparent outline-none text-slate-900 placeholder:text-slate-400"
             />
             {search && (
               <button
@@ -405,7 +405,7 @@ function SectionStates({
             </button>
           </div>
 
-          <div className="max-h-72 overflow-auto p-1">
+          <div className="max-h-72 min-h-0 overflow-auto overscroll-contain p-1">
             {filteredStates.length === 0 ? (
               <p className="text-xs text-slate-400 text-center py-6">No states found</p>
             ) : (
@@ -439,7 +439,7 @@ function SectionStates({
 
       {selectedStates.length > 0 && (
         <div className="max-w-full pt-1.5">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
             Selected States
           </span>
           <div className="flex flex-wrap max-w-full gap-1.5 pt-1.5">
@@ -498,7 +498,7 @@ function SectionQuantity({
           placeholder={`Enter lead quantity (min. ${minQuantity})`}
           value={quantityInput}
           onChange={(e) => onQuantityInputChange(e.target.value)}
-          className="w-full h-12 text-base rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#465FFF]/20 focus:border-[#465FFF] px-4 text-sm text-slate-900 focus:outline-none transition-colors bg-white"
+          className="w-full h-12 text-base rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#465FFF]/20 focus:border-[#465FFF] px-4 sm:text-sm text-slate-900 focus:outline-none transition-colors bg-white"
         />
       </div>
 
@@ -526,14 +526,14 @@ function SectionQuantity({
 function SectionGuarantee() {
   return (
     <div className="space-y-3">
-      <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase block mb-3">
+      <span className="text-xs font-bold tracking-wider text-slate-400 uppercase block mb-3">
         Included Data Guarantee (17 Verified Fields)
       </span>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2.5 text-xs text-slate-600">
         {DATA_GUARANTEES.map((item) => (
           <div
             key={item}
-            className="flex items-center gap-2.5 text-[11px] text-slate-600"
+            className="flex items-center gap-2.5 text-xs text-slate-600"
           >
             <Check className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
             {item}

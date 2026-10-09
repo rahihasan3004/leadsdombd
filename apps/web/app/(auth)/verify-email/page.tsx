@@ -126,18 +126,19 @@ function VerifyEmailContent() {
 
       <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 py-12">
           <div className="w-full max-w-[400px] flex flex-col items-center text-center">
-            <div className="flex items-center justify-between gap-2 w-full mb-6" onPaste={handlePaste}>
+            <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full mb-6" onPaste={handlePaste}>
               {code.map((digit, i) => (
                 <input
                   key={i}
                   ref={(el) => { inputRefs.current[i] = el; }}
                   type="text"
                   inputMode="numeric"
+                  autoComplete="one-time-code"
                   maxLength={1}
                   value={digit}
                   onChange={(e) => handleChange(i, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(i, e)}
-                  className="w-12 h-12 text-center text-lg font-bold tabular-nums bg-white border border-surface-200 rounded-md text-surface-950 focus:border-surface-950 focus:ring-1 focus:ring-surface-950 transition-all outline-none"
+                  className="flex-1 min-w-0 max-w-12 h-12 sm:w-12 text-center text-lg font-bold tabular-nums bg-white border border-surface-200 rounded-md text-surface-950 focus:border-surface-950 focus:ring-1 focus:ring-surface-950 transition-all outline-none"
                   aria-label={`Verification digit ${i + 1}`}
                 />
               ))}
@@ -173,7 +174,7 @@ function VerifyEmailContent() {
               )}
             </p>
 
-            <p className="mt-8 text-[11px] text-surface-400">
+            <p className="mt-8 text-xs text-surface-400">
               &copy; 2026 LeadsDom. All Rights Reserved.{" "}
               <Link href="/privacy" className="underline underline-offset-2 hover:text-surface-600">Privacy</Link>{" "}
               and{" "}

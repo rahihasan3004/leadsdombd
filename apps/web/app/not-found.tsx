@@ -3,7 +3,7 @@ import { Button } from "@fine-leads/ui";
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-surface-50 px-4">
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-surface-50 px-4">
       <div className="text-center">
         <p className="text-6xl font-bold text-brand-600">404</p>
         <h1 className="mt-4 text-2xl sm:text-3xl lg:text-4xl font-bold text-surface-900">Page not found</h1>

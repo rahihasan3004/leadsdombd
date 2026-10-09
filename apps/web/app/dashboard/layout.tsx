@@ -42,7 +42,7 @@ export default function DashboardLayout({
   };
 
   return (
-    <div className="h-screen max-h-screen w-full flex overflow-hidden bg-surface-50 dark:bg-surface-950">
+    <div className="h-dvh max-h-dvh w-full flex overflow-hidden bg-surface-50 dark:bg-surface-950">
       <Sidebar user={user} mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
         {/* Mobile header: fixed to the viewport, outside the scroll container, so nothing can scroll it away. */}

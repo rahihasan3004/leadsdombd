@@ -5,8 +5,9 @@ import { useSession } from "next-auth/react";
 import { Button } from "@fine-leads/ui";
 import { cn } from "@fine-leads/utils";
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Logo } from "@/components/logo";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 const navLinks = [
   { href: "/dashboard", label: "Explore Leads" },
@@ -19,6 +20,8 @@ export function LandingNavbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user;
+  const menuRef = useRef<HTMLDivElement>(null);
+  useModalA11y(menuRef, mobileOpen, () => setMobileOpen(false));
 
   return (
     <header
@@ -72,16 +75,27 @@ export function LandingNavbar() {
         </div>
 
         <button
-          className="md:hidden p-2 text-surface-600"
+          type="button"
+          className="md:hidden -mr-2.5 inline-flex h-11 w-11 items-center justify-center rounded-lg text-surface-600"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label="Toggle menu"
+          aria-expanded={mobileOpen}
+          aria-controls="landing-mobile-menu"
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
 
       {mobileOpen && (
-        <div className="fixed inset-0 z-[9999] bg-white w-screen h-[100dvh] flex flex-col justify-between p-6 lg:hidden overflow-y-auto">
+        <div
+          ref={menuRef}
+          id="landing-mobile-menu"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Site menu"
+          tabIndex={-1}
+          className="fixed inset-0 z-[9999] bg-white h-dvh flex flex-col justify-between p-6 md:hidden overflow-y-auto overscroll-contain outline-none"
+        >
           <div className="flex items-center justify-between pb-4 border-b border-slate-100">
             <Logo />
             <button

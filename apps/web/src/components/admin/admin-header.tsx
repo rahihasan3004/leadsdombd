@@ -30,7 +30,7 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
 
   return (
     <header className="h-14 shrink-0 border-b border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-950 px-4 lg:px-6 flex items-center justify-between">
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <Button
           variant="ghost"
           size="icon"
@@ -41,7 +41,7 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
           <Menu className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-lg font-semibold text-surface-950 dark:text-white">
+          <h1 className="truncate text-lg font-semibold text-surface-950 dark:text-white">
             {title}
           </h1>
         </div>

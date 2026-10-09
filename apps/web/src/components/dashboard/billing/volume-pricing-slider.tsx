@@ -55,7 +55,7 @@ export default function VolumePricingSlider({
     <div className="space-y-6">
       <div className="text-center space-y-1">
         <div className="flex items-baseline justify-center gap-2">
-          <span className="text-5xl font-black text-slate-900 tabular-nums">
+          <span className="text-4xl sm:text-5xl font-black text-slate-900 tabular-nums">
             ${currentTier.price}
           </span>
           <span className="text-sm font-medium text-slate-400">once</span>
@@ -83,7 +83,7 @@ export default function VolumePricingSlider({
           onChange={handleSliderChange}
           disabled={disabled}
           aria-label="Lead volume"
-          className="volume-pricing-slider relative z-10 h-8 w-full cursor-pointer appearance-none bg-transparent"
+          className="volume-pricing-slider relative z-10 h-11 w-full cursor-pointer appearance-none bg-transparent"
         />
 
         <style>{`
@@ -136,6 +136,18 @@ export default function VolumePricingSlider({
             outline: none;
             box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
           }
+          /* Touch devices: ~28px thumb (track is 8px, so offset = -(28 - 8) / 2) */
+          @media (pointer: coarse) {
+            .volume-pricing-slider::-webkit-slider-thumb {
+              width: 28px;
+              height: 28px;
+              margin-top: -10px;
+            }
+            .volume-pricing-slider::-moz-range-thumb {
+              width: 28px;
+              height: 28px;
+            }
+          }
           .volume-pricing-slider:disabled {
             cursor: not-allowed;
             opacity: 0.6;
@@ -155,7 +167,7 @@ export default function VolumePricingSlider({
             type="button"
             onClick={() => handleStepClick(tier, idx)}
             disabled={disabled}
-            className={`text-xs font-medium transition-colors cursor-pointer ${
+            className={`py-2.5 px-1 -mx-1 text-xs font-medium transition-colors cursor-pointer ${
               idx === sliderValue
                 ? "text-blue-600 font-bold"
                 : "text-slate-400 hover:text-slate-600"

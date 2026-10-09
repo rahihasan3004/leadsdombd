@@ -580,7 +580,7 @@ export default function AdminAgentsPage() {
                   <TableCell>
                     <div className="flex items-center gap-1.5 text-sm text-surface-600 dark:text-surface-300">
                       {agent.state ? (
-                        <Badge variant="outline" className="text-[11px] font-mono">
+                        <Badge variant="outline" className="text-xs font-mono">
                           {agent.state}
                         </Badge>
                       ) : (
@@ -597,7 +597,7 @@ export default function AdminAgentsPage() {
                   <TableCell>
                     <Badge
                       variant={agent.isDeliverable ? "success" : "destructive"}
-                      className="text-[11px]"
+                      className="text-xs"
                     >
                       {agent.isDeliverable ? "Deliverable" : "Undeliverable"}
                     </Badge>

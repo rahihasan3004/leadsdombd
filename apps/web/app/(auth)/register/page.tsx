@@ -47,7 +47,7 @@ export default function RegisterPage() {
         </Link>
       </p>
 
-      <p className="text-[11px] text-surface-400 text-center mt-6">
+      <p className="text-xs text-surface-400 text-center mt-6">
         &copy; 2026 LeadsDom. All Rights Reserved.{" "}
         <Link
           href="/privacy"

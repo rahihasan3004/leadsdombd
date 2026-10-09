@@ -259,7 +259,7 @@ export default function SettingsPage() {
   const canDelete = dangerConfirm === "DELETE" && deleteOtp.length === 6;
 
   return (
-    <div className="w-full min-h-screen bg-slate-50 p-3.5 sm:p-6 lg:p-8 pb-16 sm:pb-16 md:pb-6 lg:pb-8 space-y-4">
+    <div className="w-full min-h-dvh bg-slate-50 p-3.5 sm:p-6 lg:p-8 pb-16 sm:pb-16 md:pb-6 lg:pb-8 space-y-4">
       <div>
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900">
           Settings
@@ -340,7 +340,7 @@ export default function SettingsPage() {
                   </div>
                 )}
                 {!securityLoading && securityInfo && !securityInfo.isGoogleUser && (
-                  <p className="text-[11px] text-slate-400 mt-2 font-normal">
+                  <p className="text-xs text-slate-400 mt-2 font-normal">
                     You will receive a 6-digit verification code at both your current and new email addresses.
                   </p>
                 )}
@@ -480,7 +480,7 @@ export default function SettingsPage() {
             <Button
               variant="destructive"
               onClick={() => setShowDeleteModal(true)}
-              className="h-11 px-5 text-xs font-semibold border-0 shadow-none"
+              className="h-11 sm:h-11 px-5 text-xs font-semibold border-0 shadow-none"
             >
               <Trash2 className="h-3.5 w-3.5 mr-2" />
               Delete Account
@@ -506,6 +506,8 @@ export default function SettingsPage() {
               <Input
                 type="text"
                 maxLength={6}
+                inputMode="numeric"
+                autoComplete="one-time-code"
                 value={currentEmailCode}
                 onChange={(e) => setCurrentEmailCode(e.target.value.replace(/\D/g, ""))}
                 placeholder="6-digit code"
@@ -519,6 +521,8 @@ export default function SettingsPage() {
               <Input
                 type="text"
                 maxLength={6}
+                inputMode="numeric"
+                autoComplete="one-time-code"
                 value={newEmailCode}
                 onChange={(e) => setNewEmailCode(e.target.value.replace(/\D/g, ""))}
                 placeholder="6-digit code"
@@ -583,6 +587,8 @@ export default function SettingsPage() {
               <Input
                 type="text"
                 maxLength={6}
+                inputMode="numeric"
+                autoComplete="one-time-code"
                 value={deleteOtp}
                 onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, ""))}
                 placeholder="6-digit OTP code"

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut as nextAuthSignOut } from "next-auth/react";
@@ -14,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 interface SidebarUser {
   name?: string | null;
@@ -53,6 +55,10 @@ export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) 
     "U";
 
   const closeMobile = () => onMobileOpenChange?.(false);
+
+  // Escape, focus trap/return and scroll lock for the mobile drawer.
+  const drawerRef = useRef<HTMLDivElement>(null);
+  useModalA11y(drawerRef, !!mobileOpen, closeMobile);
 
   const navSection = (
     <div>
@@ -128,7 +134,7 @@ export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) 
             nextAuthSignOut({ callbackUrl: "/login" });
           }}
           aria-label="Sign out"
-          className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+          className="-mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
         >
           <LogOut className="h-4 w-4 shrink-0" />
         </button>
@@ -138,7 +144,7 @@ export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) 
 
   return (
     <>
-      <aside className="hidden lg:flex w-64 h-screen sticky top-0 bg-white border-r border-neutral-200 flex-col justify-between">
+      <aside className="hidden lg:flex w-64 h-dvh sticky top-0 bg-white border-r border-neutral-200 flex-col justify-between">
         <div>
           <div className="pt-6 pb-4 px-6 flex items-center gap-3">
             <Logo size={36} showText={true} />
@@ -157,10 +163,16 @@ export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) 
       />
 
       <div
-        className={`fixed inset-y-0 left-0 w-[85%] max-w-xs bg-white shadow-2xl z-[95] flex flex-col justify-between border-r border-slate-200 h-[100dvh] overflow-y-auto transform transition-transform duration-300 ease-in-out lg:hidden ${
+        className={`fixed inset-y-0 left-0 w-[85%] max-w-xs bg-white shadow-2xl z-[95] flex flex-col justify-between border-r border-slate-200 h-dvh overflow-y-auto overscroll-contain outline-none transform transition-transform duration-300 ease-in-out lg:hidden ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
-        aria-hidden={!mobileOpen}
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation menu"
+        tabIndex={-1}
+        // Closed drawer is off-canvas: inert keeps its links out of the tab order and screen readers.
+        inert={!mobileOpen}
       >
         <div>
           <div className="pt-10 pb-5 px-6 flex items-center justify-between gap-3">
@@ -168,7 +180,7 @@ export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) 
             <button
               type="button"
               onClick={closeMobile}
-              className="-mr-1.5 text-slate-400 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+              className="-mr-3 inline-flex h-11 w-11 items-center justify-center text-slate-400 hover:text-slate-900 rounded-lg hover:bg-slate-50 transition-colors"
               aria-label="Close menu"
             >
               <X className="h-5 w-5" />

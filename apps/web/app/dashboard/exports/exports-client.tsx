@@ -141,7 +141,7 @@ export function ExportsClient({ states, history }: { states: ExportableState[]; 
                   onClick={() => handleDownload(state)}
                   disabled={disabled || isBusy}
                   aria-label={`Download ${state.name} CSV`}
-                  className="inline-flex shrink-0 items-center gap-1.5 h-8 px-3 rounded-md bg-blue-600 text-white text-xs font-semibold transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                  className="inline-flex shrink-0 items-center gap-1.5 h-10 sm:h-8 px-3 rounded-md bg-blue-600 text-white text-xs font-semibold transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
                 >
                   {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                   {isBusy ? "Preparing…" : "CSV"}
@@ -157,7 +157,24 @@ export function ExportsClient({ states, history }: { states: ExportableState[]; 
         {history.length === 0 ? (
           <p className="mt-3 text-sm text-slate-500">No exports yet. Your downloads will appear here.</p>
         ) : (
-          <div className="mt-4 overflow-x-auto">
+          <>
+          {/* Below sm: stacked cards instead of a sideways-scrolling table */}
+          <ul className="mt-4 divide-y divide-slate-100 sm:hidden">
+            {history.map((row) => (
+              <li key={row.id} className="flex items-start justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-900 break-words">{row.stateLabel}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {formatDateTime(row.createdAt)} · {formatCount(row.agentCount)} leads
+                  </p>
+                </div>
+                <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[row.status]}`}>
+                  {row.status}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-4 hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[480px] text-sm">
               <thead>
                 <tr className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
@@ -183,6 +200,7 @@ export function ExportsClient({ states, history }: { states: ExportableState[]; 
               </tbody>
             </table>
           </div>
+          </>
         )}
       </section>
     </div>

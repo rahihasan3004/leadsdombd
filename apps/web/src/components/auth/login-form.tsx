@@ -93,7 +93,7 @@ export function LoginForm() {
           type="email"
           required
           placeholder="name@company.com"
-          className="h-11 w-full rounded-md border border-surface-200 bg-white px-3.5 text-sm text-surface-900 placeholder:text-surface-400 focus:border-surface-950 focus:ring-1 focus:ring-surface-950 transition-all outline-none"
+          className="h-11 w-full rounded-md border border-surface-200 bg-white px-3.5 text-base sm:text-sm text-surface-900 placeholder:text-surface-400 focus:border-surface-950 focus:ring-1 focus:ring-surface-950 transition-all outline-none"
         />
       </div>
 

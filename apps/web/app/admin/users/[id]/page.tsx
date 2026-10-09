@@ -571,7 +571,7 @@ export default function AdminUserDetailPage() {
                             {txn.referenceId}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="text-[11px]">
+                            <Badge variant="outline" className="text-xs">
                               {TXN_TYPE_LABELS[txn.type] ?? txn.type}
                             </Badge>
                           </TableCell>
@@ -587,7 +587,7 @@ export default function AdminUserDetailPage() {
                           <TableCell>
                             <Badge
                               variant={STATUS_BADGE_VARIANT[txn.status] ?? "outline"}
-                              className="text-[11px]"
+                              className="text-xs"
                             >
                               {txn.status}
                             </Badge>
@@ -640,7 +640,7 @@ export default function AdminUserDetailPage() {
                                 <Badge
                                   key={code}
                                   variant="secondary"
-                                  className="text-[10px]"
+                                  className="text-xs"
                                 >
                                   {code}
                                 </Badge>
@@ -653,7 +653,7 @@ export default function AdminUserDetailPage() {
                           <TableCell>
                             <Badge
                               variant={STATUS_BADGE_VARIANT[purchase.status] ?? "outline"}
-                              className="text-[11px]"
+                              className="text-xs"
                             >
                               {purchase.status}
                             </Badge>
@@ -674,7 +674,7 @@ export default function AdminUserDetailPage() {
         </Tabs>
 
       <Dialog open={unlockDialogOpen} onOpenChange={setUnlockDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[80dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Unlock State Pack</DialogTitle>
             <DialogDescription>

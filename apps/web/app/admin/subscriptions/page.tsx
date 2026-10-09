@@ -324,7 +324,7 @@ export default function AdminSubscriptionsPage() {
                   <TableCell>
                     <Badge
                       variant={TIER_BADGE_VARIANT[sub.tier] ?? "secondary"}
-                      className="text-[11px]"
+                      className="text-xs"
                     >
                       {sub.tier}
                     </Badge>
@@ -332,7 +332,7 @@ export default function AdminSubscriptionsPage() {
                   <TableCell>
                     <Badge
                       variant={STATUS_BADGE_VARIANT[sub.status] ?? "secondary"}
-                      className="text-[11px]"
+                      className="text-xs"
                     >
                       {sub.status.replace(/_/g, " ")}
                     </Badge>
@@ -345,9 +345,9 @@ export default function AdminSubscriptionsPage() {
                         <span className="text-surface-300">—</span>
                       )}
                       {sub.stripeSubscriptionId ? (
-                        <span className="text-[10px]">{sub.stripeSubscriptionId}</span>
+                        <span className="text-xs">{sub.stripeSubscriptionId}</span>
                       ) : (
-                        <span className="text-[10px] text-surface-300">—</span>
+                        <span className="text-xs text-surface-300">—</span>
                       )}
                     </div>
                   </TableCell>

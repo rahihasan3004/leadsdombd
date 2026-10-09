@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 import {
   Copy,
   Check,
@@ -130,7 +131,7 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="flex-shrink-0 p-1 rounded-sm text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+      className="flex-shrink-0 p-2 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
       title="Copy to clipboard"
     >
       {copied ? (
@@ -173,7 +174,7 @@ function AttrRow({
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <Icon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
             {label}
           </p>
           <div className="flex items-center gap-1.5">
@@ -202,7 +203,7 @@ function AttrRow({
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-1 rounded-sm text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="p-2 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
             title="Open link"
           >
             <ExternalLink className="w-3.5 h-3.5" />
@@ -214,14 +215,9 @@ function AttrRow({
 }
 
 export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps) {
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+  // Hand-rolled modal: Escape, focus trap/return and page scroll lock.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y(dialogRef, open && !!agent, onClose);
 
   const handleCopyAllInfo = useCallback(
     (e: React.MouseEvent) => {
@@ -263,23 +259,26 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
         role="dialog"
         aria-modal="true"
         aria-labelledby="agent-modal-title"
-        className="fixed inset-0 w-full h-full max-w-none rounded-none border-0 bg-white z-[100] overflow-y-auto p-4 md:relative md:max-w-2xl md:h-auto md:rounded-2xl md:p-6 md:border md:border-slate-200 md:text-slate-900 md:shadow-xl"
+        ref={dialogRef}
+        tabIndex={-1}
+        className="fixed inset-0 w-full h-full max-w-none rounded-none border-0 bg-white z-[100] overflow-y-auto overscroll-contain outline-none p-4 md:relative md:max-w-2xl md:h-auto md:max-h-[calc(100dvh-2rem)] md:rounded-2xl md:p-6 md:border md:border-slate-200 md:text-slate-900 md:shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+          aria-label="Close"
+          className="absolute right-2 top-2 inline-flex h-11 w-11 items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
         >
           <X className="h-4 w-4" />
         </button>
 
-        <div className="pr-8">
-          <h2 id="agent-modal-title" className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-slate-500" />
-            {agent.fullName}
+        <div className="pr-10">
+          <h2 id="agent-modal-title" className="text-lg font-bold text-slate-900 flex items-start gap-2 min-w-0">
+            <Building2 className="h-5 w-5 mt-0.5 shrink-0 text-slate-500" />
+            <span className="min-w-0 break-words">{agent.fullName}</span>
           </h2>
-          <div className="flex items-center gap-3 mt-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
             {agent.category && (
               <span className="inline-flex items-center gap-1 text-xs text-slate-600">
                 <Tag className="h-3.5 w-3.5" />
@@ -321,7 +320,7 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
               value={agent.email}
               copyable
               badge={
-                <span className="inline-flex items-center text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                <span className="inline-flex items-center text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
                   Verified
                 </span>
               }

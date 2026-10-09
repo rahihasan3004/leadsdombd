@@ -20,7 +20,7 @@ export function PasswordInput({
         {...props}
         type={show ? "text" : "password"}
         placeholder={placeholder}
-        className={`h-11 w-full rounded-md border border-surface-200 bg-white px-3.5 pr-10 text-sm text-surface-900 placeholder:text-surface-400 focus:border-surface-950 focus:ring-1 focus:ring-surface-950 transition-all outline-none ${className ?? ""}`}
+        className={`h-11 w-full rounded-md border border-surface-200 bg-white px-3.5 pr-10 text-base sm:text-sm text-surface-900 placeholder:text-surface-400 focus:border-surface-950 focus:ring-1 focus:ring-surface-950 transition-all outline-none ${className ?? ""}`}
       />
       <button
         type="button"

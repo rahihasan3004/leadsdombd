@@ -58,6 +58,9 @@ export function AdminSidebar({ user, mobileOpen, onMobileOpenChange }: AdminSide
     return pathname.startsWith(href);
   };
 
+  // Close the mobile sheet whenever a link is tapped (the shell layout persists across routes).
+  const closeMobile = () => onMobileOpenChange?.(false);
+
   const initial = user.name?.charAt(0)?.toUpperCase() ?? user.email?.charAt(0)?.toUpperCase() ?? "A";
 
   const renderNav = () => (
@@ -65,6 +68,7 @@ export function AdminSidebar({ user, mobileOpen, onMobileOpenChange }: AdminSide
       <div>
         <Link
           href="/admin"
+          onClick={closeMobile}
           className="flex items-center gap-2 px-2 mb-4"
         >
           <Shield className="h-5 w-5 text-surface-950 dark:text-white" />
@@ -74,7 +78,7 @@ export function AdminSidebar({ user, mobileOpen, onMobileOpenChange }: AdminSide
         </Link>
 
         <div className="mx-1 mb-5 p-2.5 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
-          <span className="text-[10px] uppercase font-semibold text-amber-600 dark:text-amber-400 block tracking-wider">
+          <span className="text-xs uppercase font-semibold text-amber-600 dark:text-amber-400 block tracking-wider">
             Admin Panel
           </span>
           <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
@@ -83,7 +87,7 @@ export function AdminSidebar({ user, mobileOpen, onMobileOpenChange }: AdminSide
         </div>
 
         <nav>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-surface-400 px-2.5 mb-2 block">
+          <span className="text-xs font-bold uppercase tracking-wider text-surface-400 px-2.5 mb-2 block">
             Management
           </span>
           <ul className="flex flex-col space-y-1.5">
@@ -94,6 +98,7 @@ export function AdminSidebar({ user, mobileOpen, onMobileOpenChange }: AdminSide
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    onClick={closeMobile}
                     className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-colors ${
                       active
                         ? "bg-surface-950 text-white dark:bg-white dark:text-surface-950 font-semibold shadow-xs"
@@ -113,6 +118,7 @@ export function AdminSidebar({ user, mobileOpen, onMobileOpenChange }: AdminSide
       <div className="border-t border-surface-200 dark:border-surface-800 pt-3 mt-auto space-y-1.5">
         <Link
           href="/dashboard"
+          onClick={closeMobile}
           className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-900 hover:text-surface-950 dark:hover:text-white rounded-md transition-colors"
         >
           <ArrowLeft className="h-4 w-4 stroke-[1.5]" />
@@ -127,7 +133,7 @@ export function AdminSidebar({ user, mobileOpen, onMobileOpenChange }: AdminSide
             <p className="text-xs font-semibold text-surface-950 dark:text-white truncate">
               {user.name ?? "Admin"}
             </p>
-            <p className="text-[11px] text-surface-400 truncate max-w-[130px]">
+            <p className="text-xs text-surface-400 truncate">
               {user.email ?? ""}
             </p>
           </div>
@@ -146,16 +152,16 @@ export function AdminSidebar({ user, mobileOpen, onMobileOpenChange }: AdminSide
 
   return (
     <>
-      <aside className="hidden lg:flex w-64 h-screen sticky top-0 bg-white dark:bg-surface-950 border-r border-surface-200 dark:border-surface-800 flex-col justify-between p-4">
+      <aside className="hidden lg:flex w-64 h-dvh sticky top-0 bg-white dark:bg-surface-950 border-r border-surface-200 dark:border-surface-800 flex-col justify-between p-4">
         {renderNav()}
       </aside>
 
       <Dialog open={mobileOpen} onOpenChange={onMobileOpenChange}>
-        <DialogContent className="sm:max-w-xs p-0 gap-0 rounded-none">
+        <DialogContent className="inset-y-0 left-0 top-0 flex h-dvh max-h-dvh w-[85%] max-w-xs translate-x-0 translate-y-0 flex-col gap-0 overflow-y-auto overscroll-contain rounded-none border-0 border-r p-0 sm:rounded-none lg:hidden">
           <DialogHeader className="px-6 py-4 border-b border-surface-200 dark:border-surface-800">
             <DialogTitle className="text-base font-semibold text-surface-950 dark:text-white">Menu</DialogTitle>
           </DialogHeader>
-          <div className="px-4 py-4">
+          <div className="flex flex-1 flex-col px-4 py-4">
             {renderNav()}
           </div>
         </DialogContent>

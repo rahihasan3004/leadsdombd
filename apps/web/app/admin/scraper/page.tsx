@@ -121,7 +121,7 @@ function FreshnessBadge({ freshness }: { freshness: "fresh" | "moderate" | "stal
   };
   const { label, variant } = config[freshness];
   return (
-    <Badge variant={variant} className="text-[11px]">
+    <Badge variant={variant} className="text-xs">
       {label}
     </Badge>
   );
@@ -282,20 +282,20 @@ export default function ScraperDashboardPage() {
         <TabsContent value="coverage" className="mt-4">
           <Card className="border-surface-200 dark:border-surface-800">
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="text-base">State Coverage</CardTitle>
                   <CardDescription>
                     Per-state scraping freshness and agent counts
                   </CardDescription>
                 </div>
-                <div className="relative w-64">
+                <div className="relative w-full sm:w-64">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-surface-400" />
                   <Input
                     placeholder="Search states..."
                     value={coverageSearch}
                     onChange={(e) => setCoverageSearch(e.target.value)}
-                    className="pl-8 h-9 text-sm"
+                    className="pl-8 h-11 sm:h-9"
                   />
                 </div>
               </div>
@@ -407,7 +407,7 @@ export default function ScraperDashboardPage() {
                             {agent.email && (
                               <Badge
                                 variant={agent.isDeliverable ? "success" : "destructive"}
-                                className="text-[10px] px-1.5"
+                                className="text-xs px-1.5"
                               >
                                 {agent.isDeliverable ? "OK" : "N/A"}
                               </Badge>

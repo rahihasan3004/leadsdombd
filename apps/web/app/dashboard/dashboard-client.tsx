@@ -224,7 +224,7 @@ export function DashboardClient({ metrics, userName }: DashboardClientProps) {
               </span>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4 mt-6 w-full">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-6 w-full">
             <div className="text-center">
               <p className="text-base font-bold text-neutral-900">
                 {formatNumber(metrics.totalLeads)}

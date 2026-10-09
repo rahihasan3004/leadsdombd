@@ -108,7 +108,7 @@ export function ActivityFeed({ events = [], trendData = [], loading = false }: A
             />
           ))}
         </div>
-        <div className="mt-2 flex justify-between text-[10px] text-slate-400">
+        <div className="mt-2 flex justify-between text-xs text-slate-400">
           <span>Sep 1</span>
           <span>Sep 15</span>
           <span>Sep 30</span>

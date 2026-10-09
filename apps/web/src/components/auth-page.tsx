@@ -74,7 +74,7 @@ const guarantees = [
 
 function BrandShowcase() {
   return (
-    <div className="flex min-h-screen flex-col justify-center bg-slate-950 px-8 py-16 lg:px-14 lg:py-20">
+    <div className="flex min-h-dvh flex-col justify-center bg-slate-950 px-8 py-16 lg:px-14 lg:py-20">
       <div className="mx-auto w-full max-w-lg">
         <div className="mb-2 inline-flex items-center gap-2 text-xl font-semibold tracking-tight text-white">
           <span className="text-2xl md:text-[28px] font-bold tracking-tight text-[#14A800]">leadsdom</span>
@@ -82,7 +82,7 @@ function BrandShowcase() {
         </div>
 
         <div className="mb-10">
-          <span className="inline-block rounded-full border border-slate-700 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.15em] text-slate-400">
+          <span className="inline-block rounded-full border border-slate-700 px-3 py-1 text-xs font-medium uppercase tracking-[0.15em] text-slate-400">
             RESTRICTED ACCESS • TIER-1 US REAL ESTATE AGENTS
           </span>
         </div>
@@ -128,7 +128,7 @@ function BrandShowcase() {
             &ldquo;Generated 18 booked appointments in our first 10 days targeting
             Miami luxury brokerages.&rdquo;
           </p>
-          <p className="mt-1.5 text-[11px] font-medium uppercase tracking-wider text-slate-500">
+          <p className="mt-1.5 text-xs font-medium uppercase tracking-wider text-slate-500">
             B2B Cold Outreach Agency
           </p>
         </div>
@@ -177,7 +177,7 @@ export function AuthPage({ mode }: AuthPageProps) {
   const isRegister = currentMode === "register";
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-dvh">
       <div className="hidden w-1/2 lg:block">
         <BrandShowcase />
       </div>
@@ -353,7 +353,7 @@ export function AuthPage({ mode }: AuthPageProps) {
             )}
           </div>
 
-          <p className="mt-4 text-center text-[11px] text-slate-400 dark:text-slate-500">
+          <p className="mt-4 text-center text-xs text-slate-400 dark:text-slate-500">
             By proceeding, you agree to LeadsDom&apos;{" "}
             <Link
               href="/terms"
