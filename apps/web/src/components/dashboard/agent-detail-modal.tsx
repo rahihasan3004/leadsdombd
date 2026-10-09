@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useModalA11y } from "@/hooks/use-modal-a11y";
 import {
   Copy,
@@ -248,11 +249,13 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
     [agent],
   );
 
-  if (!agent || !open) return null;
+  if (!agent || !open || typeof document === "undefined") return null;
 
-  return (
+  // Portalled to <body> at z-[100]: rendered inside the dashboard tree it shared a z-50 stacking
+  // context, so the fixed mobile header (z-[80]) covered the title/category/location on phones.
+  return createPortal(
     <div
-      className="fixed inset-0 bg-white md:bg-slate-900/20 flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-white md:bg-slate-900/20 flex items-center justify-center p-4 z-[100]"
       onClick={onClose}
     >
       <div
@@ -261,7 +264,7 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
         aria-labelledby="agent-modal-title"
         ref={dialogRef}
         tabIndex={-1}
-        className="fixed inset-0 w-full h-full max-w-none rounded-none border-0 bg-white z-[100] overflow-y-auto overscroll-contain outline-none p-4 md:relative md:max-w-2xl md:h-auto md:max-h-[calc(100dvh-2rem)] md:rounded-2xl md:p-6 md:border md:border-slate-200 md:text-slate-900 md:shadow-xl"
+        className="fixed inset-0 w-full h-full max-w-none rounded-none border-0 bg-white overflow-y-auto overscroll-contain outline-none p-4 md:relative md:max-w-2xl md:h-auto md:max-h-[calc(100dvh-2rem)] md:rounded-2xl md:p-6 md:border md:border-slate-200 md:text-slate-900 md:shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -411,6 +414,7 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

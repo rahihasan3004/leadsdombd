@@ -286,7 +286,7 @@ export default function ListsPage() {
 
   if (purchases.length === 0 && !selectedPurchase) {
     return (
-      <div className="w-full min-h-dvh bg-slate-50 p-6 pb-4 space-y-4">
+      <div className="w-full min-h-dvh bg-white md:bg-slate-50 p-0 pb-4 md:p-6 md:pb-4 space-y-4">
         <div className="bg-white shadow-none border-0 rounded-2xl p-7 md:p-9 space-y-6">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -298,7 +298,7 @@ export default function ListsPage() {
           </div>
 
           <div className="min-h-[400px] border border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center p-8 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-md bg-slate-100">
+            <div className="flex h-12 w-12 items-center justify-center rounded-md border border-slate-200 bg-white md:border-transparent md:bg-slate-100">
               <Database className="h-6 w-6 text-slate-400" />
             </div>
             <h2 className="mt-4 text-base font-semibold text-slate-900">
@@ -445,7 +445,7 @@ export default function ListsPage() {
                         paginatedLeads.map((agent, index) => (
                           <div
                             key={agent.id}
-                            className="flex items-start gap-3 p-3.5 hover:bg-slate-50/60 transition-colors cursor-pointer"
+                            className="flex items-start gap-3 p-3.5 active:bg-slate-50 md:hover:bg-slate-50/60 transition-colors cursor-pointer"
                             onClick={() => handleOpenAgent(agent)}
                           >
                             <span className="text-xs font-medium text-slate-400 w-5 text-right shrink-0 mt-0.5">
@@ -693,7 +693,7 @@ export default function ListsPage() {
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
-                        <span className="inline-flex items-center text-xs font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                        <span className="inline-flex items-center text-xs font-medium text-slate-700 bg-white border border-slate-200 px-2 py-0.5 rounded-md">
                           {stateBadge.label}
                         </span>
                         <span className="text-xs text-slate-500">{formatQuantity(purchase.quantity)} Leads</span>

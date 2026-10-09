@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LandingNavbar } from "@/components/landing/navbar";
+import { ContactForm } from "@/components/contact-form";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -53,60 +54,11 @@ export default function ContactPage() {
           </div>
         </div>
 
-        <div className="mt-12 bg-white dark:bg-slate-900 p-4 sm:p-8 rounded-2xl border border-slate-100">
+        <div className="mt-12 bg-white text-slate-900 p-4 sm:p-8 rounded-2xl border border-slate-200">
           <h2 className="text-lg font-bold text-neutral-900 mb-6">
             Send us a message
           </h2>
-          <form className="space-y-4">
-            <div>
-              <label
-                htmlFor="name"
-                className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5 block"
-              >
-                Name
-              </label>
-              <input
-                id="name"
-                type="text"
-                className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                placeholder="Your name"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="email"
-                className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5 block"
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                placeholder="you@company.com"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="message"
-                className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5 block"
-              >
-                Message
-              </label>
-              <textarea
-                id="message"
-                rows={4}
-                className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                placeholder="How can we help?"
-              />
-            </div>
-            <button
-              type="submit"
-              className="rounded-full px-6 py-2.5 bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 shadow-none border-0"
-            >
-              Send Message
-            </button>
-          </form>
+          <ContactForm />
         </div>
       </main>
     </div>

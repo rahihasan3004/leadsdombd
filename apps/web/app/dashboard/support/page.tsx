@@ -90,7 +90,7 @@ export default function SupportPage() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                className="w-full bg-white border border-slate-200 text-slate-900 text-base sm:text-sm placeholder:text-slate-400 min-h-11 px-3 py-2.5 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                 placeholder="Your name"
                 required
               />
@@ -107,7 +107,7 @@ export default function SupportPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                className="w-full bg-white border border-slate-200 text-slate-900 text-base sm:text-sm placeholder:text-slate-400 min-h-11 px-3 py-2.5 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                 placeholder="you@company.com"
                 required
               />
@@ -124,7 +124,7 @@ export default function SupportPage() {
                 rows={4}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                className="w-full bg-white border border-slate-200 text-slate-900 text-base sm:text-sm placeholder:text-slate-400 min-h-11 px-3 py-2.5 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                 placeholder="How can we help?"
                 required
               />
@@ -132,7 +132,7 @@ export default function SupportPage() {
             <button
               type="submit"
               disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-xl px-6 py-2.5 transition-all duration-200 disabled:opacity-50 inline-flex items-center gap-2 shadow-none border-0"
+              className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-xl min-h-11 px-6 py-2.5 transition-all duration-200 disabled:opacity-50 inline-flex items-center gap-2 shadow-none border-0"
             >
               {loading && (
                 <svg

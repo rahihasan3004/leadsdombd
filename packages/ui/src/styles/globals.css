@@ -4,6 +4,14 @@
 @source "../../../apps/web/app/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
+/* Light mode only: `dark:` utilities apply only under a `.dark` class, which is never set,
+   so the OS dark-mode preference no longer changes the UI. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+}
+
 @theme {
   --color-surface-50: #FFFFFF;
   --color-surface-100: #FAFAFA;

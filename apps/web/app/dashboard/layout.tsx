@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Button } from "@fine-leads/ui";
 import { BrandedLoader } from "@/components/ui/branded-loader";
@@ -19,6 +19,9 @@ export default function DashboardLayout({
   const { data: session, status } = useSession();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+  // Leads Vault is flat white on phones (incl. the main padding around it); slate canvas from md up.
+  const whiteOnMobile = pathname?.startsWith("/dashboard/lists") ?? false;
 
   if (status === "loading") {
     return <BrandedLoader />;
@@ -57,7 +60,11 @@ export default function DashboardLayout({
           </Button>
           <span className="ml-3 font-semibold text-sm text-neutral-900">Dashboard</span>
         </header>
-        <main className="flex-1 overflow-y-auto bg-slate-50 overscroll-y-contain pt-14 lg:pt-0">
+        <main
+          className={`flex-1 overflow-y-auto overscroll-y-contain pt-14 lg:pt-0 ${
+            whiteOnMobile ? "bg-white md:bg-slate-50" : "bg-slate-50"
+          }`}
+        >
           <div className="px-4 pt-4 pb-14 md:px-8 md:pt-6 md:pb-8">{children}</div>
         </main>
       </div>
