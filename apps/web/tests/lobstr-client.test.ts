@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LobstrClient } from "../src/lib/scraper/lobstr-client";
+import {
+  LobstrClient,
+  LobstrDispatchError,
+} from "../src/lib/scraper/lobstr-client";
 
 const reply = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status });
@@ -138,16 +141,14 @@ describe("Lobstr typed HTTP client", () => {
     );
   });
   it("caps returned records to the requested limit", async () => {
-    fetcher
-      .mockResolvedValueOnce(reply(done))
-      .mockResolvedValueOnce(
-        reply({
-          page: 1,
-          total_pages: 20,
-          total_results: 100,
-          data: [{ id: 1 }, { id: 2 }],
-        }),
-      );
+    fetcher.mockResolvedValueOnce(reply(done)).mockResolvedValueOnce(
+      reply({
+        page: 1,
+        total_pages: 20,
+        total_results: 100,
+        data: [{ id: 1 }, { id: 2 }],
+      }),
+    );
     expect(await client().getRunResults("run-1", { limit: 2 })).toHaveLength(2);
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
@@ -249,4 +250,81 @@ it("exposes fixed-size result pages for durable ingestion checkpoints", async ()
   expect(fetcher.mock.calls[0]![0]).toBe(
     "https://api.lobstr.io/v1/results?run=run-1&page=2&page_size=100",
   );
+});
+
+describe("safe dispatch failure classification", () => {
+  const input = { state: "TX", category: "agents", limit: 5 };
+  function setup() {
+    fetcher
+      .mockResolvedValueOnce(reply({ id: "squid-1" }))
+      .mockResolvedValueOnce(reply({}))
+      .mockResolvedValueOnce(reply({}));
+  }
+  it("treats setup transport failure as retryable, not an uncertain paid run", async () => {
+    fetcher.mockRejectedValue(new Error("secret-test-token"));
+    const error = await client()
+      .triggerScrapeRun(input)
+      .catch((error: unknown) => error);
+    expect(error).toBeInstanceOf(LobstrDispatchError);
+    expect(error).toMatchObject({
+      phase: "CREATE_SQUID",
+      code: "NETWORK_ERROR",
+      uncertain: false,
+      retryable: true,
+    });
+    expect((error as Error).message).not.toContain("secret-test-token");
+  });
+  it.each([400, 401, 402, 403, 404, 422])(
+    "classifies HTTP %s run rejection as terminal and non-ambiguous",
+    async (status) => {
+      setup();
+      fetcher.mockResolvedValueOnce(reply({ secret: "hidden" }, status));
+      const error = await client()
+        .triggerScrapeRun(input)
+        .catch((error: unknown) => error);
+      expect(error).toMatchObject({
+        phase: "CREATE_RUN",
+        squidId: "squid-1",
+        status,
+        uncertain: false,
+        retryable: false,
+      });
+    },
+  );
+  it("allows bounded retry of an explicit 429 run rejection", async () => {
+    setup();
+    fetcher.mockResolvedValueOnce(reply({}, 429));
+    const error = await client()
+      .triggerScrapeRun(input)
+      .catch((error: unknown) => error);
+    expect(error).toMatchObject({
+      uncertain: false,
+      retryable: true,
+      status: 429,
+    });
+  });
+  it.each([408, 409, 500, 502])(
+    "does not blindly replay an ambiguous run response HTTP %s",
+    async (status) => {
+      setup();
+      fetcher.mockResolvedValueOnce(reply({}, status));
+      const error = await client()
+        .triggerScrapeRun(input)
+        .catch((error: unknown) => error);
+      expect(error).toMatchObject({
+        phase: "CREATE_RUN",
+        uncertain: true,
+        retryable: false,
+      });
+      expect(fetcher).toHaveBeenCalledTimes(4);
+    },
+  );
+  it("treats malformed successful run responses as uncertain", async () => {
+    setup();
+    fetcher.mockResolvedValueOnce(reply({ status: "mystery" }));
+    const error = await client()
+      .triggerScrapeRun(input)
+      .catch((error: unknown) => error);
+    expect(error).toMatchObject({ code: "INVALID_RESPONSE", uncertain: true });
+  });
 });

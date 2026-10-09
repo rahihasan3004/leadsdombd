@@ -416,6 +416,7 @@ model LeadPurchase {
   unlockedLeads   UnlockedLead[]
   lobstrRunId     String?
   fulfillmentJob LeadFulfillmentJob?
+  emailNotifications OrderEmailNotification[]
 
   @@index([userId])
   @@index([userId, createdAt])
@@ -448,6 +449,7 @@ model LeadFulfillmentJob {
   status        String @default("QUEUED")
   category      String
   creditsHeld   Int
+  parallelConfig Json?
   expiresAt     DateTime
   nextAttemptAt DateTime @default(now())
   leaseToken    String?
@@ -470,6 +472,13 @@ model LeadFulfillmentRun {
   targetQuantity Int
   status         String @default("QUEUED")
   runId          String? @unique
+  squidId        String?
+  zipCode        String?
+  backupOfId     String? @unique
+  backupDepth    Int @default(0)
+  newLeadCount   Int @default(0)
+  lastError      String?
+  capacity       LobstrCapacityReservation?
   resultPage     Int @default(1)
   resultOffset   Int @default(0)
   processedCount Int @default(0)
@@ -477,6 +486,7 @@ model LeadFulfillmentRun {
   updatedAt      DateTime @updatedAt
 
   @@index([jobId, status])
+  @@unique([jobId, zipCode])
 }
 
 model LeadFulfillmentCandidate {
@@ -490,4 +500,41 @@ model LeadFulfillmentCandidate {
 
   @@id([jobId, agentId])
   @@index([agentId])
+}
+
+// Transactional status email outbox; provider calls happen only after commit.
+model OrderEmailNotification {
+  id             String @id @default(cuid())
+  purchaseId     String
+  purchase       LeadPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  kind           String
+  status         String @default("PENDING")
+  payload        Json?
+  attempts       Int @default(0)
+  firstAttemptAt DateTime?
+  nextAttemptAt  DateTime @default(now())
+  leaseToken     String?
+  leaseUntil     DateTime?
+  providerId     String?
+  sentAt         DateTime?
+  lastError      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([purchaseId, kind])
+  @@index([status, nextAttemptAt])
+}
+
+
+// Shared account reservation ledger. UNKNOWN entries never expire automatically.
+model LobstrCapacityReservation {
+  id               String @id @default(cuid())
+  runRowId         String @unique
+  run              LeadFulfillmentRun @relation(fields: [runRowId], references: [id], onDelete: Cascade)
+  estimatedCredits Int
+  status           String @default("RESERVED")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status])
 }

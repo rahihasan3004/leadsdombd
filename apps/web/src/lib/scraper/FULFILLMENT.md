@@ -29,7 +29,7 @@ GET /api/cron/lobstr-fulfillment
 Authorization: Bearer <CRON_SECRET>
 ```
 
-POST is also accepted. Each invocation advances one job/stage; use a recurring scheduler, not a user navigation request. An example Vercel cron entry is `{ "path": "/api/cron/lobstr-fulfillment", "schedule": "* * * * *" }` in the project's `vercel.json`; use an appropriate Vercel plan/frequency, or an external scheduler. No cron subscription or deployment is automatically provisioned by these source changes.
+POST is also accepted. The primary endpoint is now `GET /api/cron/process-orders`; the legacy URL above remains an alias. `apps/web/vercel.json` schedules the primary endpoint every minute. Deploy with the Vercel project Root Directory set to `apps/web`, configure a strong production `CRON_SECRET`, and use Vercel Pro/Enterprise (Hobby rejects sub-daily cron schedules) or an external scheduler. The source config does not itself deploy or activate a schedule. Each invocation advances up to six due stages/jobs within a bounded budget, without sleeping or polling indefinitely. DB cursors, leases and backoff resume interrupted work on the next invocation. Email retries run even when the fulfillment queue is idle.
 
 The HTTP poller handles dispatch/ingestion/phone fulfillment but intentionally does not open SMTP sockets from Vercel. VERIFIED_EMAIL orders wait for the persistent SMTP-capable worker (or independently verified eligible inventory); they cannot complete just because Lobstr found an email.
 
@@ -45,3 +45,13 @@ The HTTP poller handles dispatch/ingestion/phone fulfillment but intentionally d
 - The Vault lists processing/refunded orders, polls the visible current page every 15 seconds while it contains a processing order, shows a reduced-motion-friendly collecting badge and disables view/download actions until completion. The server still rejects non-completed detail/download requests.
 
 Only small summaries/statuses appear in user APIs. Job leases/checkpoints, errors (codes only), and candidate IDs stay server-side. This implementation uses a secret-authenticated poller rather than trusting unauthenticated webhook payloads.
+
+## Vault recovery fallback
+
+Visible Vault orders older than three minutes trigger at most one owner-only POST per page refresh to `/api/purchases/[purchaseId]/sync`, with a 30-second per-order client cooldown. Focus/visibility changes refresh the list. The server checks session ownership and same-origin requests, then applies a shared DB throttle (15 seconds and no active lease). It advances up to four durable stages within a finite budget and returns only the current purchase status and a safe sync status. Provider result data, run IDs, credit balance and emails are never accepted from the client. Normal polling continues if sync fails. Completion notification is sent by the same post-commit lifecycle as cron/worker fulfillment.
+
+A completed Lobstr scrape alone is not sufficient for VERIFIED_EMAIL fulfillment. Deploy the SMTP-capable persistent worker described above for that tier. Vercel cron/owner sync cannot manufacture verification evidence; WAITING_VERIFICATION remains pending until verified inventory exists or the durable job expires/refunds. Dispatches with a lost provider response remain NEEDS_REVIEW rather than risking a duplicate paid scrape. Large orders resume across multiple invocations; a one-minute cron is not a promise of instantaneous provider completion.
+
+## Optional parallel rollout
+
+See [PARALLEL-FULFILLMENT.md](./PARALLEL-FULFILLMENT.md) for the gated 500+ lead ZIP-sharded path, global provider capacity reservations, bounded backup tasks, bulk ingestion, and safe cleanup. The state-wide run description above remains applicable to legacy/smaller jobs.

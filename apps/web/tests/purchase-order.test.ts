@@ -1,6 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const afterMock = vi.hoisted(() => vi.fn());
+const { afterMock, processingEmail, fulfillmentWorker } = vi.hoisted(() => ({
+  afterMock: vi.fn(),
+  processingEmail: vi.fn(),
+  fulfillmentWorker: vi.fn(),
+}));
+vi.mock("@/lib/email/order-emails", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/lib/email/order-emails")>()),
+  sendOrderProcessingEmail: processingEmail,
+}));
+vi.mock("@/lib/scraper/order-fulfillment", () => ({
+  processNextFulfillment: fulfillmentWorker,
+}));
 vi.mock("next/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/server")>()),
   after: afterMock,
@@ -24,6 +35,8 @@ const { state, db, authMock } = vi.hoisted(() => {
     purchases: [] as Array<Record<string, unknown>>,
     ledger: [] as Array<Record<string, unknown>>,
     jobs: [] as Array<Record<string, unknown>>,
+    notifications: [] as Array<Record<string, unknown>>,
+    failEmailQueue: false,
     failJob: false,
     failCreateMany: false,
     agentQueries: [] as Array<Record<string, unknown>>,
@@ -90,6 +103,16 @@ const { state, db, authMock } = vi.hoisted(() => {
           state.jobs.push(data);
           undo.push(() => state.jobs.splice(state.jobs.indexOf(data), 1));
           return { id: `job_${seq}`, ...data };
+        },
+      },
+      orderEmailNotification: {
+        upsert: async ({ create }: { create: Record<string, unknown> }) => {
+          if (state.failEmailQueue) throw new Error("email outbox unavailable");
+          state.notifications.push(create);
+          undo.push(() =>
+            state.notifications.splice(state.notifications.indexOf(create), 1),
+          );
+          return { id: `email_${seq}`, ...create };
         },
       },
       walletTransaction: {
@@ -162,6 +185,15 @@ function order(body: unknown): Request {
 
 beforeEach(() => {
   afterMock.mockReset();
+  processingEmail
+    .mockReset()
+    .mockResolvedValue({ success: true, status: "SENT" });
+  fulfillmentWorker
+    .mockReset()
+    .mockResolvedValue({ worked: false, status: "IDLE" });
+  state.notifications = [];
+  state.failEmailQueue = false;
+  vi.stubEnv("LOBSTR_PARALLEL_ENABLED", "false");
   vi.stubEnv("LOBSTR_API_KEY", "mock-only-key");
   vi.stubEnv("LOBSTR_FULFILLMENT_ENABLED", "true");
   state.credits = 10;
@@ -487,4 +519,101 @@ it("still acknowledges an accepted order if after registration fails", async () 
   expect(response.status).toBe(202);
   expect(state.jobs).toHaveLength(1);
   expect(state.credits).toBe(5);
+});
+
+describe("processing order email scheduling", () => {
+  it("persists the event atomically and sends only through after()", async () => {
+    state.agentIds = [];
+    const response = await POST(
+      order({ tier: "PHONE_ONLY", states: ["TX"], quantity: 2 }),
+    );
+    expect(response.status).toBe(202);
+    expect(state.notifications).toEqual([
+      { purchaseId: state.purchases[0]!.id, kind: "PROCESSING" },
+    ]);
+    expect(processingEmail).not.toHaveBeenCalled();
+    const callback = afterMock.mock.calls[0]![0] as () => Promise<void>;
+    await callback();
+    expect(processingEmail).toHaveBeenCalledWith(state.purchases[0]!.id);
+    expect(fulfillmentWorker).toHaveBeenCalledOnce();
+  });
+  it("does not notify instant inventory orders", async () => {
+    expect(
+      (await POST(order({ tier: "PHONE_ONLY", states: ["TX"], quantity: 2 })))
+        .status,
+    ).toBe(200);
+    expect(state.notifications).toEqual([]);
+    expect(processingEmail).not.toHaveBeenCalled();
+  });
+  it("rolls back the hold if the durable notification cannot be queued", async () => {
+    state.agentIds = [];
+    state.failEmailQueue = true;
+    expect(
+      (await POST(order({ tier: "PHONE_ONLY", states: ["TX"], quantity: 2 })))
+        .status,
+    ).toBe(500);
+    expect(state.credits).toBe(10);
+    expect(state.purchases).toEqual([]);
+    expect(state.jobs).toEqual([]);
+    expect(state.ledger).toEqual([]);
+    expect(afterMock).not.toHaveBeenCalled();
+  });
+  it("still dispatches fulfillment if sending the email unexpectedly throws", async () => {
+    state.agentIds = [];
+    processingEmail.mockRejectedValue(new Error("provider down"));
+    expect(
+      (await POST(order({ tier: "PHONE_ONLY", states: ["TX"], quantity: 2 })))
+        .status,
+    ).toBe(202);
+    await (afterMock.mock.calls[0]![0] as () => Promise<void>)();
+    expect(fulfillmentWorker).toHaveBeenCalledOnce();
+    expect(state.credits).toBe(8);
+  });
+});
+
+describe("funded parallel order planning", () => {
+  beforeEach(() => {
+    vi.stubEnv("LOBSTR_PARALLEL_ENABLED", "true");
+    vi.stubEnv("LOBSTR_ESTIMATED_CREDITS_PER_RESULT", "10");
+    state.agentIds = [];
+    state.credits = 20_000;
+  });
+  it("atomically holds credits and snapshots five geographic shards for 500 leads", async () => {
+    const response = await POST(
+      order({ states: ["GA"], quantity: 500, tier: "PHONE_ONLY" }),
+    );
+    expect(response.status).toBe(202);
+    const job = state.jobs[0]! as {
+      parallelConfig: { concurrency: number };
+      runs: { create: Array<{ zipCode: string; targetQuantity: number }> };
+    };
+    expect(job.parallelConfig.concurrency).toBe(5);
+    expect(job.runs.create).toHaveLength(5);
+    expect(new Set(job.runs.create.map((run) => run.zipCode)).size).toBe(5);
+    expect(
+      job.runs.create.reduce((total, run) => total + run.targetQuantity, 0),
+    ).toBe(500);
+    expect(state.credits).toBe(19_500);
+    expect(state.ledger).toHaveLength(1);
+    expect(state.unlocks).toHaveLength(0);
+  });
+  it("does not debit when parallel cost estimation is missing", async () => {
+    vi.stubEnv("LOBSTR_ESTIMATED_CREDITS_PER_RESULT", "");
+    expect(
+      (await POST(order({ states: ["GA"], quantity: 500, tier: "PHONE_ONLY" })))
+        .status,
+    ).toBe(503);
+    expect(state.credits).toBe(20_000);
+    expect(state.purchases).toEqual([]);
+  });
+  it("still fulfills sufficient inventory even if parallel configuration is absent", async () => {
+    vi.stubEnv("LOBSTR_ESTIMATED_CREDITS_PER_RESULT", "");
+    state.agentIds = Array.from({ length: 500 }, (_, index) => `a${index}`);
+    expect(
+      (await POST(order({ states: ["GA"], quantity: 500, tier: "PHONE_ONLY" })))
+        .status,
+    ).toBe(200);
+    expect(state.jobs).toHaveLength(0);
+    expect(state.unlocks).toHaveLength(500);
+  });
 });

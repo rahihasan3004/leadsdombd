@@ -1,5 +1,13 @@
+import {
+  createParallelPlan,
+  parallelFulfillmentEnabled,
+} from "@/lib/scraper/parallel-dispatcher";
 import { NextResponse, after } from "next/server";
 import { processNextFulfillment } from "@/lib/scraper/order-fulfillment";
+import {
+  enqueueOrderEmail,
+  sendOrderProcessingEmail,
+} from "@/lib/email/order-emails";
 
 export const maxDuration = 120;
 import { z } from "zod";
@@ -108,6 +116,22 @@ export async function POST(req: Request) {
               "On-demand fulfillment is not configured. No credits were deducted.",
           });
         }
+        let parallelPlan: ReturnType<typeof createParallelPlan> | null = null;
+        if (processing && quantity >= 500 && parallelFulfillmentEnabled()) {
+          try {
+            parallelPlan = createParallelPlan(
+              states,
+              quantity,
+              tier,
+              requestedCredits,
+            );
+          } catch {
+            throw new OrderError(503, {
+              error:
+                "Parallel fulfillment capacity is not configured for this order. No credits were deducted.",
+            });
+          }
+        }
         const status = processing ? "PROCESSING" : "COMPLETED";
         const leadCount = quantity;
         const creditsToDeduct = requestedCredits;
@@ -178,10 +202,15 @@ export async function POST(req: Request) {
               purchaseId: purchase.id,
               category,
               creditsHeld: creditsToDeduct,
+              parallelConfig: parallelPlan?.config ?? undefined,
               expiresAt: new Date(Date.now() + FULFILLMENT_TTL_MS),
-              runs: { create: planFulfillmentRuns(states, quantity) },
+              runs: {
+                create:
+                  parallelPlan?.runs ?? planFulfillmentRuns(states, quantity),
+              },
             },
           });
+          await enqueueOrderEmail(tx, purchase.id, "PROCESSING");
         } else {
           await tx.unlockedLead.createMany({
             data: agents.map((agent) => ({
@@ -209,6 +238,14 @@ export async function POST(req: Request) {
       // A recurring consumer still guarantees recovery, subsequent polling and verification.
       try {
         after(async () => {
+          try {
+            await sendOrderProcessingEmail(result.orderId);
+          } catch {
+            console.warn("[ORDER_EMAIL_DEFERRED]", {
+              purchaseId: result.orderId,
+              kind: "PROCESSING",
+            });
+          }
           try {
             await processNextFulfillment({ purchaseId: result.orderId });
           } catch {

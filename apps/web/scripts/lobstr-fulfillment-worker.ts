@@ -1,3 +1,5 @@
+import { maintainParallelCapacity } from "../src/lib/scraper/parallel-dispatcher";
+import { processPendingOrderEmails } from "../src/lib/email/order-emails";
 import { db } from "@fine-leads/database";
 import { SmtpValidator } from "../../../packages/scraper-engine/src/smtp-validator";
 import { processNextFulfillment } from "../src/lib/scraper/order-fulfillment";
@@ -32,6 +34,19 @@ async function main() {
           break;
         }
         await new Promise((resolve) => setTimeout(resolve, 5_000));
+      } finally {
+        try {
+          await maintainParallelCapacity(5);
+        } catch {
+          console.warn("[LOBSTR_CAPACITY_CLEANUP_DEFERRED]");
+        }
+        try {
+          await processPendingOrderEmails();
+        } catch {
+          console.warn("[ORDER_EMAIL_DEFERRED]", {
+            code: "OUTBOX_SCAN_UNAVAILABLE",
+          });
+        }
       }
     } while (!stopping);
   } finally {

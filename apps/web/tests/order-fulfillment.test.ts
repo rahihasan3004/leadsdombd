@@ -20,10 +20,15 @@ const mocks = vi.hoisted(() => {
     user: methods(),
     walletTransaction: methods(),
     unlockedLead: methods(),
+    orderEmailNotification: methods(),
     $transaction: vi.fn(),
   };
   return {
     db,
+    transactionActive: false,
+    completedEmail: vi.fn(),
+    failedEmail: vi.fn(),
+    configuration: vi.fn(),
     trigger: vi.fn(),
     status: vi.fn(),
     page: vi.fn(),
@@ -43,17 +48,29 @@ vi.mock("../src/lib/scraper/lobstr-client", async (importOriginal) => {
   return {
     ...original,
     LobstrClient: class {
+      constructor() {
+        mocks.configuration();
+      }
       triggerScrapeRun = mocks.trigger;
       getRunStatus = mocks.status;
       getRunResultsPage = mocks.page;
     },
   };
 });
+vi.mock("../src/lib/email/order-emails", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/lib/email/order-emails")>()),
+  sendOrderCompletedEmail: mocks.completedEmail,
+  sendOrderFailedEmail: mocks.failedEmail,
+}));
 import {
   completeFulfillment,
   refundFulfillment,
   processNextFulfillment,
 } from "../src/lib/scraper/order-fulfillment";
+import {
+  LobstrError,
+  LobstrDispatchError,
+} from "../src/lib/scraper/lobstr-client";
 import type { Prisma } from "@fine-leads/database";
 const now = new Date();
 const job = {
@@ -62,6 +79,7 @@ const job = {
   status: "ACTIVE",
   category: "real estate agents",
   creditsHeld: 4,
+  parallelConfig: null,
   expiresAt: new Date(Date.now() + 86_400_000),
   nextAttemptAt: now,
   leaseToken: "token",
@@ -115,25 +133,38 @@ beforeEach(() => {
       table.create.mockResolvedValue({});
       table.upsert.mockResolvedValue({});
     }
-  mocks.db.$transaction.mockImplementation((callback) => callback(mocks.db));
+  mocks.transactionActive = false;
+  for (const sender of [mocks.completedEmail, mocks.failedEmail])
+    sender.mockReset().mockImplementation(async () => {
+      expect(mocks.transactionActive).toBe(false);
+      expect(mocks.db.orderEmailNotification.upsert).toHaveBeenCalled();
+      return { success: true, status: "SENT" };
+    });
+  mocks.db.$transaction.mockImplementation(async (callback) => {
+    mocks.transactionActive = true;
+    try {
+      return await callback(mocks.db);
+    } finally {
+      mocks.transactionActive = false;
+    }
+  });
   mocks.db.leadPurchase.findUniqueOrThrow.mockResolvedValue(job.purchase);
   mocks.db.leadFulfillmentJob.findFirst.mockResolvedValue(job);
   mocks.db.leadFulfillmentJob.findUniqueOrThrow.mockResolvedValue(job);
   mocks.db.user.update.mockResolvedValue({ credits: 14 });
+  mocks.configuration.mockReset();
   mocks.trigger
     .mockReset()
     .mockResolvedValue({ id: "lobstr-1", status: "PENDING" });
   mocks.status
     .mockReset()
     .mockResolvedValue({ id: "lobstr-1", status: "DONE", export_done: true });
-  mocks.page
-    .mockReset()
-    .mockResolvedValue({
-      page: 1,
-      total_pages: 1,
-      total_results: 1,
-      data: [{ name: "Lead" }],
-    });
+  mocks.page.mockReset().mockResolvedValue({
+    page: 1,
+    total_pages: 1,
+    total_results: 1,
+    data: [{ name: "Lead" }],
+  });
   mocks.ingest
     .mockReset()
     .mockResolvedValue({ kind: "lead", agentId: "a1", created: false });
@@ -365,16 +396,14 @@ describe("durable order worker", () => {
         },
       ])
       .mockResolvedValue([]);
-    const verifyEmail = vi
-      .fn()
-      .mockResolvedValue({
-        email: "sales@example.com",
-        status: "mx_verified",
-        isDeliverable: true,
-        smtpCode: null,
-        isCatchAll: false,
-        isDisposable: false,
-      });
+    const verifyEmail = vi.fn().mockResolvedValue({
+      email: "sales@example.com",
+      status: "mx_verified",
+      isDeliverable: true,
+      smtpCode: null,
+      isCatchAll: false,
+      isDisposable: false,
+    });
     expect((await processNextFulfillment({ verifyEmail })).status).toBe(
       "VERIFYING",
     );
@@ -398,16 +427,14 @@ it("fulfills a verified order only after a matching positive SMTP result", async
   mocks.db.agent.findMany
     .mockResolvedValueOnce([])
     .mockResolvedValueOnce([{ id: "a2" }]);
-  const verifyEmail = vi
-    .fn()
-    .mockResolvedValue({
-      email: "sales@example.com",
-      status: "deliverable",
-      isDeliverable: true,
-      smtpCode: 250,
-      isCatchAll: false,
-      isDisposable: false,
-    });
+  const verifyEmail = vi.fn().mockResolvedValue({
+    email: "sales@example.com",
+    status: "deliverable",
+    isDeliverable: true,
+    smtpCode: 250,
+    isCatchAll: false,
+    isDisposable: false,
+  });
   expect((await processNextFulfillment({ verifyEmail })).status).toBe(
     "COMPLETED",
   );
@@ -450,16 +477,14 @@ it("re-verifies stale duplicate candidates instead of excluding known email stat
       },
     ])
     .mockResolvedValue([]);
-  const verifyEmail = vi
-    .fn()
-    .mockResolvedValue({
-      email: "sales@example.com",
-      status: "undeliverable",
-      isDeliverable: false,
-      smtpCode: 550,
-      isCatchAll: false,
-      isDisposable: false,
-    });
+  const verifyEmail = vi.fn().mockResolvedValue({
+    email: "sales@example.com",
+    status: "undeliverable",
+    isDeliverable: false,
+    smtpCode: 550,
+    isCatchAll: false,
+    isDisposable: false,
+  });
   await processNextFulfillment({ verifyEmail });
   expect(
     mocks.db.leadFulfillmentCandidate.findMany.mock.calls[1]![0].where.agent,
@@ -472,4 +497,133 @@ it("re-verifies stale duplicate candidates instead of excluding known email stat
       }),
     }),
   );
+});
+
+describe("post-commit order email lifecycle", () => {
+  it("queues and sends completion only after successful commit", async () => {
+    mocks.db.agent.findMany.mockResolvedValue([{ id: "a1" }, { id: "a2" }]);
+    expect(await completeFulfillment(job, "token")).toBe(true);
+    expect(mocks.db.orderEmailNotification.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: { purchaseId: "p1", kind: "COMPLETED" },
+      }),
+    );
+    expect(mocks.completedEmail).toHaveBeenCalledExactlyOnceWith("p1");
+  });
+  it("does not email incomplete deliveries", async () => {
+    expect(await completeFulfillment(job, "token")).toBe(false);
+    expect(mocks.completedEmail).not.toHaveBeenCalled();
+    expect(mocks.db.orderEmailNotification.upsert).not.toHaveBeenCalled();
+  });
+  it("does not email failed allocation transactions", async () => {
+    mocks.db.agent.findMany.mockResolvedValue([{ id: "a1" }, { id: "a2" }]);
+    mocks.db.unlockedLead.createMany.mockRejectedValue(
+      new Error("allocation failed"),
+    );
+    await expect(completeFulfillment(job, "token")).rejects.toThrow(
+      "allocation failed",
+    );
+    expect(mocks.completedEmail).not.toHaveBeenCalled();
+  });
+  it("does not turn a committed completion into a failure when email throws", async () => {
+    mocks.db.agent.findMany.mockResolvedValue([{ id: "a1" }, { id: "a2" }]);
+    mocks.completedEmail.mockRejectedValue(new Error("provider unavailable"));
+    expect(await completeFulfillment(job, "token")).toBe(true);
+    expect(mocks.failedEmail).not.toHaveBeenCalled();
+  });
+  it("queues refund notification after the credits are returned", async () => {
+    expect(await refundFulfillment(job, "token", "EXPIRED")).toBe(true);
+    expect(mocks.db.orderEmailNotification.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ create: { purchaseId: "p1", kind: "FAILED" } }),
+    );
+    expect(mocks.failedEmail).toHaveBeenCalledExactlyOnceWith("p1");
+  });
+  it("does not email a duplicate refund", async () => {
+    mocks.db.leadPurchase.updateMany.mockResolvedValue({ count: 0 });
+    expect(await refundFulfillment(job, "token", "REPLAY")).toBe(false);
+    expect(mocks.failedEmail).not.toHaveBeenCalled();
+    expect(mocks.db.orderEmailNotification.upsert).not.toHaveBeenCalled();
+  });
+  it("preserves a successful refund when email throws", async () => {
+    mocks.failedEmail.mockRejectedValue(new Error("provider unavailable"));
+    expect(await refundFulfillment(job, "token", "EXPIRED")).toBe(true);
+    expect(mocks.db.user.update).toHaveBeenCalledOnce();
+  });
+});
+
+it("completes and notifies in the same stage once ingestion supplies eligible inventory", async () => {
+  mocks.db.leadFulfillmentRun.findFirst
+    .mockResolvedValueOnce(null)
+    .mockResolvedValueOnce({ ...run, status: "INGESTING", runId: "lobstr-1" });
+  mocks.db.agent.findMany
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([{ id: "a1" }, { id: "a2" }]);
+  expect((await processNextFulfillment()).status).toBe("COMPLETED");
+  expect(mocks.ingest).toHaveBeenCalledOnce();
+  expect(mocks.completedEmail).toHaveBeenCalledExactlyOnceWith("p1");
+  expect(mocks.db.unlockedLead.createMany).toHaveBeenCalledOnce();
+});
+
+describe("known dispatch rejection versus uncertain delivery", () => {
+  beforeEach(() => {
+    mocks.db.leadFulfillmentRun.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(run);
+  });
+  it("refunds an explicit invalid-key rejection instead of stranding the customer", async () => {
+    mocks.trigger.mockRejectedValue(
+      new LobstrDispatchError(
+        new LobstrError("HTTP 401", 401, "HTTP_ERROR"),
+        "CREATE_RUN",
+        "squid-1",
+      ),
+    );
+    expect((await processNextFulfillment()).status).toBe("REFUNDED");
+    expect(mocks.db.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { credits: { increment: 4 } } }),
+    );
+    expect(
+      mocks.db.leadFulfillmentRun.update.mock.calls[1]![0].data.status,
+    ).toBe("FAILED");
+    expect(mocks.failedEmail).toHaveBeenCalledOnce();
+  });
+  it("requeues transient setup failures with the existing backoff", async () => {
+    mocks.trigger.mockRejectedValue(
+      new LobstrDispatchError(
+        new LobstrError("timeout", undefined, "TIMEOUT"),
+        "CREATE_TASKS",
+        "squid-1",
+      ),
+    );
+    expect((await processNextFulfillment()).status).toBe("RETRYING");
+    expect(
+      mocks.db.leadFulfillmentRun.update.mock.calls[1]![0].data.status,
+    ).toBe("QUEUED");
+    expect(mocks.db.user.update).not.toHaveBeenCalled();
+  });
+  it("keeps chargeable run transport timeouts uncertain", async () => {
+    mocks.trigger.mockRejectedValue(
+      new LobstrDispatchError(
+        new LobstrError("timeout", undefined, "TIMEOUT"),
+        "CREATE_RUN",
+        "squid-1",
+      ),
+    );
+    expect((await processNextFulfillment()).status).toBe("NEEDS_REVIEW");
+    expect(
+      mocks.db.leadFulfillmentRun.update.mock.calls[1]![0].data.status,
+    ).toBe("UNKNOWN");
+    expect(mocks.db.user.update).not.toHaveBeenCalled();
+  });
+  it("releases the hold if configuration is lost after accepting an order", async () => {
+    mocks.configuration.mockImplementation(() => {
+      throw new LobstrError("API key missing", undefined, "CONFIGURATION");
+    });
+    expect((await processNextFulfillment()).status).toBe("REFUNDED");
+    expect(mocks.trigger).not.toHaveBeenCalled();
+    expect(mocks.db.leadFulfillmentRun.updateMany).toHaveBeenCalledWith({
+      where: { jobId: "job-1", status: { notIn: ["DONE", "FAILED"] } },
+      data: { status: "FAILED" },
+    });
+  });
 });

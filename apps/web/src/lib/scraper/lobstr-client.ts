@@ -41,19 +41,70 @@ const inputSchema = z.object({
     .trim()
     .regex(/^[A-Z]{2}$/),
   city: z.string().trim().min(1).max(100).optional(),
+  zipCode: z
+    .string()
+    .regex(/^\d{5}$/)
+    .optional(),
   limit: z.number().int().min(1).max(10_000),
 });
+
+const balanceSchema = z.object({
+  available: z.number().int().nonnegative(),
+  consumed: z.number().int().nonnegative(),
+  used_slots: z.number().int().nonnegative(),
+  total_available_slots: z.number().int().nonnegative(),
+  has_unpaid_bill: z.object({ status: z.boolean().optional() }).default({}),
+});
+export type LobstrBalance = z.infer<typeof balanceSchema>;
 
 export type LobstrRun = z.infer<typeof runSchema>;
 export type LobstrRecord = Record<string, unknown>;
 export type ScrapeParameters = z.infer<typeof inputSchema>;
+export type LobstrErrorCode =
+  | "CONFIGURATION"
+  | "HTTP_ERROR"
+  | "TIMEOUT"
+  | "NETWORK_ERROR"
+  | "INVALID_RESPONSE"
+  | "UNKNOWN";
+export type DispatchPhase =
+  "CREATE_SQUID" | "CONFIGURE_SQUID" | "CREATE_TASKS" | "CREATE_RUN";
 export class LobstrError extends Error {
   constructor(
     message: string,
     readonly status?: number,
+    readonly code: LobstrErrorCode = "UNKNOWN",
   ) {
     super(message);
     this.name = "LobstrError";
+  }
+}
+
+/** Only CREATE_RUN can be an ambiguous chargeable dispatch; setup failures are safe to retry. */
+export class LobstrDispatchError extends LobstrError {
+  constructor(
+    error: LobstrError,
+    readonly phase: DispatchPhase,
+    readonly squidId?: string,
+  ) {
+    super(error.message, error.status, error.code);
+    this.name = "LobstrDispatchError";
+  }
+  get uncertain() {
+    const rejected = [400, 401, 402, 403, 404, 422, 429].includes(
+      this.status ?? 0,
+    );
+    return this.phase === "CREATE_RUN" && !rejected;
+  }
+  get retryable() {
+    return (
+      !this.uncertain &&
+      (this.code === "TIMEOUT" ||
+        this.code === "NETWORK_ERROR" ||
+        this.status === 408 ||
+        this.status === 429 ||
+        (this.status ?? 0) >= 500)
+    );
   }
 }
 
@@ -66,7 +117,12 @@ export class LobstrClient {
 
   constructor(options: { fetcher?: typeof fetch; timeoutMs?: number } = {}) {
     const key = process.env.LOBSTR_API_KEY?.trim();
-    if (!key) throw new LobstrError("LOBSTR_API_KEY is not configured");
+    if (!key)
+      throw new LobstrError(
+        "LOBSTR_API_KEY is not configured",
+        undefined,
+        "CONFIGURATION",
+      );
     this.apiKey = key;
     this.fetcher = options.fetcher ?? fetch;
     this.timeoutMs = options.timeoutMs ?? 8_000;
@@ -99,6 +155,7 @@ export class LobstrClient {
         throw new LobstrError(
           `Lobstr request failed (HTTP ${response.status})`,
           response.status,
+          "HTTP_ERROR",
         );
       }
       return (await response.json()) as unknown;
@@ -107,7 +164,13 @@ export class LobstrClient {
       throw new LobstrError(
         controller.signal.aborted
           ? "Lobstr request timed out"
-          : "Lobstr returned an invalid response",
+          : "Lobstr request failed",
+        undefined,
+        controller.signal.aborted
+          ? "TIMEOUT"
+          : error instanceof SyntaxError
+            ? "INVALID_RESPONSE"
+            : "NETWORK_ERROR",
       );
     } finally {
       clearTimeout(timer);
@@ -120,54 +183,97 @@ export class LobstrClient {
   ): z.output<T> {
     const parsed = schema.safeParse(value);
     if (!parsed.success)
-      throw new LobstrError("Lobstr returned an unexpected response shape");
+      throw new LobstrError(
+        "Lobstr returned an unexpected response shape",
+        undefined,
+        "INVALID_RESPONSE",
+      );
     return parsed.data;
   }
 
-  async triggerScrapeRun(parameters: ScrapeParameters): Promise<LobstrRun> {
+  async triggerScrapeRun(
+    parameters: ScrapeParameters,
+    hooks: { onSquidCreated?: (id: string) => Promise<void> } = {},
+  ): Promise<LobstrRun> {
     const input = inputSchema.parse(parameters);
-    // Isolate tasks/settings per run; do not mutate a shared squid or replay its old tasks.
-    const squid = this.parse(
-      z.object({ id: idSchema }),
-      await this.request("/squids", "POST", {
-        crawler: this.crawlerId,
+    let phase: DispatchPhase = "CREATE_SQUID";
+    let squidId: string | undefined;
+    try {
+      // Isolate tasks/settings per run; do not mutate a shared squid or replay its old tasks.
+      const squid = this.parse(
+        z.object({ id: idSchema }),
+        await this.request("/squids", "POST", {
+          crawler: this.crawlerId,
+          name: `Fine Leads: ${input.city ? `${input.city}, ` : ""}${input.state}`,
+        }),
+      );
+      squidId = squid.id;
+      await hooks.onSquidCreated?.(squid.id);
+      phase = "CONFIGURE_SQUID";
+      await this.request(`/squids/${squid.id}`, "POST", {
         name: `Fine Leads: ${input.city ? `${input.city}, ` : ""}${input.state}`,
-      }),
-    );
-    await this.request(`/squids/${squid.id}`, "POST", {
-      name: `Fine Leads: ${input.city ? `${input.city}, ` : ""}${input.state}`,
-      params: {
-        country: "United States",
-        language: "English (United States)",
-        max_results: input.limit,
-        geo_match: true,
-        category_match: true,
-        skip_closed: true,
-        functions: {
-          extract_emails_from_website: true,
-          collect_business_details: true,
-          fetch_business_images: false,
+        params: {
+          country: "United States",
+          language: "English (United States)",
+          max_results: input.limit,
+          geo_match: true,
+          category_match: true,
+          skip_closed: true,
+          functions: {
+            extract_emails_from_website: true,
+            collect_business_details: true,
+            fetch_business_images: false,
+          },
         },
-      },
-      no_line_breaks: true,
-      to_complete: false,
-      export_unique_results: true,
+        concurrency: 1,
+        is_active: true,
+        no_line_breaks: true,
+        to_complete: false,
+        export_unique_results: true,
+      });
+      const query = `${input.category} in ${input.city ? `${input.city}, ` : ""}${input.zipCode ? `ZIP ${input.zipCode}, ` : ""}${input.state}, United States`;
+      phase = "CREATE_TASKS";
+      await this.request("/tasks", "POST", {
+        squid: squid.id,
+        tasks: [
+          {
+            url: `https://www.google.com/maps/search/${encodeURIComponent(query)}`,
+          },
+        ],
+      });
+      // No automatic retry of chargeable POSTs: a lost response does not imply a failed dispatch.
+      phase = "CREATE_RUN";
+      const run = this.parse(
+        runSchema,
+        await this.request("/runs", "POST", { squid: squid.id }),
+      );
+      return { ...run, squid: squid.id };
+    } catch (error) {
+      if (!(error instanceof LobstrError)) throw error;
+      throw new LobstrDispatchError(
+        error instanceof LobstrError
+          ? error
+          : new LobstrError(
+              "Lobstr dispatch response was invalid",
+              undefined,
+              "INVALID_RESPONSE",
+            ),
+        phase,
+        squidId,
+      );
+    }
+  }
+
+  async getBalance(): Promise<LobstrBalance> {
+    return this.parse(balanceSchema, await this.request("/user/balance"));
+  }
+  async abortRun(runId: string): Promise<void> {
+    await this.request(`/runs/${idSchema.parse(runId)}/abort`, "POST");
+  }
+  async deactivateSquid(squidId: string): Promise<void> {
+    await this.request(`/squids/${idSchema.parse(squidId)}`, "POST", {
+      is_active: false,
     });
-    const query = `${input.category} in ${input.city ? `${input.city}, ` : ""}${input.state}, United States`;
-    await this.request("/tasks", "POST", {
-      squid: squid.id,
-      tasks: [
-        {
-          url: `https://www.google.com/maps/search/${encodeURIComponent(query)}`,
-        },
-      ],
-    });
-    // No automatic retry of chargeable POSTs: a lost response does not imply a failed dispatch.
-    const run = this.parse(
-      runSchema,
-      await this.request("/runs", "POST", { squid: squid.id }),
-    );
-    return { ...run, squid: squid.id };
   }
 
   async getRunStatus(runId: string): Promise<LobstrRun> {

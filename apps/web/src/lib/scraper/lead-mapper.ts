@@ -219,7 +219,7 @@ async function insertUnlessDuplicate(
             // Match historical formatted US numbers, not just freshly normalized E.164 numbers.
             const phones = lead.phones.map((phone) => phone.slice(-10));
             conditions.push(
-              Prisma.sql`right(regexp_replace(regexp_replace("phone", '[[:space:]]*(ext\\.?|x|#).*$', '', 'i'), '[^0-9]', '', 'g'), 10) IN (${Prisma.join(phones)})`,
+              Prisma.sql`(right(regexp_replace(regexp_replace("phone", '[[:space:]]*(ext\\.?|x|#).*$', '', 'i'), '[^0-9]', '', 'g'), 10) IN (${Prisma.join(phones)}) OR right(regexp_replace(regexp_replace("officePhone", '[[:space:]]*(ext\\.?|x|#).*$', '', 'i'), '[^0-9]', '', 'g'), 10) IN (${Prisma.join(phones)}))`,
             );
           }
           const existing = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`

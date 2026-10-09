@@ -117,6 +117,7 @@ export default function ListsPage() {
   const [leadsLoading, setLeadsLoading] = useState(false);
   const [totalLeads, setTotalLeads] = useState(0);
   const leadSearchRef = useRef<HTMLInputElement>(null);
+  const syncAttempts = useRef(new Map<string, number>());
 
   // Resolve the billing deep link before issuing the first (and only) page request.
   useEffect(() => {
@@ -187,8 +188,47 @@ export default function ListsPage() {
       if (document.visibilityState === "visible")
         setRefreshTick((tick) => tick + 1);
     }, 15_000);
-    return () => clearInterval(timer);
+    const refreshOnFocus = () => {
+      if (document.visibilityState === "visible")
+        setRefreshTick((tick) => tick + 1);
+    };
+    document.addEventListener("visibilitychange", refreshOnFocus);
+    window.addEventListener("focus", refreshOnFocus);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
+      window.removeEventListener("focus", refreshOnFocus);
+    };
   }, [hasProcessingOrders]);
+
+  // One bounded owner-only sync per refresh, not a request for every order on the page.
+  useEffect(() => {
+    if (document.visibilityState !== "visible") return;
+    const now = Date.now();
+    const stale = purchases.find(
+      (purchase) =>
+        purchase.status === "PROCESSING" &&
+        now - new Date(purchase.createdAt).getTime() > 3 * 60_000 &&
+        now - (syncAttempts.current.get(purchase.id) ?? 0) >= 30_000,
+    );
+    if (!stale) return;
+    syncAttempts.current.set(stale.id, now);
+    const controller = new AbortController();
+    void fetch(`/api/purchases/${encodeURIComponent(stale.id)}/sync`, {
+      method: "POST",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok || controller.signal.aborted) return;
+        const result = await response.json();
+        if (!controller.signal.aborted && result.status !== "PROCESSING")
+          setRefreshTick((tick) => tick + 1);
+      })
+      .catch(() => {
+        /* Keep the normal status poll running; a failed sync cannot alter an order. */
+      });
+    return () => controller.abort();
+  }, [purchases]);
 
   useEffect(() => {
     setLeadPage(0);

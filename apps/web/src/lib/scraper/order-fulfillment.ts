@@ -1,7 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { db, Prisma } from "@fine-leads/database";
 import { getLeadCreditCost, generateTxnRef } from "@fine-leads/utils";
-import { LobstrClient, LobstrError } from "./lobstr-client";
+import {
+  enqueueOrderEmail,
+  sendOrderCompletedEmail,
+  sendOrderFailedEmail,
+} from "../email/order-emails";
+import {
+  LobstrClient,
+  LobstrError,
+  LobstrDispatchError,
+} from "./lobstr-client";
+import { advanceParallelJob } from "./parallel-dispatcher";
 import { ingestLobstrLead } from "./lead-mapper";
 import {
   freshInventoryWhere,
@@ -38,7 +48,7 @@ export async function completeFulfillment(
   job: Job,
   token: string,
 ): Promise<boolean> {
-  return db.$transaction(
+  const completed = await db.$transaction(
     async (tx) => {
       await guardLease(tx, job, token);
       const purchase = await tx.leadPurchase.findUniqueOrThrow({
@@ -106,10 +116,22 @@ export async function completeFulfillment(
           lastError: null,
         },
       });
+      await enqueueOrderEmail(tx, purchase.id, "COMPLETED");
       return true;
     },
     { timeout: 30_000 },
   );
+  if (completed) {
+    try {
+      await sendOrderCompletedEmail(job.purchaseId);
+    } catch {
+      console.warn("[ORDER_EMAIL_DEFERRED]", {
+        purchaseId: job.purchaseId,
+        kind: "COMPLETED",
+      });
+    }
+  }
+  return completed;
 }
 
 /** Conditional PROCESSING transition makes the full refund exactly-once. */
@@ -118,7 +140,7 @@ export async function refundFulfillment(
   token: string,
   reason: string,
 ) {
-  return db.$transaction(
+  const refunded = await db.$transaction(
     async (tx) => {
       await guardLease(tx, job, token);
       const changed = await tx.leadPurchase.updateMany({
@@ -150,7 +172,12 @@ export async function refundFulfillment(
         await tx.unlockedLead.deleteMany({
           where: { purchaseId: job.purchaseId },
         });
+        await enqueueOrderEmail(tx, job.purchaseId, "FAILED");
       }
+      await tx.leadFulfillmentRun.updateMany({
+        where: { jobId: job.id, status: { notIn: ["DONE", "FAILED"] } },
+        data: { status: "FAILED" },
+      });
       await tx.leadFulfillmentJob.update({
         where: { id: job.id },
         data: {
@@ -164,6 +191,17 @@ export async function refundFulfillment(
     },
     { timeout: 30_000 },
   );
+  if (refunded) {
+    try {
+      await sendOrderFailedEmail(job.purchaseId);
+    } catch {
+      console.warn("[ORDER_EMAIL_DEFERRED]", {
+        purchaseId: job.purchaseId,
+        kind: "FAILED",
+      });
+    }
+  }
+  return refunded;
 }
 
 async function persistRun(
@@ -241,6 +279,25 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
     }
     if (await completeFulfillment(job, token))
       return { worked: true, purchaseId: job.purchaseId, status: "COMPLETED" };
+    if (job.parallelConfig !== null && job.parallelConfig !== undefined) {
+      const result = await advanceParallelJob(
+        job,
+        {
+          guard: (tx) => guardLease(tx, job, token),
+          complete: () => completeFulfillment(job, token),
+          refund: (reason) => refundFulfillment(job, token, reason),
+          verifyEmail: options.verifyEmail,
+        },
+        deadline,
+      );
+      nextDelay = result.delayMs;
+      if (result.status === "NEEDS_REVIEW") nextStatus = "NEEDS_REVIEW";
+      return {
+        worked: true,
+        purchaseId: job.purchaseId,
+        status: result.status,
+      };
+    }
     const ambiguous = await db.leadFulfillmentRun.findFirst({
       where: { jobId: job.id, status: { in: ["DISPATCHING", "UNKNOWN"] } },
     });
@@ -280,6 +337,36 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
         outcome = "DISPATCHED";
       } catch (error) {
         if (error instanceof FulfillmentLeaseLost) throw error;
+        console.error("[LOBSTR_DISPATCH_FAILED]", {
+          purchaseId: job.purchaseId,
+          fulfillmentRunId: run.id,
+          phase:
+            error instanceof LobstrDispatchError ? error.phase : "CREATE_RUN",
+          code: error instanceof LobstrError ? error.code : "UNKNOWN",
+          httpStatus: error instanceof LobstrError ? error.status : undefined,
+          squidId:
+            error instanceof LobstrDispatchError ? error.squidId : undefined,
+          uncertain: !(error instanceof LobstrDispatchError) || error.uncertain,
+          retryable: error instanceof LobstrDispatchError && error.retryable,
+        });
+        if (error instanceof LobstrDispatchError && !error.uncertain) {
+          await persistRun(job, token, run.id, {
+            status: error.retryable ? "QUEUED" : "FAILED",
+          });
+          if (!error.retryable) {
+            await refundFulfillment(
+              job,
+              token,
+              `LOBSTR_DISPATCH_REJECTED_${error.status ?? error.code}`,
+            );
+            return {
+              worked: true,
+              purchaseId: job.purchaseId,
+              status: "REFUNDED",
+            };
+          }
+          throw error;
+        }
         await persistRun(job, token, run.id, { status: "UNKNOWN" });
         nextStatus = "NEEDS_REVIEW";
         nextDelay = 60_000;
@@ -358,6 +445,13 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
           resultOffset: done ? offset : 0,
         });
       }
+      // Do not wait for a later cron invocation once enough eligible leads have been ingested.
+      if (await completeFulfillment(job, token))
+        return {
+          worked: true,
+          purchaseId: job.purchaseId,
+          status: "COMPLETED",
+        };
       outcome = "INGESTING";
     } else if (!run) {
       if (job.purchase.tier === "PHONE_ONLY") {
@@ -468,6 +562,16 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
   } catch (error) {
     if (error instanceof FulfillmentLeaseLost)
       return { worked: false, status: "LEASE_LOST" };
+    console.warn("[LOBSTR_FULFILLMENT_ERROR]", {
+      purchaseId: job.purchaseId,
+      code: error instanceof LobstrError ? error.code : "FULFILLMENT_RETRY",
+      httpStatus: error instanceof LobstrError ? error.status : undefined,
+      attempt: job.failureCount + 1,
+    });
+    if (error instanceof LobstrError && error.code === "CONFIGURATION") {
+      await refundFulfillment(job, token, "LOBSTR_CONFIGURATION_ERROR");
+      return { worked: true, purchaseId: job.purchaseId, status: "REFUNDED" };
+    }
     errorCode =
       error instanceof LobstrError
         ? "LOBSTR_UPSTREAM_ERROR"
