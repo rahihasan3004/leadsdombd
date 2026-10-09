@@ -3,7 +3,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   Search,
-  Download,
   ArrowLeft,
   ArrowRight,
   Database,
@@ -19,6 +18,7 @@ import {
   OrderStatusBadge,
   isOrderDownloadable,
 } from "@/components/dashboard/order-status-badge";
+import { VaultExportControl } from "@/components/dashboard/vault-export-control";
 import { ColdCallingTierBadge } from "@/components/dashboard/lead-tier-badge";
 import { Skeleton } from "@fine-leads/ui";
 import { BrandedLoader } from "@/components/ui/branded-loader";
@@ -92,7 +92,11 @@ function formatPhone(phone: string | null): string {
 
 function formatStateBadge(states: string[]) {
   if (states.length === 0) return { label: "--" };
-  if (states.length >= 50) return { label: "All States" };
+  if (
+    states.length >= 50 ||
+    states.some((state) => /^(ALL|ALL[ _-]+STATES)$/i.test(state.trim()))
+  )
+    return { label: "All States" };
   if (states.length === 1) return { label: states[0] };
   return { label: `${states[0]}+${states.length - 1}` };
 }
@@ -350,28 +354,6 @@ export default function ListsPage() {
     );
   }, [leads, leadSearch]);
 
-  const handleDownloadCsv = useCallback(
-    (states: string[], purchaseId?: string) => {
-      const purchase =
-        selectedPurchase?.id === purchaseId
-          ? selectedPurchase
-          : purchases.find((item) => item.id === purchaseId);
-      if (!purchase || !isOrderDownloadable(purchase.status)) return;
-      states.forEach((stateCode) => {
-        const url = purchaseId
-          ? `/api/exports/stream?state=${encodeURIComponent(stateCode)}&purchaseId=${encodeURIComponent(purchaseId)}`
-          : `/api/exports/stream?state=${encodeURIComponent(stateCode)}`;
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      });
-    },
-    [purchases, selectedPurchase],
-  );
-
   const totalLeadPages = Math.ceil(filteredLeads.length / LEAD_PAGE_SIZE);
   const paginatedLeads = useMemo(() => {
     const start = leadPage * LEAD_PAGE_SIZE;
@@ -461,19 +443,7 @@ export default function ListsPage() {
                     {formatQuantity(selectedPurchase.quantity)} Leads
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleDownloadCsv(
-                      selectedPurchase.unlockedStates,
-                      selectedPurchase.id,
-                    )
-                  }
-                  className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Download className="h-4 w-4" />
-                  Download CSV
-                </button>
+                <VaultExportControl purchase={selectedPurchase} />
                 <div className="relative">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input
@@ -507,18 +477,7 @@ export default function ListsPage() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleDownloadCsv(
-                        selectedPurchase.unlockedStates,
-                        selectedPurchase.id,
-                      )
-                    }
-                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold shadow-none border-0 transition-all duration-200 flex items-center gap-2 cursor-pointer"
-                  >
-                    <Download className="h-3.5 w-3.5" /> Download CSV
-                  </button>
+                  <VaultExportControl purchase={selectedPurchase} />
                 </div>
 
                 <div className="mt-6 mb-5 flex items-center justify-between gap-4 flex-wrap">
@@ -879,21 +838,7 @@ export default function ListsPage() {
                         >
                           View Leads
                         </button>
-                        <button
-                          type="button"
-                          disabled={!isOrderDownloadable(purchase.status)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownloadCsv(
-                              purchase.unlockedStates,
-                              purchase.id,
-                            );
-                          }}
-                          className="inline-flex items-center justify-center h-10 px-4 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-50 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          CSV
-                        </button>
+                        <VaultExportControl purchase={purchase} />
                       </div>
                     </div>
                   );
@@ -1009,21 +954,7 @@ export default function ListsPage() {
                               View Leads
                               <ArrowRight className="h-3 w-3" />
                             </button>
-                            <button
-                              type="button"
-                              disabled={!isOrderDownloadable(purchase.status)}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownloadCsv(
-                                  purchase.unlockedStates,
-                                  purchase.id,
-                                );
-                              }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F0F4FF] text-[#465FFF] border border-blue-100 hover:bg-blue-100/70 font-semibold text-xs shadow-none transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              <Download className="h-3 w-3" />
-                              CSV
-                            </button>
+                            <VaultExportControl purchase={purchase} />
                           </div>
                         </td>
                       </tr>

@@ -1,249 +1,142 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { auth } from "@fine-leads/auth";
 import { db, type Prisma } from "@fine-leads/database";
-import { redactLeadForTier } from "@/lib/lead-access";
-import { LEAD_STATES } from "@fine-leads/utils";
-
-const CSV_HEADERS = [
-  "Company Name",
-  "Direct Phone Number",
-  "Real Estate Category",
-  "Physical Address",
-  "City",
-  "State",
-  "Zip Code",
-  "Timezone",
-  "Website",
-  "100% Deliverable Email",
-  "Google Place ID",
-  "Data Source",
-  "Brokerage Name",
-  "Review Count",
-  "Star Rating",
-  "Scraped Timestamp",
-  "Live Google Maps Link",
-] as const;
-
-const BATCH_SIZE = 1000;
-
-const exportQuerySchema = z.object({
-  state: z.string().length(2, "State code must be 2 characters").toUpperCase(),
-});
-
-function escapeCsvField(value: string | number | null | undefined): string {
-  if (value == null) return '""';
-  const str = String(value);
-  if (str === "") return '""';
-  return `"${str.replace(/"/g, '""')}"`;
-}
-
-function formatPhoneForCsv(phone: string | null): string {
-  if (!phone) return '""';
-  const cleaned = phone.replace(/\D/g, "");
-  let formatted: string;
-  if (cleaned.length === 10) {
-    formatted = `+1-${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
-  } else if (cleaned.length === 11 && cleaned.startsWith("1")) {
-    formatted = `+1-${cleaned.slice(1, 4)}-${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
-  } else {
-    formatted = phone;
-  }
-  return `"=""${formatted}"""`;
-}
-
-function formatCsvRow(agent: {
-  brokerageName: string | null;
-  phone: string | null;
-  category: string | null;
-  brokerageAddress: string | null;
-  city: string | null;
-  state: string | null;
-  zipCode: string | null;
-  timezone: string | null;
-  websiteUrl: string | null;
-  email: string | null;
-  googlePlaceId: string | null;
-  dataSource: string | null;
-  rating: number | null;
-  reviewCount: number | null;
-  scrapedAt: Date | null;
-  googleMapsLink: string | null;
-}): string {
-  return [
-    escapeCsvField(agent.brokerageName),
-    formatPhoneForCsv(agent.phone),
-    escapeCsvField(agent.category),
-    escapeCsvField(agent.brokerageAddress),
-    escapeCsvField(agent.city),
-    escapeCsvField(agent.state),
-    escapeCsvField(agent.zipCode?.slice(0, 5)),
-    escapeCsvField(agent.timezone),
-    escapeCsvField(agent.websiteUrl),
-    escapeCsvField(agent.email),
-    escapeCsvField(agent.googlePlaceId),
-    escapeCsvField(agent.dataSource ?? "SCRAPER_ENGINE"),
-    escapeCsvField(agent.brokerageName),
-    escapeCsvField(agent.reviewCount),
-    escapeCsvField(agent.rating != null ? agent.rating.toFixed(1) : null),
-    escapeCsvField(agent.scrapedAt?.toISOString() ?? null),
-    escapeCsvField(agent.googleMapsLink),
-  ].join(",");
-}
-
-function createCsvStream(where: Prisma.UnlockedLeadWhereInput, exportId: string): ReadableStream<Uint8Array> {
-  const encoder = new TextEncoder();
-
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        const headerLine = CSV_HEADERS.map((h) => escapeCsvField(h)).join(",") + "\n";
-        controller.enqueue(encoder.encode(headerLine));
-
-        let cursor: string | undefined;
-        let hasMore = true;
-
-        while (hasMore) {
-          const batch = await db.unlockedLead.findMany({
-            where,
-            select: {
-              id: true,
-              purchase: { select: { tier: true } },
-              agent: { select: {
-                brokerageName: true, phone: true, category: true, brokerageAddress: true,
-                city: true, state: true, zipCode: true, timezone: true, websiteUrl: true,
-                email: true, emailStatus: true, isDeliverable: true, googlePlaceId: true,
-                dataSource: true, rating: true, reviewCount: true, scrapedAt: true, googleMapsLink: true,
-              } },
-            },
-            take: BATCH_SIZE,
-            orderBy: { id: "asc" },
-            ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-          });
-
-          if (batch.length === 0) {
-            hasMore = false;
-            break;
-          }
-
-          const lines = batch.map((unlock) => formatCsvRow(redactLeadForTier(unlock.agent, unlock.purchase.tier))).join("\n") + "\n";
-          controller.enqueue(encoder.encode(lines));
-
-          cursor = batch[batch.length - 1].id;
-
-          if (batch.length < BATCH_SIZE) {
-            hasMore = false;
-          }
-        }
-
-        await db.leadExport.update({
-          where: { id: exportId },
-          data: { status: "COMPLETED", completedAt: new Date() },
-        });
-
-        controller.close();
-      } catch (err) {
-        console.error("[CSV_STREAM_ERROR]:", err);
-
-        await db.leadExport
-          .update({
-            where: { id: exportId },
-            data: { status: "FAILED" },
-          })
-          .catch((updateErr) => {
-            console.error("[CSV_EXPORT_FAILED_UPDATE_ERROR]:", updateErr);
-          });
-
-        controller.error(err);
-      }
-    },
-  });
-}
-
+import {
+  LeadExportError,
+  parseExportOptions,
+  exportTerritoryLabel,
+} from "@/lib/export-options";
+import {
+  prepareLeadExport,
+  preparedExportStream,
+  type PreparedLeadExport,
+} from "@/lib/lead-export";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 export async function GET(req: Request) {
+  let exportId: string | undefined, prepared: PreparedLeadExport | undefined;
   try {
     const session = await auth();
-    if (!session?.user?.id) {
+    if (!session?.user?.id)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(req.url);
-    const stateCodeRaw = searchParams.get("state")?.toUpperCase()?.trim();
-    const purchaseId = searchParams.get("purchaseId") || undefined;
-
-    if (!stateCodeRaw) {
-      return NextResponse.json({ error: "State parameter is required" }, { status: 400 });
-    }
-
-    const parsedState = exportQuerySchema.safeParse({ state: stateCodeRaw });
-    if (!parsedState.success) {
-      return NextResponse.json(
-        { error: parsedState.error.issues.map((i) => i.message).join(", ") },
-        { status: 400 }
-      );
-    }
-
-    const stateCode = parsedState.data.state;
-
-    const validState = LEAD_STATES.find(
-      (s) => s.code.toUpperCase() === stateCode
-    );
-    if (!validState) {
-      return NextResponse.json({ error: "Invalid state code" }, { status: 400 });
-    }
-
-    if (purchaseId) {
+    const options = parseExportOptions(new URL(req.url).searchParams);
+    if (options.purchaseId) {
       const purchase = await db.leadPurchase.findFirst({
-        where: { id: purchaseId, userId: session.user.id, status: "COMPLETED" },
+        where: {
+          id: options.purchaseId,
+          userId: session.user.id,
+          status: "COMPLETED",
+        },
         select: { id: true },
       });
-      if (!purchase) {
-        return NextResponse.json({ error: "Purchase not found or not authorized" }, { status: 403 });
-      }
+      if (!purchase)
+        return NextResponse.json(
+          { error: "Purchase not found or not authorized" },
+          { status: 403 },
+        );
     }
-
     const where: Prisma.UnlockedLeadWhereInput = {
       userId: session.user.id,
-      ...(purchaseId ? { purchaseId } : {}),
+      ...(options.purchaseId ? { purchaseId: options.purchaseId } : {}),
       purchase: { status: "COMPLETED" },
-      agent: { state: stateCode },
+      ...(!options.all
+        ? {
+            agent: {
+              state:
+                options.states.length === 1
+                  ? options.states[0]
+                  : { in: options.states },
+            },
+          }
+        : {}),
     };
     const agentCount = await db.unlockedLead.count({ where });
-    if (agentCount === 0) {
-      return NextResponse.json({ error: "No unlocked leads available for this state" }, { status: 404 });
-    }
-
-    const exportRecord = await db.leadExport.create({
+    if (!agentCount)
+      return NextResponse.json(
+        { error: "No unlocked leads available for this export" },
+        { status: 404 },
+      );
+    const record = await db.leadExport.create({
       data: {
         userId: session.user.id,
-        format: "CSV",
+        format: options.format === "json" ? "JSON" : "CSV",
         agentCount,
         status: "PROCESSING",
         searchQuery: {
-          state: stateCode,
+          states: options.all ? "ALL" : options.states,
+          grouping: options.grouping,
+          container:
+            options.grouping === "split" ? "ZIP" : options.format.toUpperCase(),
           exportedAt: new Date().toISOString(),
-          purchaseId: purchaseId || null,
+          purchaseId: options.purchaseId ?? null,
         },
       },
     });
-
-    const stateName = validState.name.toLowerCase().replace(/\s+/g, "-");
-    const filename = `leadsdom-export-${stateName}-${Date.now()}.csv`;
-
-    const stream = createCsvStream(where, exportRecord.id);
-
-    return new NextResponse(stream, {
+    exportId = record.id;
+    prepared = await prepareLeadExport(
+      where,
+      agentCount,
+      options.format,
+      options.grouping,
+      req.signal,
+    );
+    // Audit marks a fully prepared artifact, not proof the customer received every byte.
+    await db.leadExport
+      .update({
+        where: { id: record.id },
+        data: { status: "COMPLETED", completedAt: new Date() },
+      })
+      .catch(() =>
+        console.warn("[EXPORT_AUDIT_UPDATE_DEFERRED]", { exportId: record.id }),
+      );
+    const ext = options.grouping === "split" ? "zip" : options.format;
+    const filename = `leadsdom-export-${exportTerritoryLabel(options.all, options.states)}-${Date.now()}.${ext}`;
+    const size = prepared.size;
+    const stream = await preparedExportStream(prepared, req.signal);
+    const response = new NextResponse(stream, {
       headers: {
-        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Type":
+          ext === "zip"
+            ? "application/zip"
+            : ext === "json"
+              ? "application/json; charset=utf-8"
+              : "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Length": String(size),
         "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
       },
     });
-  } catch (err) {
-    console.error("[EXPORT_STREAM_ERROR]:", err);
+    prepared = undefined; // Stream owns cleanup from this point.
+    return response;
+  } catch (error) {
+    await prepared?.cleanup().catch(() => undefined);
+    if (exportId)
+      await db.leadExport
+        .update({ where: { id: exportId }, data: { status: "FAILED" } })
+        .catch(() =>
+          console.warn("[EXPORT_AUDIT_UPDATE_DEFERRED]", { exportId }),
+        );
+    console.error("[EXPORT_PREPARATION_FAILED]", {
+      exportId,
+      code:
+        error instanceof LeadExportError ? error.status : "PREPARATION_ERROR",
+    });
     return NextResponse.json(
-      { error: "Failed to stream export" },
-      { status: 500 }
+      {
+        error:
+          error instanceof LeadExportError
+            ? error.message
+            : "Export could not be prepared. Please retry.",
+      },
+      {
+        status: error instanceof LeadExportError ? error.status : 503,
+        headers: {
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      },
     );
   }
 }

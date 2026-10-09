@@ -34,9 +34,17 @@ describe("pending Vault order presentation", () => {
     expect(source).toContain("15_000");
     expect(
       source.match(/disabled=\{!isOrderDownloadable\(purchase.status\)\}/g),
-    ).toHaveLength(4);
-    expect(source).toContain(
-      "if (!purchase || !isOrderDownloadable(purchase.status)) return;",
+    ).toHaveLength(2);
+    expect(source.match(/<VaultExportControl purchase={/g)).toHaveLength(4);
+    const control = readFileSync(
+      new URL(
+        "../src/components/dashboard/vault-export-control.tsx",
+        import.meta.url,
+      ),
+      "utf8",
     );
+    expect(control).toContain("!isOrderDownloadable(purchase.status)");
+    expect(control).toContain("disabled={disabled}");
+    expect(control).toContain("if (disabled || request.current) return;");
   });
 });
