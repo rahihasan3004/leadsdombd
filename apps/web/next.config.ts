@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 import { PrismaPlugin } from "@prisma/nextjs-monorepo-workaround-plugin";
@@ -16,6 +17,11 @@ const frameSrc = isDev
   : "'self' https://*.lemonsqueezy.com";
 
 const nextConfig: NextConfig = {
+  // Docker builds set BUILD_STANDALONE=1 to emit a self-contained server (see docker/Dockerfile).
+  // Kept opt-in because standalone tracing creates symlinks that fail on Windows without Developer Mode.
+  ...(process.env.BUILD_STANDALONE === "1"
+    ? { output: "standalone" as const, outputFileTracingRoot: path.join(__dirname, "../..") }
+    : {}),
   env: {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || "",
   },

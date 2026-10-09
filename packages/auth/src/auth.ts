@@ -11,7 +11,7 @@ const googleId = process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID;
 const googleSecret = process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET;
 
 class EmailNotVerifiedError extends CredentialsSignin {
-  code = "email_not_verified";
+  override code = "email_not_verified";
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -181,13 +181,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             }
           }
         } else {
+          const fallbackUser = user as { role?: string; walletBalance?: number; credits?: number; tokenVersion?: number };
           token.id = (user.id ?? token.sub ?? "") as string;
           token.email = (user.email ?? "") as string;
           token.name = (user.name ?? "") as string;
-          token.role = (user.role ?? "USER") as string;
-          token.credits = (((user as any).credits ?? 0) as number);
-          token.walletBalance = (user.walletBalance as number);
-          token.tokenVersion = (((user as any).tokenVersion ?? 0) as number);
+          token.role = fallbackUser.role ?? "USER";
+          token.credits = fallbackUser.credits ?? 0;
+          token.walletBalance = fallbackUser.walletBalance ?? 0;
+          token.tokenVersion = fallbackUser.tokenVersion ?? 0;
         }
       }
 

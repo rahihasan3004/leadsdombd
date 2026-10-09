@@ -136,22 +136,15 @@ export async function getFinancialKPIs() {
 }
 
 export async function refundPurchase(purchaseId: string, adminId: string) {
-  const result = await db.$transaction(async (tx) => {
-    const purchase = await tx.leadPurchase.findUnique({
-      where: { id: purchaseId },
-      include: {
-        user: { select: { id: true } },
-      },
-    });
+  return db.$transaction(async (tx) => {
+    const purchase = await tx.leadPurchase.findUnique({ where: { id: purchaseId } });
 
     if (!purchase) {
       throw new Error("Purchase not found");
     }
-
     if (purchase.status === "REFUNDED") {
       throw new Error("Purchase is already refunded");
     }
-
     if (purchase.status !== "COMPLETED") {
       throw new Error("Only completed purchases can be refunded");
     }
@@ -160,93 +153,97 @@ export async function refundPurchase(purchaseId: string, adminId: string) {
       where: { id: purchaseId, status: "COMPLETED" },
       data: { status: "REFUNDED", refundedAt: new Date() },
     });
-
     if (updated.count === 0) {
       throw new Error("Purchase is already refunded or ineligible");
     }
 
-    const user = await tx.user.update({
-      where: { id: purchase.userId },
-      data: { walletBalance: { increment: purchase.amountPaid } },
-      select: { id: true, walletBalance: true },
-    });
-
-    const walletTransaction = await tx.walletTransaction.create({
-      data: {
-        referenceId: generateRefundRef(),
-        userId: purchase.userId,
-        type: "REFUND",
-        amount: purchase.amountPaid,
-        balanceAfter: user.walletBalance,
-        description: `Refund for purchase ${purchase.referenceId}`,
-        status: "COMPLETED",
-        metadata: {
-          purchaseId: purchase.id,
-          purchaseRef: purchase.referenceId,
-          refundedStates: purchase.unlockedStates,
-          refundedBy: adminId,
-        },
-      },
-    });
-
-    const remainingCoverage = await tx.leadPurchase.findMany({
+    // Credit-funded orders have a PURCHASE ledger entry linked via metadata.purchaseId
+    // (see /api/purchases/order). Card-paid (Lemon Squeezy) and admin-granted purchases don't.
+    const debit = await tx.walletTransaction.findFirst({
       where: {
         userId: purchase.userId,
-        status: "COMPLETED",
-        id: { not: purchaseId },
+        type: "PURCHASE",
+        metadata: { path: ["purchaseId"], equals: purchase.id },
       },
-      select: { unlockedStates: true },
+      select: { amount: true },
     });
+    const creditsToReturn = debit ? Math.abs(Math.trunc(Number(debit.amount))) : 0;
+    const refundMethod: "CREDITS" | "EXTERNAL" = creditsToReturn > 0 ? "CREDITS" : "EXTERNAL";
 
-    const stillCoveredStates = new Set(
-      remainingCoverage.flatMap((p) => p.unlockedStates)
-    );
-    const fullyRevokedStates = purchase.unlockedStates.filter(
-      (s) => !stillCoveredStates.has(s)
-    );
+    // Revoke the individual leads unlocked by this order.
+    const revoked = await tx.unlockedLead.deleteMany({ where: { purchaseId } });
 
-    if (fullyRevokedStates.length > 0) {
-      await tx.auditLog.create({
-        data: {
-          userId: adminId,
-          action: "purchase.refund",
-          resource: "LeadPurchase",
-          resourceId: purchaseId,
-          details: {
-            purchaseRef: purchase.referenceId,
-            userId: purchase.userId,
-            amount: purchase.amountPaid,
-            states: purchase.unlockedStates,
-            fullyRevokedStates,
-            txnRef: walletTransaction.referenceId,
-          },
-        },
+    let walletTransaction: { id: string; referenceId: string } | null = null;
+    let newCredits: number | null = null;
+
+    if (creditsToReturn > 0) {
+      const user = await tx.user.update({
+        where: { id: purchase.userId },
+        data: { credits: { increment: creditsToReturn } },
+        select: { credits: true },
       });
-    } else {
-      await tx.auditLog.create({
+      newCredits = user.credits;
+
+      walletTransaction = await tx.walletTransaction.create({
         data: {
-          userId: adminId,
-          action: "purchase.refund",
-          resource: "LeadPurchase",
-          resourceId: purchaseId,
-          details: {
+          referenceId: generateRefundRef(),
+          userId: purchase.userId,
+          type: "REFUND",
+          amount: creditsToReturn,
+          balanceAfter: user.credits,
+          description: `Refund for purchase ${purchase.referenceId}: ${creditsToReturn} credits returned`,
+          status: "COMPLETED",
+          metadata: {
+            purchaseId: purchase.id,
             purchaseRef: purchase.referenceId,
-            userId: purchase.userId,
-            amount: purchase.amountPaid,
-            states: purchase.unlockedStates,
-            note: "All refunded states are still covered by other active purchases",
-            txnRef: walletTransaction.referenceId,
+            refundedStates: purchase.unlockedStates,
+            refundedBy: adminId,
+            creditsReturned: creditsToReturn,
+            revokedLeads: revoked.count,
           },
         },
+        select: { id: true, referenceId: true },
       });
     }
 
+    const remainingCoverage = await tx.leadPurchase.findMany({
+      where: { userId: purchase.userId, status: "COMPLETED", id: { not: purchaseId } },
+      select: { unlockedStates: true },
+    });
+    const stillCoveredStates = new Set(remainingCoverage.flatMap((p) => p.unlockedStates));
+    const fullyRevokedStates = purchase.unlockedStates.filter((s) => !stillCoveredStates.has(s));
+
+    await tx.auditLog.create({
+      data: {
+        userId: adminId,
+        action: "purchase.refund",
+        resource: "LeadPurchase",
+        resourceId: purchaseId,
+        details: {
+          purchaseRef: purchase.referenceId,
+          userId: purchase.userId,
+          amountPaid: purchase.amountPaid.toString(),
+          refundMethod,
+          creditsReturned: creditsToReturn,
+          revokedLeads: revoked.count,
+          states: purchase.unlockedStates,
+          fullyRevokedStates,
+          txnRef: walletTransaction?.referenceId ?? null,
+          ...(refundMethod === "EXTERNAL"
+            ? { note: "No credits were spent on this purchase; refund any card payment in Lemon Squeezy." }
+            : {}),
+        },
+      },
+    });
+
     return {
-      purchase,
+      purchaseId: purchase.id,
+      purchaseRef: purchase.referenceId,
+      refundMethod,
+      creditsReturned: creditsToReturn,
+      revokedLeads: revoked.count,
+      newCredits,
       walletTransaction,
-      newWalletBalance: user.walletBalance,
     };
   });
-
-  return result;
 }

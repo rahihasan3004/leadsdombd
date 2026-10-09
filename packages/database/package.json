@@ -12,6 +12,9 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status",
+    "db:baseline": "prisma migrate resolve --applied 0_init",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "lint": "eslint .",
@@ -24,6 +27,7 @@
   },
   "devDependencies": {
     "@fine-leads/config": "workspace:*",
+    "@types/node": "22.10.2",
     "prisma": "^6.1.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"

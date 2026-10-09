@@ -6,7 +6,7 @@ function generateRef(prefix: string): string {
   crypto.getRandomValues(bytes);
   let id = "";
   for (let i = 0; i < 8; i++) {
-    id += CHARSET[bytes[i] % CHARSET_LENGTH];
+    id += CHARSET.charAt((bytes[i] ?? 0) % CHARSET_LENGTH);
   }
   return `${prefix}${id}`;
 }

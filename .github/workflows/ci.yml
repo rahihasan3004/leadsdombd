@@ -70,6 +70,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Unit tests
+        run: pnpm test
+
   build:
     name: Build
     runs-on: ubuntu-latest

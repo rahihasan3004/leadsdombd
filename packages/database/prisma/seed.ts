@@ -4,8 +4,14 @@ function seedRandom() {
   return Math.random();
 }
 
-function pick<T>(arr: T[]): T {
-  return arr[Math.floor(seedRandom() * arr.length)];
+function cycle<T>(arr: readonly T[], index: number): T {
+  const value = arr[index % arr.length];
+  if (value === undefined) throw new Error("Seed data array is empty");
+  return value;
+}
+
+function pick<T>(arr: readonly T[]): T {
+  return cycle(arr, Math.floor(seedRandom() * arr.length));
 }
 
 function randomFloat(min: number, max: number, decimals = 1): number {
@@ -422,10 +428,10 @@ function generateAgent(
 ): AgentSeedData {
   const firstName = pick(FIRST_NAMES);
   const lastName = pick(LAST_NAMES);
-  const companyName = brokerages[index % brokerages.length];
-  const city = cities[index % cities.length];
-  const zip = zips[index % zips.length];
-  const street = streets[index % streets.length];
+  const companyName = cycle(brokerages, index);
+  const city = cycle(cities, index);
+  const zip = cycle(zips, index);
+  const street = cycle(streets, index);
   const fullAddress = `${street}, ${city}, ${state} ${zip}`;
   const email = generateEmail(firstName, lastName, companyName);
   const website = generateWebsite(companyName);

@@ -18,7 +18,7 @@ export const VOLUME_PRICING_TIERS: readonly PricingTier[] = [
 
 export function getTierByCredits(credits: number): PricingTier {
   const tier = VOLUME_PRICING_TIERS.find((t) => t.credits === credits);
-  return tier ?? VOLUME_PRICING_TIERS[0];
+  return tier ?? getDefaultTier();
 }
 
 /** Strict lookup used by the server. Returns undefined for unknown ids (no fallback). */
@@ -27,5 +27,7 @@ export function findTierById(id: string): PricingTier | undefined {
 }
 
 export function getDefaultTier(): PricingTier {
-  return VOLUME_PRICING_TIERS[0];
+  const tier = VOLUME_PRICING_TIERS[0];
+  if (!tier) throw new Error("No pricing tiers configured");
+  return tier;
 }

@@ -576,7 +576,8 @@ export default function AdminTransactionsPage() {
               Are you sure you want to refund this purchase? This will:
               <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
                 <li>Mark the purchase as <strong>REFUNDED</strong></li>
-                <li>Credit <strong>{refundTarget ? formatCurrency(refundTarget.amountPaid) : "$0.00"}</strong> back to the user&apos;s wallet</li>
+                <li>Return the credits spent on this order to the user&apos;s credit balance (card payments must be refunded in Lemon Squeezy)</li>
+                <li>Revoke the individual leads unlocked by this order</li>
                 <li>Remove the refunded states from the user&apos;s active territory access</li>
               </ul>
             </AlertDialogDescription>

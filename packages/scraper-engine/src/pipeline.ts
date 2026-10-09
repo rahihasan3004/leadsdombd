@@ -91,8 +91,9 @@ export class LeadPipeline {
 
         stats.totalScraped++;
 
+        const record = event.data.record;
+
         try {
-          const record = event.data.record;
           let email = "";
           let emailStatus = "none";
           let hasDeliverableEmail = false;
