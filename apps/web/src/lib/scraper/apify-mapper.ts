@@ -1,3 +1,7 @@
+import {
+  validateApifyEmail,
+  validateExistingApifyEmail,
+} from "./apify-email-validator";
 import type { Prisma } from "@fine-leads/database";
 import { US_STATES } from "@fine-leads/utils";
 import {
@@ -82,7 +86,7 @@ export function mapApifyLead(
   );
   if (result.kind === "lead") {
     result.lead.data.dataSource = "APIFY";
-    // Do not treat discovered email as SMTP-verified; the existing tier pipeline verifies it.
+    // Mapping alone never claims verification; ingestion applies the configured staged validator.
     const profiles = result.lead.data.socialProfiles;
     if (profiles && typeof profiles === "object" && !Array.isArray(profiles)) {
       const cleanProfiles: Record<string, Prisma.InputJsonValue | null> = {};
@@ -104,8 +108,34 @@ export async function ingestApifyLead(
 ) {
   const mapped = mapApifyLead(record, context);
   if (mapped.kind !== "lead") return { kind: mapped.kind };
+  const email = mapped.lead.data.email;
+  if (typeof email === "string" && email) {
+    const validation = await validateApifyEmail(email);
+    Object.assign(mapped.lead.data, {
+      emailStatus: validation.status,
+      isDeliverable: validation.eligible,
+      isVerified: validation.verified,
+      verificationScore: validation.verified ? 100 : 0,
+      lastVerifiedAt: validation.verified ? new Date() : null,
+    });
+  }
   const saved = await insertUnlessDuplicate(mapped.lead);
-  return { kind: "lead" as const, agentId: saved.id, created: saved.created };
+  // Reconnect old APIFY duplicates without blessing a different email/source or hard failure.
+  if (!saved.created && typeof email === "string" && email)
+    await validateExistingApifyEmail(saved.id, email, {
+      status:
+        typeof mapped.lead.data.emailStatus === "string"
+          ? mapped.lead.data.emailStatus
+          : "unverified",
+      eligible: mapped.lead.data.isDeliverable === true,
+      verified: mapped.lead.data.isVerified === true,
+    });
+  return {
+    kind: "lead" as const,
+    agentId: saved.id,
+    created: saved.created,
+    eligible: mapped.lead.data.isDeliverable === true,
+  };
 }
 export async function ingestApifyLeads(
   records: CompassRecord[],

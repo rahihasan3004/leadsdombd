@@ -119,3 +119,26 @@ describe("provider selection preserves financial and tier invariants", () => {
     ).rejects.toMatchObject({ uncertain: true });
   });
 });
+
+it("passes the purchased email tier through both primary and authorized fallback dispatch", async () => {
+  configure();
+  vi.stubEnv("SCRAPER_PROVIDER", "apify");
+  await getFulfillmentClient(undefined, "VERIFIED_EMAIL").triggerScrapeRun(
+    input,
+  );
+  expect(mocks.dispatch).toHaveBeenCalledWith(
+    expect.objectContaining({ leadTier: "VERIFIED_EMAIL", maxPlaces: 5 }),
+  );
+  vi.stubEnv("SCRAPER_PROVIDER", "lobstr");
+  vi.stubEnv("SCRAPER_FALLBACK_PROVIDER", "apify");
+  mocks.lobstr.mockRejectedValue(
+    new LobstrDispatchError(
+      new LobstrError("Rejected", 404, "HTTP_ERROR"),
+      "CREATE_RUN",
+    ),
+  );
+  await getFulfillmentClient(undefined, "VERIFIED_EMAIL").triggerScrapeRun(
+    input,
+  );
+  expect(mocks.dispatch.mock.calls.at(-1)![0].leadTier).toBe("VERIFIED_EMAIL");
+});

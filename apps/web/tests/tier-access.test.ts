@@ -123,7 +123,9 @@ describe("tier data boundaries", () => {
     });
     expect(leadInventoryWhere("VERIFIED_EMAIL")).toMatchObject({
       isDeliverable: true,
-      emailStatus: { in: ["validated", "deliverable"] },
+      emailStatus: {
+        in: ["validated", "deliverable", "syntax_valid", "mx_valid"],
+      },
     });
   });
 });

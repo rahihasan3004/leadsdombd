@@ -143,14 +143,10 @@ describe("lead package UI", () => {
       if (tier === "PHONE_ONLY") {
         expect(html).toContain("PHONE &amp; DIRECT DIALS (NO EMAIL)");
         expect(html).toContain("Not included");
-        expect(html).not.toContain(
-          "17 GUARANTEED FIELDS + 100% SMTP DELIVERABLE EMAIL",
-        );
+        expect(html).not.toContain("17 CORE FIELDS + VALIDATED EMAIL");
       } else {
-        expect(html).toContain(
-          "17 GUARANTEED FIELDS + 100% SMTP DELIVERABLE EMAIL",
-        );
-        expect(html).toContain("100% Deliverable");
+        expect(html).toContain("17 CORE FIELDS + VALIDATED EMAIL");
+        expect(html).toContain("Syntax/domain checked");
       }
     },
   );
@@ -254,7 +250,7 @@ describe("lead package border and enriched checklist regressions", () => {
         expect(core).not.toContain("Data Source");
       }
       if (tier === "PHONE_ONLY") expect(core).not.toContain("Email");
-      else expect(core).toContain("100% SMTP Deliverable Email");
+      else expect(core).toContain("Syntax/domain-checked Email");
       const bonus =
         section!.match(
           /<ul[^>]*aria-label="Optional bonus profiles"[^>]*>([\s\S]*?)<\/ul>/,

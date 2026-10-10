@@ -534,3 +534,36 @@ describe("multi-state safe lead exports", () => {
     expect((await response.json()).error).toContain("cell size limit");
   });
 });
+
+it.each(["csv", "json", "xlsx", "tsv"])(
+  "exports staged APIFY email in %s while preserving phone-only redaction",
+  async (format) => {
+    const full = lead("full", "TX");
+    const phone = lead("phone", "TX", "PHONE_ONLY");
+    for (const row of [full, phone]) {
+      row.agent.dataSource = "APIFY";
+      row.agent.emailStatus = "syntax_valid";
+    }
+    m.batch.mockResolvedValue([phone, full]);
+    const response = await GET(req(`purchaseId=p1&format=${format}`));
+    expect(response.status).toBe(200);
+    if (format === "xlsx") {
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(
+        Buffer.from(await response.arrayBuffer()) as unknown as Parameters<
+          typeof workbook.xlsx.load
+        >[0],
+      );
+      const sheet = workbook.getWorksheet(1)!;
+      expect(sheet.getRow(2).getCell(10).value).toBeNull();
+      expect(sheet.getRow(3).getCell(10).value).toBe(full.agent.email);
+      expect(sheet.getRow(1).getCell(10).value).toBe("Email");
+    } else {
+      const text = await response.text();
+      expect(text).toContain(full.agent.email);
+      expect(text).not.toContain(phone.agent.email);
+      expect(text).not.toContain("100% Deliverable");
+      if (format === "json") expect(text).toContain("syntax_valid");
+    }
+  },
+);

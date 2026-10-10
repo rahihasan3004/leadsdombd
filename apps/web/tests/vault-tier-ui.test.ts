@@ -117,3 +117,28 @@ describe("Vault social profile entitlements", () => {
     expect(html).not.toContain("Bonus Enriched Profiles");
   });
 });
+
+it.each([
+  ["syntax_valid", "Syntax checked"],
+  ["mx_valid", "MX checked"],
+])(
+  "labels APIFY %s honestly without SMTP deliverability claims",
+  (emailStatus, label) => {
+    const html = renderToStaticMarkup(
+      React.createElement(AgentDetailModal, {
+        agent: {
+          ...agent,
+          leadTier: "VERIFIED_EMAIL",
+          dataSource: "APIFY",
+          emailStatus,
+          isVerified: false,
+        },
+        open: true,
+        onClose: () => undefined,
+      }),
+    );
+    expect(html).toContain(label);
+    expect(html).toContain(agent.email);
+    expect(html).not.toContain("100% Deliverable");
+  },
+);

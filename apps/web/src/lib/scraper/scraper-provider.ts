@@ -1,3 +1,4 @@
+import type { LeadTier } from "@fine-leads/utils";
 import {
   CompassApifyClient,
   buildApifySearchStrings,
@@ -62,7 +63,10 @@ function normalizedRun(run: ApifyRun, reference: string): LobstrRun {
   };
 }
 export class ApifyFulfillmentClient implements FulfillmentClient {
-  constructor(private readonly client = new CompassApifyClient()) {}
+  constructor(
+    private readonly client = new CompassApifyClient(),
+    private readonly tier?: LeadTier,
+  ) {}
   async triggerScrapeRun(input: ScrapeParameters): Promise<LobstrRun> {
     try {
       const { run, runReference } = await this.client.dispatchApifyScrape({
@@ -75,6 +79,7 @@ export class ApifyFulfillmentClient implements FulfillmentClient {
         }),
         maxPlaces: input.limit,
         stateCode: input.state,
+        ...(this.tier ? { leadTier: this.tier } : {}),
       });
       return normalizedRun(run, runReference);
     } catch (error) {
@@ -104,6 +109,7 @@ export class ApifyFulfillmentClient implements FulfillmentClient {
   }
 }
 class SafeFallbackClient implements FulfillmentClient {
+  constructor(private readonly tier?: LeadTier) {}
   async triggerScrapeRun(input: ScrapeParameters): Promise<LobstrRun> {
     try {
       return await new LobstrClient().triggerScrapeRun(input);
@@ -113,7 +119,9 @@ class SafeFallbackClient implements FulfillmentClient {
           ? !error.uncertain && ![402, 429].includes(error.status ?? 0)
           : error instanceof LobstrError && error.code === "CONFIGURATION";
       if (!safe) throw error;
-      return new ApifyFulfillmentClient().triggerScrapeRun(input);
+      return new ApifyFulfillmentClient(undefined, this.tier).triggerScrapeRun(
+        input,
+      );
     }
   }
   getRunStatus(id: string) {
@@ -125,10 +133,11 @@ class SafeFallbackClient implements FulfillmentClient {
 }
 export function getFulfillmentClient(
   runReference?: string | null,
+  tier?: LeadTier,
 ): FulfillmentClient {
   if (runReference)
     return runReference.startsWith("apify:")
-      ? new ApifyFulfillmentClient()
+      ? new ApifyFulfillmentClient(undefined, tier)
       : new LobstrClient();
   if (process.env.SCRAPER_PROVIDER === "apify") {
     if (!apifyFulfillmentConfigured())
@@ -137,12 +146,12 @@ export function getFulfillmentClient(
         undefined,
         "CONFIGURATION",
       );
-    return new ApifyFulfillmentClient();
+    return new ApifyFulfillmentClient(undefined, tier);
   }
   if (
     process.env.SCRAPER_FALLBACK_PROVIDER === "apify" &&
     apifyFulfillmentConfigured()
   )
-    return new SafeFallbackClient();
+    return new SafeFallbackClient(tier);
   return new LobstrClient();
 }

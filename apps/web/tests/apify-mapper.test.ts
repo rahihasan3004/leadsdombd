@@ -4,7 +4,7 @@ const { db } = vi.hoisted(() => ({
   db: {
     $transaction: vi.fn(),
     $queryRaw: vi.fn(),
-    agent: { upsert: vi.fn(), create: vi.fn() },
+    agent: { upsert: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
   },
 }));
 vi.mock("@fine-leads/database", async (original) => ({
@@ -169,4 +169,35 @@ describe("Compass mapping and shared serializable deduplication", () => {
       invalidRecordsDiscarded: 1,
     });
   });
+});
+
+it("persists syntax/domain eligibility during Apify ingestion without SMTP verification", async () => {
+  await ingestApifyLeads([record], context);
+  expect(db.agent.upsert).toHaveBeenCalledWith(
+    expect.objectContaining({
+      create: expect.objectContaining({
+        emailStatus: "syntax_valid",
+        isDeliverable: true,
+        isVerified: false,
+        lastVerifiedAt: null,
+      }),
+    }),
+  );
+});
+it("reconnects historical duplicate email evidence only using guarded updates", async () => {
+  db.$queryRaw.mockResolvedValue([{ id: "existing" }]);
+  await ingestApifyLeads([record], context);
+  expect(db.agent.updateMany).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: expect.objectContaining({
+        id: "existing",
+        email: "agent@example.com",
+        dataSource: "APIFY",
+      }),
+      data: expect.objectContaining({
+        emailStatus: "syntax_valid",
+        isVerified: false,
+      }),
+    }),
+  );
 });

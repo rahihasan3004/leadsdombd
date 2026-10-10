@@ -28,7 +28,7 @@ const DATA_GUARANTEES = [
   "Zip Code",
   "Timezone",
   "Website",
-  "100% SMTP Deliverable Email",
+  "Syntax/domain-checked Email",
   "Google Place ID",
   "Data Source",
   "Brokerage Name",
@@ -313,7 +313,7 @@ export function LeadOrderEngine() {
                   className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${selectedTier === "VERIFIED_EMAIL" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}
                 >
                   {selectedTier === "VERIFIED_EMAIL"
-                    ? "100% Deliverable"
+                    ? "Syntax/domain checked"
                     : "Not included"}
                 </span>
               </div>
@@ -649,7 +649,7 @@ function SectionGuarantee({ tier }: { tier: LeadTier }) {
         className="text-xs font-bold tracking-wider text-slate-400 uppercase leading-relaxed"
       >
         {tier === "VERIFIED_EMAIL"
-          ? "17 GUARANTEED FIELDS + 100% SMTP DELIVERABLE EMAIL"
+          ? "17 CORE FIELDS + VALIDATED EMAIL"
           : "PHONE & DIRECT DIALS (NO EMAIL)"}
       </h3>
       <ul

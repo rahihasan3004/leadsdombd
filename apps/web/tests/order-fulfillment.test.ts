@@ -216,7 +216,9 @@ describe("atomic fulfillment and refund", () => {
     expect(mocks.db.agent.findMany.mock.calls[0]![0].where).toMatchObject({
       id: { notIn: ["a1"] },
       isDeliverable: true,
-      emailStatus: { in: ["validated", "deliverable"] },
+      emailStatus: {
+        in: ["validated", "deliverable", "syntax_valid", "mx_valid"],
+      },
       unlockedBy: { none: { userId: "u1" } },
     });
     expect(mocks.db.user.update).not.toHaveBeenCalled();
@@ -757,4 +759,131 @@ describe("Apify durable fulfillment lifecycle", () => {
     );
     expect(mocks.apifyDispatch).toHaveBeenCalledOnce();
   });
+});
+
+it("scans beyond N raw Apify rows, completes at exactly N eligible leads, and never refunds", async () => {
+  const reference = `apify:${"a".repeat(24)}:run_1`;
+  mocks.db.leadFulfillmentRun.findFirst
+    .mockResolvedValueOnce(null)
+    .mockResolvedValueOnce({ ...run, status: "INGESTING", runId: reference });
+  mocks.apifyStatus.mockResolvedValue({
+    id: "run_1",
+    status: "SUCCEEDED",
+    defaultDatasetId: "dataset_1",
+  });
+  mocks.apifyPage.mockResolvedValue({
+    page: 1,
+    total_pages: 1,
+    total_results: 6,
+    data: Array.from({ length: 6 }, (_, i) => ({ title: String(i) })),
+  });
+  let n = 0;
+  mocks.apifyIngest.mockImplementation(async () => {
+    n++;
+    return n <= 3
+      ? { kind: "invalid" }
+      : { kind: "lead", agentId: "a" + n, eligible: true };
+  });
+  mocks.db.leadFulfillmentCandidate.findMany
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([{ agentId: "a4" }, { agentId: "a5" }]);
+  expect((await processNextFulfillment()).status).toBe("COMPLETED");
+  expect(mocks.apifyIngest).toHaveBeenCalledTimes(5);
+  expect(mocks.db.unlockedLead.createMany).toHaveBeenCalledWith({
+    data: [
+      { userId: "u1", agentId: "a4", purchaseId: "p1" },
+      { userId: "u1", agentId: "a5", purchaseId: "p1" },
+    ],
+  });
+  expect(mocks.db.walletTransaction.create).not.toHaveBeenCalled();
+  expect(mocks.failedEmail).not.toHaveBeenCalled();
+});
+it("validates a historical APIFY candidate without invoking the injected local SMTP verifier", async () => {
+  const smtp = vi.fn();
+  mocks.db.leadFulfillmentRun.findFirst.mockResolvedValue(null);
+  mocks.db.leadFulfillmentCandidate.findMany
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([
+      {
+        agentId: "a1",
+        nextVerificationAt: new Date(0),
+        verificationAttempts: 0,
+        agent: {
+          id: "a1",
+          email: "agent@example.com",
+          dataSource: "APIFY",
+          emailStatus: "unverified",
+        },
+      },
+    ])
+    .mockResolvedValueOnce([{ agentId: "a1" }, { agentId: "a2" }]);
+  expect((await processNextFulfillment({ verifyEmail: smtp })).status).toBe(
+    "COMPLETED",
+  );
+  expect(smtp).not.toHaveBeenCalled();
+  expect(mocks.db.agent.updateMany).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: expect.objectContaining({
+        id: "a1",
+        dataSource: "APIFY",
+        email: "agent@example.com",
+      }),
+      data: expect.objectContaining({
+        emailStatus: "syntax_valid",
+        isVerified: false,
+      }),
+    }),
+  );
+  expect(mocks.db.walletTransaction.create).not.toHaveBeenCalled();
+});
+it("preserves buffered Apify ingestion across a persisted cursor instead of treating N processed rows as done", async () => {
+  const reference = `apify:${"a".repeat(24)}:run_1`;
+  mocks.db.leadFulfillmentRun.findFirst
+    .mockResolvedValueOnce(null)
+    .mockResolvedValueOnce({
+      ...run,
+      status: "INGESTING",
+      runId: reference,
+      resultOffset: 2,
+      processedCount: 2,
+    });
+  mocks.apifyStatus.mockResolvedValue({
+    id: "run_1",
+    status: "SUCCEEDED",
+    defaultDatasetId: "dataset_1",
+  });
+  mocks.apifyPage.mockResolvedValue({
+    page: 1,
+    total_pages: 1,
+    total_results: 3,
+    data: [{}, {}, { title: "Candidate beyond N" }],
+  });
+  mocks.apifyIngest.mockResolvedValue({
+    kind: "lead",
+    agentId: "a3",
+    eligible: false,
+  });
+  expect((await processNextFulfillment()).status).toBe("INGESTING");
+  expect(mocks.apifyIngest).toHaveBeenCalledOnce();
+  expect(mocks.db.leadFulfillmentRun.update).toHaveBeenCalledWith(
+    expect.objectContaining({ data: { resultOffset: 3, processedCount: 3 } }),
+  );
+});
+
+it("does not refund legacy SMTP candidates when no verifier is available", async () => {
+  mocks.db.leadFulfillmentRun.findFirst.mockResolvedValue(null);
+  mocks.db.leadFulfillmentCandidate.findMany.mockResolvedValue([]);
+  mocks.db.leadFulfillmentCandidate.findFirst.mockResolvedValue({
+    agentId: "legacy",
+  });
+  expect((await processNextFulfillment()).status).toBe("WAITING_VERIFICATION");
+  expect(mocks.db.leadFulfillmentCandidate.findMany).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: expect.objectContaining({
+        agent: { email: { not: null }, dataSource: "APIFY" },
+      }),
+    }),
+  );
+  expect(mocks.db.walletTransaction.create).not.toHaveBeenCalled();
 });

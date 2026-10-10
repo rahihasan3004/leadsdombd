@@ -1,3 +1,4 @@
+import { stagedEmailStatuses } from "./scraper/apify-email-policy";
 import { db, type Prisma } from "@fine-leads/database";
 import { type LeadTier } from "@fine-leads/utils";
 import {
@@ -16,12 +17,27 @@ export function leadInventoryWhere(tier: LeadTier): Prisma.AgentWhereInput {
     ? { AND: [{ phone: { not: null } }, { phone: { not: "" } }] }
     : {
         isDeliverable: true,
-        emailStatus: { in: SMTP_VERIFIED_STATUSES },
-        AND: [{ email: { not: null } }, { email: { not: "" } }],
+        emailStatus: {
+          in: [...SMTP_VERIFIED_STATUSES, ...stagedEmailStatuses()],
+        },
+        AND: [
+          { email: { not: null } },
+          { email: { not: "" } },
+          {
+            OR: [
+              { emailStatus: { in: SMTP_VERIFIED_STATUSES } },
+              {
+                dataSource: "APIFY",
+                emailStatus: { in: stagedEmailStatuses() },
+              },
+            ],
+          },
+        ],
       };
 }
 
 interface EmailData {
+  dataSource?: string | null;
   email?: string | null;
   emailStatus?: string | null;
   isDeliverable?: boolean | null;
@@ -36,7 +52,9 @@ export function redactLeadForTier<T extends EmailData>(
   const verified =
     tier === "VERIFIED_EMAIL" &&
     lead.isDeliverable === true &&
-    SMTP_VERIFIED_STATUSES.includes(lead.emailStatus ?? "") &&
+    (SMTP_VERIFIED_STATUSES.includes(lead.emailStatus ?? "") ||
+      (lead.dataSource === "APIFY" &&
+        stagedEmailStatuses().includes(lead.emailStatus ?? ""))) &&
     Boolean(lead.email?.trim());
   const profiles = normalizeSocialProfiles(
     lead.socialProfiles,

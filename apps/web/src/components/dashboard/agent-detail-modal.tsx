@@ -401,12 +401,21 @@ export function AgentDetailModal({
           {agent.leadTier !== "PHONE_ONLY" && agent.email && (
             <AttrRow
               icon={Mail}
-              label="100% Deliverable Email"
+              label={
+                agent.dataSource === "APIFY" &&
+                ["syntax_valid", "mx_valid"].includes(agent.emailStatus ?? "")
+                  ? "Email"
+                  : "100% Deliverable Email"
+              }
               value={agent.email}
               copyable
               badge={
                 <span className="inline-flex items-center text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
-                  Verified
+                  {agent.emailStatus === "syntax_valid"
+                    ? "Syntax checked"
+                    : agent.emailStatus === "mx_valid"
+                      ? "MX checked"
+                      : "Verified"}
                 </span>
               }
             />

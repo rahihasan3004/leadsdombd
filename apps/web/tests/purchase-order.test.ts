@@ -362,7 +362,9 @@ describe("tier-aware order charging", () => {
     ).toBe("0.38");
     expect(state.agentQueries[0].where).toMatchObject({
       isDeliverable: true,
-      emailStatus: { in: ["validated", "deliverable"] },
+      emailStatus: {
+        in: ["validated", "deliverable", "syntax_valid", "mx_valid"],
+      },
     });
   });
 

@@ -22,7 +22,9 @@ describe("fulfillment policy", () => {
     );
     expect(where).toMatchObject({
       isDeliverable: true,
-      emailStatus: { in: ["validated", "deliverable"] },
+      emailStatus: {
+        in: ["validated", "deliverable", "syntax_valid", "mx_valid"],
+      },
       unlockedBy: { none: { userId: "u1" } },
       state: { in: ["TX"] },
     });

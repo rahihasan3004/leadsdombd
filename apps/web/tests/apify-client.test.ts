@@ -276,3 +276,31 @@ describe("typed Compass REST runner", () => {
     ).toThrow("ZIP is not");
   });
 });
+
+it("VERIFIED_EMAIL enables website contacts and overscrapes the 20-candidate floor", async () => {
+  const fetcher = vi.fn<typeof fetch>().mockResolvedValue(json({ data: run }));
+  await new CompassApifyClient({
+    pool: new ApifyTokenPool(["token"]),
+    fetcher,
+  }).dispatchApifyScrape({ ...input, leadTier: "VERIFIED_EMAIL" });
+  expect(JSON.parse(String(fetcher.mock.calls[0]![1]?.body))).toMatchObject({
+    maxCrawledPlacesPerSearch: 20,
+    scrapeContacts: true,
+  });
+});
+it("rounds capacity up across multiple searches so total capacity never undercuts the buffer", async () => {
+  const fetcher = vi.fn<typeof fetch>().mockResolvedValue(json({ data: run }));
+  await new CompassApifyClient({
+    pool: new ApifyTokenPool(["token"]),
+    fetcher,
+  }).dispatchApifyScrape({
+    ...input,
+    maxPlaces: 11,
+    searchStrings: ["Agent Austin", "Agent Dallas", "Agent Houston"],
+    leadTier: "VERIFIED_EMAIL",
+  });
+  expect(
+    JSON.parse(String(fetcher.mock.calls[0]![1]?.body))
+      .maxCrawledPlacesPerSearch,
+  ).toBe(8);
+});

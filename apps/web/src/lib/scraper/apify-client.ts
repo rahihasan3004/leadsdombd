@@ -1,3 +1,4 @@
+import { apifyCandidateLimit } from "./apify-email-policy";
 import { z } from "zod";
 import { US_STATES, type USState } from "@fine-leads/utils";
 import {
@@ -33,6 +34,7 @@ const validState = (state: string) =>
 const dispatchSchema = z.object({
   searchStrings: z.array(z.string().trim().min(1).max(250)).min(1).max(50),
   maxPlaces: z.number().int().min(1).max(10_000),
+  leadTier: z.enum(["PHONE_ONLY", "VERIFIED_EMAIL"]).optional(),
   stateCode: z
     .string()
     .trim()
@@ -42,6 +44,7 @@ const dispatchSchema = z.object({
 export interface ApifyDispatchInput {
   searchStrings: string[];
   maxPlaces: number;
+  leadTier?: "PHONE_ONLY" | "VERIFIED_EMAIL";
   stateCode: string;
 }
 export interface ApifyDispatchResult {
@@ -196,12 +199,13 @@ export class CompassApifyClient {
     input: ApifyDispatchInput,
   ): Promise<ApifyDispatchResult> {
     const parsed = dispatchSchema.parse(input);
+    const candidateLimit = apifyCandidateLimit(
+      parsed.maxPlaces,
+      parsed.leadTier,
+    );
     if (!this.pool.size)
       throw new ApifyError("Apify tokens are not configured", "CONFIGURATION");
-    const queries = [...new Set(parsed.searchStrings)].slice(
-      0,
-      parsed.maxPlaces,
-    );
+    const queries = [...new Set(parsed.searchStrings)].slice(0, candidateLimit);
     const budget = z.coerce
       .number()
       .positive()
@@ -219,12 +223,14 @@ export class CompassApifyClient {
             locationQuery: `${US_STATES.find((item) => item.code === parsed.stateCode)!.name}, USA`,
             maxCrawledPlacesPerSearch: Math.max(
               1,
-              Math.floor(parsed.maxPlaces / queries.length),
+              Math.ceil(candidateLimit / queries.length),
             ),
             language: "en",
             skipClosedPlaces: true,
             scrapePlaceDetailPage: true,
-            scrapeContacts: process.env.APIFY_SCRAPE_CONTACTS === "true",
+            scrapeContacts:
+              parsed.leadTier === "VERIFIED_EMAIL" ||
+              process.env.APIFY_SCRAPE_CONTACTS === "true",
             maxReviews: 0,
             maxImages: 0,
           },

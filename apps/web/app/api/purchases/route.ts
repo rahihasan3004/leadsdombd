@@ -158,6 +158,7 @@ export async function GET(request: Request) {
                 officePhone: true,
                 email: true,
                 emailStatus: true,
+                dataSource: true,
                 isDeliverable: true,
                 brokerageName: true,
                 city: true,

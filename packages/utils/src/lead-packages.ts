@@ -6,14 +6,15 @@ export const LEAD_PACKAGES = [
     tier: "PHONE_ONLY",
     name: "Cold Calling Pack",
     creditsPerLead: 1,
-    description: "Direct Phone, Brokerage, Address & Google Place details (No email included).",
+    description:
+      "Direct Phone, Brokerage, Address & Google Place details (No email included).",
     recommended: false,
   },
   {
     tier: "VERIFIED_EMAIL",
     name: "Full Outreach Pack",
     creditsPerLead: 2,
-    description: "17 Guaranteed Fields + 100% SMTP Deliverable Verified Email.",
+    description: "17 Core Fields + Syntax/domain-checked Email.",
     recommended: true,
   },
 ] as const;

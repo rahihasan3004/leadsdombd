@@ -9,6 +9,8 @@ import {
 import { LobstrError, LobstrDispatchError } from "./lobstr-client";
 import { advanceParallelJob } from "./parallel-dispatcher";
 import { ingestLobstrLead } from "./lead-mapper";
+import { apifyCandidateLimit } from "./apify-email-policy";
+import { validateExistingApifyEmail } from "./apify-email-validator";
 import { ingestApifyLead } from "./apify-mapper";
 import { getFulfillmentClient } from "./scraper-provider";
 import {
@@ -341,7 +343,7 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
       orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
     });
     if (run?.status === "QUEUED") {
-      const client = getFulfillmentClient();
+      const client = getFulfillmentClient(undefined, job.purchase.tier);
       await persistRun(job, token, run.id, { status: "DISPATCHING" });
       try {
         const dispatched = await client.triggerScrapeRun({
@@ -431,11 +433,14 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
       );
       if (page.data.length !== expectedOnPage)
         throw new LobstrError("Incomplete run results page");
+      const candidateLimit = run.runId.startsWith("apify:")
+        ? apifyCandidateLimit(run.targetQuantity, job.purchase.tier)
+        : run.targetQuantity;
       let offset = run.resultOffset;
       let processed = run.processedCount;
       while (
         offset < page.data.length &&
-        processed < run.targetQuantity &&
+        processed < candidateLimit &&
         Date.now() + 25_000 < deadline
       ) {
         const mapped = await (
@@ -465,10 +470,22 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
           },
           { timeout: 15_000 },
         );
+        if (
+          run.runId.startsWith("apify:") &&
+          mapped.kind === "lead" &&
+          "eligible" in mapped &&
+          mapped.eligible &&
+          (await completeFulfillment(job, token))
+        )
+          return {
+            worked: true,
+            purchaseId: job.purchaseId,
+            status: "COMPLETED",
+          };
       }
-      if (processed >= run.targetQuantity || offset >= page.data.length) {
+      if (processed >= candidateLimit || offset >= page.data.length) {
         const done =
-          processed >= run.targetQuantity || run.resultPage >= page.total_pages;
+          processed >= candidateLimit || run.resultPage >= page.total_pages;
         await persistRun(job, token, run.id, {
           status: done ? "DONE" : "INGESTING",
           resultPage: done ? run.resultPage : run.resultPage + 1,
@@ -496,13 +513,44 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
         where: {
           jobId: job.id,
           verificationDone: false,
-          agent: { email: { not: null } },
+          agent: {
+            email: { not: null },
+            ...(!options.verifyEmail ? { dataSource: "APIFY" } : {}),
+          },
         },
         take: 3,
-        include: { agent: { select: { id: true, email: true } } },
+        include: {
+          agent: {
+            select: {
+              id: true,
+              email: true,
+              dataSource: true,
+              emailStatus: true,
+            },
+          },
+        },
         orderBy: { nextVerificationAt: "asc" },
       });
       if (!waiting.length) {
+        // A missing local verifier must not starve APIFY candidates or refund legacy pending SMTP work.
+        if (
+          !options.verifyEmail &&
+          (await db.leadFulfillmentCandidate.findFirst({
+            where: {
+              jobId: job.id,
+              verificationDone: false,
+              agent: { email: { not: null } },
+            },
+            select: { agentId: true },
+          }))
+        ) {
+          nextDelay = 30000;
+          return {
+            worked: true,
+            purchaseId: job.purchaseId,
+            status: "WAITING_VERIFICATION",
+          };
+        }
         await refundFulfillment(job, token, "INSUFFICIENT_VERIFIED_RESULTS");
         return {
           worked: true,
@@ -510,7 +558,10 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
           status: job.creditsHeld > 0 ? "REFUNDED" : "FAILED",
         };
       }
-      if (!options.verifyEmail) {
+      if (
+        !options.verifyEmail &&
+        !waiting.some((candidate) => candidate.agent.dataSource === "APIFY")
+      ) {
         nextDelay = 30_000;
         outcome = "WAITING_VERIFICATION";
       } else {
@@ -522,6 +573,39 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
           )
             continue;
           const email = candidate.agent.email!;
+          if (candidate.agent.dataSource === "APIFY") {
+            // Existing jobs and historical APIFY rows are unstuck without local port-25 SMTP.
+            const result = await validateExistingApifyEmail(
+              candidate.agentId,
+              email,
+            );
+            await db.$transaction(
+              async (tx) => {
+                await guardLease(tx, job, token);
+                await tx.leadFulfillmentCandidate.update({
+                  where: {
+                    jobId_agentId: {
+                      jobId: job.id,
+                      agentId: candidate.agentId,
+                    },
+                  },
+                  data: {
+                    verificationDone: true,
+                    verificationAttempts: { increment: 1 },
+                  },
+                });
+              },
+              { timeout: 15000 },
+            );
+            if (result.eligible && (await completeFulfillment(job, token)))
+              return {
+                worked: true,
+                purchaseId: job.purchaseId,
+                status: "COMPLETED",
+              };
+            continue;
+          }
+          if (!verifier) continue;
           const result = await verifier(email);
           const verified = isSmtpDeliverable(result, email);
           const terminal =
