@@ -4,6 +4,7 @@ import {
   mapLobstrLead,
   type LeadContext,
   type MappedLead,
+  type MappingResult,
 } from "./lead-mapper";
 import type { LobstrRecord } from "./lobstr-client";
 
@@ -41,6 +42,24 @@ export async function ingestLobstrPages(
   ) => Promise<void>,
   guard?: (tx: Prisma.TransactionClient) => Promise<void>,
 ): Promise<BulkIngestionResult> {
+  return ingestMappedPages(
+    pages.map((page) =>
+      page.records.map((record) => mapLobstrLead(record, page.context)),
+    ),
+    commit,
+    guard,
+  );
+}
+
+/** Shared atomic identity reconciliation for prepared/validated provider records. */
+export async function ingestMappedPages(
+  pages: MappingResult[][],
+  commit?: (
+    tx: Prisma.TransactionClient,
+    result: BulkIngestionResult,
+  ) => Promise<void>,
+  guard?: (tx: Prisma.TransactionClient) => Promise<void>,
+): Promise<BulkIngestionResult> {
   const base = {
     totalFetched: 0,
     closedPlacesDiscarded: 0,
@@ -48,9 +67,8 @@ export async function ingestLobstrPages(
   };
   const leads: Array<{ page: number; lead: MappedLead }> = [];
   pages.forEach((page, index) =>
-    page.records.forEach((record) => {
+    page.forEach((mapped) => {
       base.totalFetched++;
-      const mapped = mapLobstrLead(record, page.context);
       if (mapped.kind === "closed") base.closedPlacesDiscarded++;
       else if (mapped.kind === "invalid") base.invalidRecordsDiscarded++;
       else leads.push({ page: index, lead: mapped.lead });

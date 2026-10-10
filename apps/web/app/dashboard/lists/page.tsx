@@ -124,13 +124,12 @@ export default function ListsPage() {
   const [orderPage, setOrderPage] = useState(0);
   const [leadPage, setLeadPage] = useState(0);
   const [leads, setLeads] = useState<AgentData[]>([]);
+  const showTimezone = leads.some((agent) => Boolean(agent.timezone?.trim()));
   const [leadsLoading, setLeadsLoading] = useState(false);
   const [totalLeads, setTotalLeads] = useState(0);
   const [leadsError, setLeadsError] = useState<string | null>(null);
   const [leadRefresh, setLeadRefresh] = useState(0);
   const detailRequest = useRef(new LatestRequest());
-  const modalRequest = useRef(new LatestRequest());
-  const [agentLoading, setAgentLoading] = useState(false);
   const leadSearchRef = useRef<HTMLInputElement>(null);
   const orderSync = useRef<ReturnType<typeof createVaultOrderSync> | null>(
     null,
@@ -265,8 +264,6 @@ export default function ListsPage() {
   const handleSelectPurchase = useCallback((purchase: Purchase) => {
     if (!isOrderDownloadable(purchase.status)) return;
     detailRequest.current.cancel();
-    modalRequest.current.cancel();
-    setAgentLoading(false);
     setSelectedPurchase(purchase);
     setLeadSearch("");
     setLeadPage(0);
@@ -325,6 +322,10 @@ export default function ListsPage() {
               reviewCount: agent.reviewCount as number | undefined,
               timezone: agent.timezone as string | undefined,
               googlePlaceId: agent.googlePlaceId as string | undefined,
+              googleMainCategory: agent.googleMainCategory as
+                string | undefined,
+              googleSubcategories: agent.googleSubcategories as
+                string | undefined,
               googleMapsLink: agent.googleMapsLink as string | undefined,
               scrapedAt: agent.scrapedAt as string | undefined,
               verificationScore: agent.verificationScore as number | undefined,
@@ -377,15 +378,12 @@ export default function ListsPage() {
   useEffect(
     () => () => {
       detailRequest.current.cancel();
-      modalRequest.current.cancel();
     },
     [],
   );
 
   const handleBackToOrders = useCallback(() => {
     detailRequest.current.cancel();
-    modalRequest.current.cancel();
-    setAgentLoading(false);
     setModalOpen(false);
     setSelectedAgent(null);
     setSelectedPurchase(null);
@@ -394,45 +392,14 @@ export default function ListsPage() {
     setLeads([]);
   }, []);
 
-  const handleOpenAgent = useCallback(
-    async (agent: AgentData) => {
-      modalRequest.current.cancel();
-      const controller = modalRequest.current.start();
-      setAgentLoading(true);
-      try {
-        const res = await fetch(`/api/agents/${encodeURIComponent(agent.id)}`, {
-          signal: controller.signal,
-        });
-        if (!res.ok)
-          throw new Error("Failed to load lead details. Please retry.");
-        const data = await res.json();
-        if (controller.signal.aborted) return;
-        const tier = selectedPurchase?.tier ?? "PHONE_ONLY";
-        setSelectedAgent({
-          ...data,
-          leadTier: tier,
-          ...(tier === "PHONE_ONLY"
-            ? { email: null, socialProfiles: null }
-            : {}),
-        });
-        setModalOpen(true);
-      } catch (error) {
-        if (!controller.signal.aborted)
-          toast.error(
-            error instanceof Error
-              ? error.message
-              : "Failed to load lead details",
-          );
-      } finally {
-        if (!controller.signal.aborted) setAgentLoading(false);
-      }
-    },
-    [selectedPurchase],
-  );
+  // The paginated response already contains the complete, tier-redacted detail object.
+  // No detail request: mouse and keyboard open from the same cached row immediately.
+  const handleOpenAgent = useCallback((agent: AgentData) => {
+    setSelectedAgent(agent);
+    setModalOpen(true);
+  }, []);
 
   const handleCloseModal = useCallback(() => {
-    modalRequest.current.cancel();
-    setAgentLoading(false);
     setModalOpen(false);
     setSelectedAgent(null);
   }, []);
@@ -587,11 +554,6 @@ export default function ListsPage() {
             </div>
 
             <div className="w-full flex-1 my-2">
-              {agentLoading && (
-                <p role="status" className="p-3 text-sm text-blue-600">
-                  Loading lead details...
-                </p>
-              )}
               {leadsError ? (
                 <div role="alert" className="p-6 text-red-600">
                   {leadsError}
@@ -645,20 +607,16 @@ export default function ListsPage() {
                           <div
                             key={agent.id}
                             className="flex items-start gap-3 p-3.5 active:bg-slate-50 md:hover:bg-slate-50/60 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-                            aria-disabled={agentLoading}
                             role="button"
-                            tabIndex={agentLoading ? -1 : 0}
+                            tabIndex={0}
                             onKeyDown={(e) => {
-                              if (
-                                !agentLoading &&
-                                (e.key === "Enter" || e.key === " ")
-                              ) {
+                              if (e.key === "Enter" || e.key === " ") {
                                 e.preventDefault();
                                 void handleOpenAgent(agent);
                               }
                             }}
                             onClick={() => {
-                              if (!agentLoading) void handleOpenAgent(agent);
+                              handleOpenAgent(agent);
                             }}
                           >
                             <span className="text-xs font-medium text-slate-400 w-5 text-right shrink-0 mt-0.5">
@@ -738,9 +696,11 @@ export default function ListsPage() {
                             <th className="px-4 align-middle text-left">
                               Rating & Reviews
                             </th>
-                            <th className="px-4 align-middle text-left">
-                              Timezone
-                            </th>
+                            {showTimezone && (
+                              <th className="px-4 align-middle text-left">
+                                Timezone
+                              </th>
+                            )}
                             <th className="px-4 align-middle text-right">
                               Action
                             </th>
@@ -750,7 +710,7 @@ export default function ListsPage() {
                           {paginatedLeads.length === 0 ? (
                             <tr>
                               <td
-                                colSpan={8}
+                                colSpan={showTimezone ? 8 : 7}
                                 className="px-4 py-12 text-center text-sm text-slate-400"
                               >
                                 {leadSearch
@@ -763,30 +723,27 @@ export default function ListsPage() {
                               <tr
                                 key={agent.id}
                                 className="h-14 hover:bg-slate-50 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-                                aria-disabled={agentLoading}
                                 role="button"
-                                tabIndex={agentLoading ? -1 : 0}
+                                tabIndex={0}
                                 onKeyDown={(e) => {
-                                  if (
-                                    !agentLoading &&
-                                    (e.key === "Enter" || e.key === " ")
-                                  ) {
+                                  if (e.key === "Enter" || e.key === " ") {
                                     e.preventDefault();
                                     void handleOpenAgent(agent);
                                   }
                                 }}
                                 onClick={() => {
-                                  if (!agentLoading)
-                                    void handleOpenAgent(agent);
+                                  handleOpenAgent(agent);
                                 }}
                               >
                                 <td className="px-4 align-middle text-xs">
                                   <span className="font-normal text-slate-900">
                                     {agent.fullName}
                                   </span>
-                                  <p className="text-xs text-slate-500 mt-0.5">
-                                    {agent.brokerageName}
-                                  </p>
+                                  {agent.brokerageName && (
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                      {agent.brokerageName}
+                                    </p>
+                                  )}
                                 </td>
                                 <td className="px-4 align-middle text-xs">
                                   <span className="font-normal text-slate-600">
@@ -794,11 +751,11 @@ export default function ListsPage() {
                                   </span>
                                 </td>
                                 <td className="px-4 align-middle text-xs font-sans text-sm font-normal text-slate-800">
-                                  {agent.phone ?? "--"}
+                                  {agent.phone || null}
                                 </td>
                                 <td className="px-4 align-middle text-xs">
                                   {agent.leadTier === "PHONE_ONLY" ? (
-                                    <ColdCallingTierBadge />
+                                    <span className="text-slate-400">-</span>
                                   ) : (
                                     <span className="text-xs text-slate-800 select-all">
                                       {agent.email || "--"}
@@ -809,21 +766,25 @@ export default function ListsPage() {
                                   <span className="font-normal text-slate-700">
                                     {[agent.city, agent.state]
                                       .filter(Boolean)
-                                      .join(", ") || "--"}
+                                      .join(", ") || ""}
                                   </span>
                                 </td>
                                 <td className="px-4 align-middle text-xs">
                                   <span className="font-normal text-slate-700 tabular-nums">
                                     {agent.rating != null
-                                      ? `★ ${agent.rating.toFixed(1)} (${agent.reviewCount})`
-                                      : "--"}
+                                      ? `★ ${agent.rating.toFixed(1)} (${agent.reviewCount ?? 0} reviews)`
+                                      : null}
                                   </span>
                                 </td>
-                                <td className="px-4 align-middle text-xs">
-                                  <span className="font-normal text-slate-500">
-                                    {formatTimezoneDisplay(agent.timezone)}
-                                  </span>
-                                </td>
+                                {showTimezone && (
+                                  <td className="px-4 align-middle text-xs">
+                                    <span className="font-normal text-slate-500">
+                                      {agent.timezone
+                                        ? formatTimezoneDisplay(agent.timezone)
+                                        : null}
+                                    </span>
+                                  </td>
+                                )}
                                 <td className="px-4 align-middle text-xs text-right">
                                   {agent.googleMapsLink ? (
                                     <a
@@ -836,9 +797,7 @@ export default function ListsPage() {
                                       <ExternalLink className="h-3 w-3" />
                                       View on Maps
                                     </a>
-                                  ) : (
-                                    <span className="text-slate-400">--</span>
-                                  )}
+                                  ) : null}
                                 </td>
                               </tr>
                             ))

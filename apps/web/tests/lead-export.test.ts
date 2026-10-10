@@ -567,3 +567,32 @@ it.each(["csv", "json", "xlsx", "tsv"])(
     }
   },
 );
+
+it.each(["csv", "tsv", "json", "xlsx"])(
+  "white-labels internal provenance in %s exports",
+  async (format) => {
+    const rows = [lead("a1", "TX"), lead("a2", "TX")];
+    rows[0]!.agent.dataSource = "APIFY";
+    rows[1]!.agent.dataSource = "LOBSTR";
+    m.batch.mockResolvedValue(rows);
+    const response = await GET(req(`state=TX&format=${format}`));
+    expect(response.status).toBe(200);
+    if (format === "xlsx") {
+      const book = new ExcelJS.Workbook();
+      await book.xlsx.load(
+        Buffer.from(await response.arrayBuffer()) as unknown as Parameters<
+          typeof book.xlsx.load
+        >[0],
+      );
+      const values = JSON.stringify(
+        book.worksheets.map((sheet) => sheet.getSheetValues()),
+      );
+      expect(values).toContain("LEADSDOM");
+      expect(values).not.toMatch(/APIFY|LOBSTR/);
+    } else {
+      const text = await response.text();
+      expect(text).toContain("LEADSDOM");
+      expect(text).not.toMatch(/APIFY|LOBSTR/);
+    }
+  },
+);

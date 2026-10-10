@@ -1,3 +1,4 @@
+import { PUBLIC_LEAD_SOURCE } from "./lead-branding";
 import { stagedEmailStatuses } from "./scraper/apify-email-policy";
 import { db, type Prisma } from "@fine-leads/database";
 import { type LeadTier } from "@fine-leads/utils";
@@ -84,6 +85,7 @@ export function redactLeadForTier<T extends EmailData>(
     return {
       ...lead,
       ...profileFields,
+      dataSource: PUBLIC_LEAD_SOURCE,
       email: null,
       emailStatus: null,
       isDeliverable: false,
@@ -97,6 +99,7 @@ export function redactLeadForTier<T extends EmailData>(
   return {
     ...lead,
     ...profileFields,
+    dataSource: PUBLIC_LEAD_SOURCE,
     email: verified ? (lead.email ?? null) : null,
     emailStatus: verified ? (lead.emailStatus ?? null) : null,
     isDeliverable: verified,

@@ -1,3 +1,4 @@
+import { PUBLIC_LEAD_SOURCE } from "./lead-branding";
 import { mkdtemp, open, rm, stat, type FileHandle } from "node:fs/promises";
 import { createWriteStream, createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
@@ -99,7 +100,7 @@ export function exportLead(unlock: Unlock) {
     email: lead.email,
     emailValidationStatus: lead.emailStatus,
     googlePlaceId: lead.googlePlaceId,
-    dataSource: lead.dataSource ?? "SCRAPER_ENGINE",
+    dataSource: PUBLIC_LEAD_SOURCE,
     brokerageName: lead.brokerageName,
     reviewCount: lead.reviewCount,
     rating: lead.rating,

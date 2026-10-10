@@ -11,7 +11,7 @@ import { advanceParallelJob } from "./parallel-dispatcher";
 import { ingestLobstrLead } from "./lead-mapper";
 import { apifyCandidateLimit } from "./apify-email-policy";
 import { validateExistingApifyEmail } from "./apify-email-validator";
-import { ingestApifyLead } from "./apify-mapper";
+import { ingestApifyPages } from "./apify-mapper";
 import { getFulfillmentClient } from "./scraper-provider";
 import {
   freshInventoryWhere,
@@ -49,89 +49,94 @@ export async function completeFulfillment(
   token: string,
 ): Promise<boolean> {
   const completed = await db.$transaction(
-    async (tx) => {
-      await guardLease(tx, job, token);
-      const purchase = await tx.leadPurchase.findUniqueOrThrow({
-        where: { id: job.purchaseId },
-      });
-      if (purchase.status !== "PROCESSING") return false;
-      const where = freshInventoryWhere(
-        purchase.userId,
-        purchase.unlockedStates,
-        purchase.tier,
-      );
-      // Prefer results associated with this job; top up from fresh shared inventory.
-      const candidates = await tx.leadFulfillmentCandidate.findMany({
-        where: { jobId: job.id, agent: where },
-        take: purchase.leadCount,
-        select: { agentId: true },
-      });
-      const ids = candidates.map((candidate) => candidate.agentId);
-      if (ids.length < purchase.leadCount) {
-        const inventory = await tx.agent.findMany({
-          where: { ...where, id: { notIn: [...ids] } },
-          take: purchase.leadCount - ids.length,
-          orderBy: [{ createdAt: "desc" }, { id: "asc" }],
-          select: { id: true },
-        });
-        ids.push(...inventory.map((agent) => agent.id));
-      }
-      if (ids.length !== purchase.leadCount) return false;
-      const changed = await tx.leadPurchase.updateMany({
-        where: { id: purchase.id, status: "PROCESSING" },
-        data: { status: "COMPLETED" },
-      });
-      if (changed.count !== 1) return false;
-      // No skipDuplicates: a concurrent unlock must roll back and reselect, not short-fill an order.
-      await tx.unlockedLead.createMany({
-        data: ids.map((agentId) => ({
-          userId: purchase.userId,
-          agentId,
-          purchaseId: purchase.id,
-        })),
-      });
-      await tx.walletTransaction.updateMany({
-        where: {
-          userId: purchase.userId,
-          type: "PURCHASE",
-          metadata: { path: ["purchaseId"], equals: purchase.id },
-        },
-        data: {
-          metadata: {
-            purchaseId: purchase.id,
-            tier: purchase.tier,
-            leadCount: purchase.leadCount,
-            creditsSpent: job.creditsHeld,
-            creditsPerLead: getLeadCreditCost(1, purchase.tier),
-            fulfillmentStatus: "COMPLETED",
-          },
-        },
-      });
-      await tx.leadFulfillmentJob.update({
-        where: { id: job.id },
-        data: {
-          status: "COMPLETED",
-          leaseToken: null,
-          leaseUntil: null,
-          lastError: null,
-        },
-      });
-      await enqueueOrderEmail(tx, purchase.id, "COMPLETED");
-      return true;
-    },
+    (tx) => completeFulfillmentInTransaction(tx, job, token),
     { timeout: 30_000 },
   );
-  if (completed) {
-    try {
-      await sendOrderCompletedEmail(job.purchaseId);
-    } catch {
-      console.warn("[ORDER_EMAIL_DEFERRED]", {
-        purchaseId: job.purchaseId,
-        kind: "COMPLETED",
-      });
-    }
-  }
+  if (completed) await notifyFulfillmentCompleted(job.purchaseId);
   return completed;
+}
+
+/** Reuse canonical allocation inside the atomic ingestion/cursor transaction. */
+async function completeFulfillmentInTransaction(
+  tx: Prisma.TransactionClient,
+  job: Job,
+  token: string,
+): Promise<boolean> {
+  await guardLease(tx, job, token);
+  const purchase = await tx.leadPurchase.findUniqueOrThrow({
+    where: { id: job.purchaseId },
+  });
+  if (purchase.status !== "PROCESSING") return false;
+  const where = freshInventoryWhere(
+    purchase.userId,
+    purchase.unlockedStates,
+    purchase.tier,
+  );
+  // Prefer results associated with this job; top up from fresh shared inventory.
+  const candidates = await tx.leadFulfillmentCandidate.findMany({
+    where: { jobId: job.id, agent: where },
+    take: purchase.leadCount,
+    select: { agentId: true },
+  });
+  const ids = candidates.map((candidate) => candidate.agentId);
+  if (ids.length < purchase.leadCount) {
+    const inventory = await tx.agent.findMany({
+      where: { ...where, id: { notIn: [...ids] } },
+      take: purchase.leadCount - ids.length,
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+      select: { id: true },
+    });
+    ids.push(...inventory.map((agent) => agent.id));
+  }
+  if (ids.length !== purchase.leadCount) return false;
+  const changed = await tx.leadPurchase.updateMany({
+    where: { id: purchase.id, status: "PROCESSING" },
+    data: { status: "COMPLETED" },
+  });
+  if (changed.count !== 1) return false;
+  // No skipDuplicates: a concurrent unlock must roll back and reselect, not short-fill an order.
+  await tx.unlockedLead.createMany({
+    data: ids.map((agentId) => ({
+      userId: purchase.userId,
+      agentId,
+      purchaseId: purchase.id,
+    })),
+  });
+  await tx.walletTransaction.updateMany({
+    where: {
+      userId: purchase.userId,
+      type: "PURCHASE",
+      metadata: { path: ["purchaseId"], equals: purchase.id },
+    },
+    data: {
+      metadata: {
+        purchaseId: purchase.id,
+        tier: purchase.tier,
+        leadCount: purchase.leadCount,
+        creditsSpent: job.creditsHeld,
+        creditsPerLead: getLeadCreditCost(1, purchase.tier),
+        fulfillmentStatus: "COMPLETED",
+      },
+    },
+  });
+  await tx.leadFulfillmentJob.update({
+    where: { id: job.id },
+    data: {
+      status: "COMPLETED",
+      leaseToken: null,
+      leaseUntil: null,
+      lastError: null,
+    },
+  });
+  await enqueueOrderEmail(tx, purchase.id, "COMPLETED");
+  return true;
+}
+async function notifyFulfillmentCompleted(purchaseId: string) {
+  try {
+    await sendOrderCompletedEmail(purchaseId);
+  } catch {
+    console.warn("[ORDER_EMAIL_DEFERRED]", { purchaseId, kind: "COMPLETED" });
+  }
 }
 
 /** Conditional PROCESSING transition makes the full refund exactly-once. */
@@ -436,70 +441,110 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
       const candidateLimit = run.runId.startsWith("apify:")
         ? apifyCandidateLimit(run.targetQuantity, job.purchase.tier)
         : run.targetQuantity;
-      let offset = run.resultOffset;
-      let processed = run.processedCount;
-      while (
-        offset < page.data.length &&
-        processed < candidateLimit &&
-        Date.now() + 25_000 < deadline
-      ) {
-        const mapped = await (
-          run.runId.startsWith("apify:") ? ingestApifyLead : ingestLobstrLead
-        )(page.data[offset]!, {
-          state: run.state,
-          category: job.category,
-        });
-        offset++;
-        processed++;
-        // Candidate association and cursor are committed together. Replays reconnect duplicate IDs.
-        await db.$transaction(
-          async (tx) => {
-            await guardLease(tx, job, token);
-            if (mapped.kind === "lead" && mapped.agentId)
-              await tx.leadFulfillmentCandidate.upsert({
-                where: {
-                  jobId_agentId: { jobId: job.id, agentId: mapped.agentId },
-                },
-                create: { jobId: job.id, agentId: mapped.agentId },
-                update: {},
+      if (run.runId.startsWith("apify:")) {
+        const records = page.data.slice(
+          run.resultOffset,
+          Math.min(
+            page.data.length,
+            run.resultOffset + Math.max(0, candidateLimit - run.processedCount),
+          ),
+        );
+        const offset = run.resultOffset + records.length;
+        const processed = run.processedCount + records.length;
+        const pageFinished =
+          processed >= candidateLimit || offset >= page.data.length;
+        const done =
+          pageFinished &&
+          (processed >= candidateLimit || run.resultPage >= page.total_pages);
+        let completed = false;
+        await ingestApifyPages(
+          [{ records, context: { state: run.state, category: job.category } }],
+          async (tx, result) => {
+            completed = false; // transaction retries must not retain a rolled-back result
+            if (result.agentIds.length)
+              await tx.leadFulfillmentCandidate.createMany({
+                data: result.agentIds.map((agentId) => ({
+                  jobId: job.id,
+                  agentId,
+                })),
+                skipDuplicates: true,
               });
             await tx.leadFulfillmentRun.update({
               where: { id: run.id },
-              data: { resultOffset: offset, processedCount: processed },
+              data: {
+                processedCount: processed,
+                newLeadCount: { increment: result.newlyIngested },
+                resultPage:
+                  pageFinished && !done ? run.resultPage + 1 : run.resultPage,
+                resultOffset: pageFinished && !done ? 0 : offset,
+                status: done ? "DONE" : "INGESTING",
+              },
             });
+            completed = await completeFulfillmentInTransaction(tx, job, token);
           },
-          { timeout: 15_000 },
+          (tx) => guardLease(tx, job, token),
         );
-        if (
-          run.runId.startsWith("apify:") &&
-          mapped.kind === "lead" &&
-          "eligible" in mapped &&
-          mapped.eligible &&
-          (await completeFulfillment(job, token))
-        )
+        if (completed) {
+          await notifyFulfillmentCompleted(job.purchaseId);
           return {
             worked: true,
             purchaseId: job.purchaseId,
             status: "COMPLETED",
           };
+        }
+        outcome = "INGESTING";
+      } else {
+        let offset = run.resultOffset;
+        let processed = run.processedCount;
+        while (
+          offset < page.data.length &&
+          processed < candidateLimit &&
+          Date.now() + 25_000 < deadline
+        ) {
+          const mapped = await ingestLobstrLead(page.data[offset]!, {
+            state: run.state,
+            category: job.category,
+          });
+          offset++;
+          processed++;
+          // Candidate association and cursor are committed together. Replays reconnect duplicate IDs.
+          await db.$transaction(
+            async (tx) => {
+              await guardLease(tx, job, token);
+              if (mapped.kind === "lead" && mapped.agentId)
+                await tx.leadFulfillmentCandidate.upsert({
+                  where: {
+                    jobId_agentId: { jobId: job.id, agentId: mapped.agentId },
+                  },
+                  create: { jobId: job.id, agentId: mapped.agentId },
+                  update: {},
+                });
+              await tx.leadFulfillmentRun.update({
+                where: { id: run.id },
+                data: { resultOffset: offset, processedCount: processed },
+              });
+            },
+            { timeout: 15_000 },
+          );
+        }
+        if (processed >= candidateLimit || offset >= page.data.length) {
+          const done =
+            processed >= candidateLimit || run.resultPage >= page.total_pages;
+          await persistRun(job, token, run.id, {
+            status: done ? "DONE" : "INGESTING",
+            resultPage: done ? run.resultPage : run.resultPage + 1,
+            resultOffset: done ? offset : 0,
+          });
+        }
+        // Do not wait for a later cron invocation once enough eligible leads have been ingested.
+        if (await completeFulfillment(job, token))
+          return {
+            worked: true,
+            purchaseId: job.purchaseId,
+            status: "COMPLETED",
+          };
+        outcome = "INGESTING";
       }
-      if (processed >= candidateLimit || offset >= page.data.length) {
-        const done =
-          processed >= candidateLimit || run.resultPage >= page.total_pages;
-        await persistRun(job, token, run.id, {
-          status: done ? "DONE" : "INGESTING",
-          resultPage: done ? run.resultPage : run.resultPage + 1,
-          resultOffset: done ? offset : 0,
-        });
-      }
-      // Do not wait for a later cron invocation once enough eligible leads have been ingested.
-      if (await completeFulfillment(job, token))
-        return {
-          worked: true,
-          purchaseId: job.purchaseId,
-          status: "COMPLETED",
-        };
-      outcome = "INGESTING";
     } else if (!run) {
       if (job.purchase.tier === "PHONE_ONLY") {
         await refundFulfillment(job, token, "INSUFFICIENT_QUALIFIED_RESULTS");

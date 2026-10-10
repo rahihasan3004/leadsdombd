@@ -34,7 +34,7 @@ describe("Vault lead detail tier badge", () => {
         onClose: () => undefined,
       }),
     );
-    expect(html).toContain("Cold Calling Tier (No Email Included)");
+    expect(html).not.toContain("Cold Calling Tier (No Email Included)");
     expect(html).not.toContain(agent.email);
     expect(html).not.toContain("100% Deliverable Email");
   });
@@ -140,5 +140,32 @@ it.each([
     expect(html).toContain(label);
     expect(html).toContain(agent.email);
     expect(html).not.toContain("100% Deliverable");
+  },
+);
+
+it.each(["APIFY", "LOBSTR", null])(
+  "white-labels source %s and omits empty attributes",
+  (dataSource) => {
+    const html = renderToStaticMarkup(
+      React.createElement(AgentDetailModal, {
+        agent: {
+          ...agent,
+          leadTier: "PHONE_ONLY",
+          dataSource,
+          timezone: null,
+          brokerageAddress: null,
+          rating: 5,
+          reviewCount: 290,
+        },
+        open: true,
+        onClose: () => undefined,
+      }),
+    );
+    expect(html).toContain("LEADSDOM");
+    expect(html).not.toMatch(/APIFY|LOBSTR/);
+    expect(html).not.toContain("Timezone");
+    expect(html).not.toContain("Physical Address");
+    expect(html).not.toContain("--");
+    expect(html).toContain("5.0 (290 reviews)");
   },
 );

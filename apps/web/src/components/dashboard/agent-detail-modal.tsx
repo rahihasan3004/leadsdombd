@@ -31,7 +31,7 @@ import {
   SOCIAL_PROFILE_FIELDS,
   isSocialProfileUrl,
 } from "@/lib/lead-profiles";
-import { ColdCallingTierBadge } from "./lead-tier-badge";
+import { PUBLIC_LEAD_SOURCE } from "@/lib/lead-branding";
 
 export interface AgentData {
   leadTier?: LeadTier;
@@ -202,6 +202,7 @@ function AttrRow({
   href?: string;
   badge?: React.ReactNode;
 }) {
+  if (!value?.trim() || ["--", "-"].includes(value.trim())) return null;
   return (
     <div className="flex items-center justify-between py-2 group">
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -291,7 +292,7 @@ export function AgentDetailModal({
           : null,
         agent.brokerageName ? `Brokerage: ${agent.brokerageName}` : null,
         agent.googlePlaceId ? `Google Place ID: ${agent.googlePlaceId}` : null,
-        agent.dataSource ? `Data Source: ${agent.dataSource}` : null,
+        `Data Source: ${PUBLIC_LEAD_SOURCE}`,
         agent.rating != null
           ? `Rating: ${agent.rating.toFixed(1)} (${agent.reviewCount ?? 0} reviews)`
           : null,
@@ -397,12 +398,10 @@ export function AgentDetailModal({
             value={formatPhone(agent.phone)}
             copyable
           />
-          {agent.leadTier === "PHONE_ONLY" && <ColdCallingTierBadge />}
           {agent.leadTier !== "PHONE_ONLY" && agent.email && (
             <AttrRow
               icon={Mail}
               label={
-                agent.dataSource === "APIFY" &&
                 ["syntax_valid", "mx_valid"].includes(agent.emailStatus ?? "")
                   ? "Email"
                   : "100% Deliverable Email"
@@ -455,7 +454,7 @@ export function AgentDetailModal({
           />
         </div>
 
-        {(agent.brokerageName || agent.googlePlaceId || agent.dataSource) && (
+        {
           <div className="mt-5 space-y-1">
             <SectionHeader icon={Briefcase} label="Brokerage & Source" />
             {agent.brokerageName && (
@@ -473,15 +472,15 @@ export function AgentDetailModal({
                 copyable
               />
             )}
-            {agent.dataSource && (
+            {
               <AttrRow
                 icon={Server}
                 label="Data Source"
-                value={agent.dataSource}
+                value={PUBLIC_LEAD_SOURCE}
               />
-            )}
+            }
           </div>
-        )}
+        }
 
         <div className="mt-5 space-y-1">
           <SectionHeader icon={Star} label="Google Maps & Reputation" />

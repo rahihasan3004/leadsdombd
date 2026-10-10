@@ -119,6 +119,7 @@ export class CompassApifyClient {
   private readonly pool: ApifyTokenPool;
   private readonly fetcher: typeof fetch;
   private readonly timeoutMs: number;
+  private readonly completedRuns = new Map<string, ApifyRun>();
   constructor(
     options: {
       pool?: ApifyTokenPool;
@@ -259,6 +260,8 @@ export class CompassApifyClient {
     );
   }
   async getRun(reference: string): Promise<ApifyRun> {
+    const cached = this.completedRuns.get(reference);
+    if (cached) return cached;
     const { credentialId, runId } = decodeApifyRun(reference);
     const result = z
       .object({ data: runSchema })
@@ -268,6 +271,10 @@ export class CompassApifyClient {
         "Apify returned an inconsistent run",
         "INVALID_RESPONSE",
       );
+    if (result.data.data.status === "SUCCEEDED") {
+      if (this.completedRuns.size >= 100) this.completedRuns.clear();
+      this.completedRuns.set(reference, result.data.data);
+    }
     return result.data.data;
   }
   async getDatasetPage(reference: string, page: number, pageSize = 100) {
@@ -277,6 +284,14 @@ export class CompassApifyClient {
     if (run.status !== "SUCCEEDED")
       throw new ApifyError("Apify dataset is not complete", "HTTP_ERROR");
     const { credentialId } = decodeApifyRun(reference);
+    const offset = (page - 1) * pageSize;
+    const [rawMetadata, rawItems] = await Promise.all([
+      this.request(`/datasets/${run.defaultDatasetId}`, credentialId),
+      this.request(
+        `/datasets/${run.defaultDatasetId}/items?format=json&offset=${offset}&limit=${pageSize}&clean=false`,
+        credentialId,
+      ),
+    ]);
     const metadata = z
       .object({
         data: z.object({
@@ -284,24 +299,14 @@ export class CompassApifyClient {
           itemCount: z.number().int().nonnegative(),
         }),
       })
-      .safeParse(
-        await this.request(`/datasets/${run.defaultDatasetId}`, credentialId),
-      );
+      .safeParse(rawMetadata);
     if (!metadata.success || metadata.data.data.id !== run.defaultDatasetId)
       throw new ApifyError(
         "Apify dataset metadata is invalid",
         "INVALID_RESPONSE",
       );
     const total = metadata.data.data.itemCount;
-    const offset = (page - 1) * pageSize;
-    const data = z
-      .array(z.record(z.unknown()))
-      .safeParse(
-        await this.request(
-          `/datasets/${run.defaultDatasetId}/items?format=json&offset=${offset}&limit=${pageSize}&clean=false`,
-          credentialId,
-        ),
-      );
+    const data = z.array(z.record(z.unknown())).safeParse(rawItems);
     if (
       !data.success ||
       data.data.length !== Math.min(pageSize, Math.max(0, total - offset))

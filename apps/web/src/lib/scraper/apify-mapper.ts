@@ -1,3 +1,4 @@
+import { ingestMappedPages, type BulkIngestionResult } from "./bulk-ingestion";
 import {
   validateApifyEmail,
   validateExistingApifyEmail,
@@ -156,4 +157,98 @@ export async function ingestApifyLeads(
     else summary.duplicatesSkipped++;
   }
   return summary;
+}
+
+/** Validate outside the DB transaction; persist the whole bounded page atomically. */
+export async function ingestApifyPages(
+  pages: Array<{ records: CompassRecord[]; context: LeadContext }>,
+  commit?: (
+    tx: Prisma.TransactionClient,
+    result: BulkIngestionResult,
+  ) => Promise<void>,
+  guard?: (tx: Prisma.TransactionClient) => Promise<void>,
+): Promise<BulkIngestionResult> {
+  if (pages.reduce((n, page) => n + page.records.length, 0) > 1_000)
+    throw new Error("Bulk ingestion exceeds the bounded page limit");
+  const prepared = pages.map((page) =>
+    page.records.map((record) => mapApifyLead(record, page.context)),
+  );
+  const leads = prepared.flat().filter((mapped) => mapped.kind === "lead");
+  let cursor = 0;
+  const checkedEmails = new Map<
+    string,
+    ReturnType<typeof validateApifyEmail>
+  >();
+  await Promise.all(
+    Array.from({ length: Math.min(8, leads.length) }, async () => {
+      while (cursor < leads.length) {
+        const mapped = leads[cursor++]!;
+        const email = mapped.lead.data.email;
+        if (typeof email !== "string" || !email) continue;
+        let check = checkedEmails.get(email);
+        if (!check) {
+          check = validateApifyEmail(email);
+          checkedEmails.set(email, check);
+        }
+        const validation = await check;
+        Object.assign(mapped.lead.data, {
+          emailStatus: validation.status,
+          isDeliverable: validation.eligible,
+          isVerified: validation.verified,
+          verificationScore: validation.verified ? 100 : 0,
+          lastVerifiedAt: validation.verified ? new Date() : null,
+        });
+      }
+    }),
+  );
+  return ingestMappedPages(
+    prepared,
+    async (tx, result) => {
+      // Reconnect older APIFY duplicates with exact-address CAS, without downgrading
+      // verified evidence, imported rows, edited emails, or permanent failures.
+      const groups = new Map<
+        string,
+        { data: Prisma.AgentUpdateManyMutationInput; emails: Set<string> }
+      >();
+      for (const mapped of leads) {
+        const data = mapped.lead.data;
+        if (typeof data.email !== "string" || !data.email) continue;
+        const key = String(data.emailStatus);
+        let group = groups.get(key);
+        if (!group) {
+          group = {
+            emails: new Set(),
+            data: {
+              emailStatus: data.emailStatus,
+              isDeliverable: data.isDeliverable,
+              isVerified: data.isVerified,
+              verificationScore: data.verificationScore,
+              lastVerifiedAt: data.lastVerifiedAt,
+            },
+          };
+          groups.set(key, group);
+        }
+        group.emails.add(data.email);
+      }
+      for (const group of groups.values())
+        await tx.agent.updateMany({
+          where: {
+            id: { in: result.agentIds },
+            email: { in: [...group.emails] },
+            dataSource: "APIFY",
+            OR: [
+              { emailStatus: null },
+              {
+                emailStatus: {
+                  in: ["unverified", "unknown", "syntax_valid", "mx_valid"],
+                },
+              },
+            ],
+          },
+          data: group.data,
+        });
+      if (commit) await commit(tx, result);
+    },
+    guard,
+  );
 }

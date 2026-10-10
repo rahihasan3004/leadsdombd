@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => {
     apifyStatus: vi.fn(),
     apifyPage: vi.fn(),
     apifyIngest: vi.fn(),
+    apifyBatch: vi.fn(),
   };
 });
 vi.mock("@fine-leads/database", async (importOriginal) => ({
@@ -86,6 +87,7 @@ vi.mock("../src/lib/scraper/apify-client", async (original) => ({
 }));
 vi.mock("../src/lib/scraper/apify-mapper", () => ({
   ingestApifyLead: mocks.apifyIngest,
+  ingestApifyPages: mocks.apifyBatch,
 }));
 import { ApifyError } from "../src/lib/scraper/apify-token-pool";
 import type { Prisma } from "@fine-leads/database";
@@ -157,6 +159,25 @@ beforeEach(() => {
       table.create.mockResolvedValue({});
       table.upsert.mockResolvedValue({});
     }
+  mocks.apifyBatch
+    .mockReset()
+    .mockImplementation(async (pages, commit, guard) => {
+      const agentIds: string[] = [];
+      let newlyIngested = 0;
+      for (const record of pages[0].records) {
+        const mapped = await mocks.apifyIngest(record);
+        if (mapped?.kind === "lead") {
+          agentIds.push(mapped.agentId);
+          if (mapped.created) newlyIngested++;
+        }
+      }
+      const result = { agentIds, newlyIngested };
+      return mocks.db.$transaction(async (tx: typeof mocks.db) => {
+        await guard(tx);
+        await commit(tx, result);
+        return result;
+      });
+    });
   mocks.transactionActive = false;
   for (const sender of [mocks.completedEmail, mocks.failedEmail])
     sender.mockReset().mockImplementation(async () => {
@@ -245,7 +266,11 @@ describe("atomic fulfillment and refund", () => {
     );
     expect(
       mocks.db.walletTransaction.create.mock.calls[0]![0].data,
-    ).toMatchObject({ amount: 4, type: "REFUND", balanceAfter: 14 });
+    ).toMatchObject({
+      amount: 4,
+      type: "REFUND",
+      balanceAfter: 14,
+    });
   });
   it("marks failed card fulfillment for external refund without inventing refunded credits", async () => {
     expect(
@@ -316,7 +341,10 @@ describe("durable order worker", () => {
     ).toBe("DISPATCHING");
     expect(
       mocks.db.leadFulfillmentRun.update.mock.calls[1]![0].data,
-    ).toMatchObject({ status: "POLLING", runId: "lobstr-1" });
+    ).toMatchObject({
+      status: "POLLING",
+      runId: "lobstr-1",
+    });
     expect(mocks.db.leadPurchase.update).toHaveBeenCalledWith({
       where: { id: "p1" },
       data: { lobstrRunId: "lobstr-1" },
@@ -374,7 +402,10 @@ describe("durable order worker", () => {
     });
     expect(
       mocks.db.leadFulfillmentRun.update.mock.calls[0]![0].data,
-    ).toMatchObject({ resultOffset: 1, processedCount: 1 });
+    ).toMatchObject({
+      resultOffset: 1,
+      processedCount: 1,
+    });
     expect(
       mocks.db.leadFulfillmentRun.update.mock.calls[1]![0].data.status,
     ).toBe("DONE");
@@ -536,7 +567,9 @@ it("re-verifies stale duplicate candidates instead of excluding known email stat
   await processNextFulfillment({ verifyEmail });
   expect(
     mocks.db.leadFulfillmentCandidate.findMany.mock.calls[1]![0].where.agent,
-  ).toEqual({ email: { not: null } });
+  ).toEqual({
+    email: { not: null },
+  });
   expect(mocks.db.agent.updateMany).toHaveBeenCalledWith(
     expect.objectContaining({
       data: expect.objectContaining({
@@ -733,14 +766,15 @@ describe("Apify durable fulfillment lifecycle", () => {
     });
     expect((await processNextFulfillment()).status).toBe("INGESTING");
     expect(mocks.ingest).not.toHaveBeenCalled();
-    expect(mocks.db.leadFulfillmentCandidate.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        create: { jobId: "job-1", agentId: "apify_agent" },
-      }),
-    );
+    expect(mocks.db.leadFulfillmentCandidate.createMany).toHaveBeenCalledWith({
+      data: [{ jobId: "job-1", agentId: "apify_agent" }],
+      skipDuplicates: true,
+    });
     expect(mocks.db.unlockedLead.createMany).not.toHaveBeenCalled();
     expect(mocks.db.leadFulfillmentRun.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { resultOffset: 1, processedCount: 1 } }),
+      expect.objectContaining({
+        data: expect.objectContaining({ resultOffset: 1, processedCount: 1 }),
+      }),
     );
   });
   it("keeps ambiguous paid Apify dispatches in NEEDS_REVIEW, never redispatches", async () => {
@@ -786,10 +820,10 @@ it("scans beyond N raw Apify rows, completes at exactly N eligible leads, and ne
   });
   mocks.db.leadFulfillmentCandidate.findMany
     .mockResolvedValueOnce([])
-    .mockResolvedValueOnce([])
     .mockResolvedValueOnce([{ agentId: "a4" }, { agentId: "a5" }]);
   expect((await processNextFulfillment()).status).toBe("COMPLETED");
-  expect(mocks.apifyIngest).toHaveBeenCalledTimes(5);
+  expect(mocks.apifyBatch).toHaveBeenCalledOnce();
+  expect(mocks.apifyIngest).toHaveBeenCalledTimes(6);
   expect(mocks.db.unlockedLead.createMany).toHaveBeenCalledWith({
     data: [
       { userId: "u1", agentId: "a4", purchaseId: "p1" },
@@ -867,7 +901,9 @@ it("preserves buffered Apify ingestion across a persisted cursor instead of trea
   expect((await processNextFulfillment()).status).toBe("INGESTING");
   expect(mocks.apifyIngest).toHaveBeenCalledOnce();
   expect(mocks.db.leadFulfillmentRun.update).toHaveBeenCalledWith(
-    expect.objectContaining({ data: { resultOffset: 3, processedCount: 3 } }),
+    expect.objectContaining({
+      data: expect.objectContaining({ resultOffset: 3, processedCount: 3 }),
+    }),
   );
 });
 
@@ -942,7 +978,8 @@ it("an owner sync immediately resolves a 72-second-old completed Apify run throu
   });
   expect(mocks.apifyStatus).toHaveBeenCalledWith(reference);
   expect(mocks.apifyPage).toHaveBeenCalledWith(reference, 1, 100);
-  expect(mocks.apifyIngest).toHaveBeenCalledTimes(2);
+  expect(mocks.apifyBatch).toHaveBeenCalledOnce();
+  expect(mocks.apifyIngest).toHaveBeenCalledTimes(20);
   expect(mocks.db.unlockedLead.createMany).toHaveBeenCalledOnce();
   expect(mocks.db.leadPurchase.updateMany).toHaveBeenCalledWith(
     expect.objectContaining({ data: { status: "COMPLETED" } }),
@@ -950,4 +987,71 @@ it("an owner sync immediately resolves a 72-second-old completed Apify run throu
   expect(mocks.apifyDispatch).not.toHaveBeenCalled();
   expect(mocks.db.walletTransaction.create).not.toHaveBeenCalled();
   expect(mocks.failedEmail).not.toHaveBeenCalled();
+});
+
+it("completes a ten-lead cold-calling page atomically without per-record cursor transactions", async () => {
+  const reference = "apify:" + "a".repeat(24) + ":run_1";
+  const phonePurchase = { ...job.purchase, tier: "PHONE_ONLY", leadCount: 10 };
+  mocks.db.leadFulfillmentJob.findUniqueOrThrow.mockResolvedValue({
+    ...job,
+    purchase: phonePurchase,
+  });
+  mocks.db.leadPurchase.findUniqueOrThrow.mockResolvedValue(phonePurchase);
+  mocks.db.leadFulfillmentRun.findFirst
+    .mockResolvedValueOnce(null)
+    .mockResolvedValueOnce({
+      ...run,
+      targetQuantity: 10,
+      status: "INGESTING",
+      runId: reference,
+    });
+  mocks.apifyStatus.mockResolvedValue({
+    id: "run_1",
+    status: "SUCCEEDED",
+    defaultDatasetId: "dataset_1",
+  });
+  mocks.apifyPage.mockResolvedValue({
+    page: 1,
+    total_pages: 1,
+    total_results: 10,
+    data: Array.from({ length: 10 }, (_, i) => ({ title: String(i) })),
+  });
+  let n = 0;
+  mocks.apifyIngest.mockImplementation(async () => ({
+    kind: "lead",
+    agentId: "phone-" + ++n,
+    created: true,
+    eligible: false,
+  }));
+  mocks.db.leadFulfillmentCandidate.findMany
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce(
+      Array.from({ length: 10 }, (_, i) => ({ agentId: "phone-" + (i + 1) })),
+    );
+  mocks.db.leadFulfillmentCandidate.createMany.mockImplementation(async () => {
+    expect(mocks.transactionActive).toBe(true);
+    return { count: 10 };
+  });
+  mocks.db.unlockedLead.createMany.mockImplementation(async ({ data }) => {
+    expect(mocks.transactionActive).toBe(true);
+    expect(data).toHaveLength(10);
+    return { count: 10 };
+  });
+  expect((await processNextFulfillment()).status).toBe("COMPLETED");
+  expect(mocks.apifyBatch).toHaveBeenCalledOnce();
+  expect(mocks.db.$transaction).toHaveBeenCalledTimes(2); // initial inventory check + one atomic page/completion
+  expect(mocks.db.leadFulfillmentCandidate.createMany).toHaveBeenCalledOnce();
+  expect(mocks.db.leadFulfillmentCandidate.upsert).not.toHaveBeenCalled();
+  expect(mocks.db.leadFulfillmentRun.update).toHaveBeenCalledWith(
+    expect.objectContaining({
+      data: expect.objectContaining({
+        status: "DONE",
+        resultOffset: 10,
+        processedCount: 10,
+        newLeadCount: { increment: 10 },
+      }),
+    }),
+  );
+  expect(mocks.db.unlockedLead.createMany).toHaveBeenCalledOnce();
+  expect(mocks.db.walletTransaction.create).not.toHaveBeenCalled();
 });
