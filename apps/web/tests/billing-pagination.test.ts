@@ -41,7 +41,10 @@ describe("Billing history pagination", () => {
   });
   it("does not read ledger data without authentication", async () => {
     mocks.auth.mockResolvedValue(null);
-    expect((await GET()).status).toBe(401);
+    expect(
+      (await GET(new Request("https://app.test/api/billing/transactions")))
+        .status,
+    ).toBe(401);
     expect(mocks.db.walletTransaction.count).not.toHaveBeenCalled();
   });
 });

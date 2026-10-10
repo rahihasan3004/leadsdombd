@@ -10,16 +10,14 @@ function purchaseIdOf(metadata: unknown): string | null {
   return null;
 }
 
-export async function GET(request?: Request) {
+export async function GET(request: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const params = request
-      ? new URL(request.url).searchParams
-      : new URLSearchParams();
+    const params = new URL(request.url).searchParams;
     const page = Number(params.get("page") ?? 1),
       limit = Math.min(100, Number(params.get("limit") ?? 50));
     if (
