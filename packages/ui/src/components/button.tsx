@@ -61,30 +61,37 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
         disabled={props.disabled || props["aria-busy"] === true}
       >
-        {props["aria-busy"] === true && !asChild && !hasBusyIcon(children) ? (
-          <svg
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-            className="animate-spin motion-reduce:animate-none"
-          >
-            <circle
-              cx="12"
-              cy="12"
-              r="9"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              opacity=".25"
-            />
-            <path
-              d="M12 3a9 9 0 0 1 9 9"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-            />
-          </svg>
-        ) : null}
-        {children}
+        {asChild ? (
+          // Slot must receive the child directly, without a spinner placeholder sibling.
+          children
+        ) : (
+          <>
+            {props["aria-busy"] === true && !hasBusyIcon(children) ? (
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                className="animate-spin motion-reduce:animate-none"
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="9"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  opacity=".25"
+                />
+                <path
+                  d="M12 3a9 9 0 0 1 9 9"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                />
+              </svg>
+            ) : null}
+            {children}
+          </>
+        )}
       </Comp>
     );
   },
