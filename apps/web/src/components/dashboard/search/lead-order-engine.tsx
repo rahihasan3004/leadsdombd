@@ -37,6 +37,23 @@ const DATA_GUARANTEES = [
   "Live Google Maps Link",
 ] as const;
 
+const PHONE_DATA_GUARANTEES = [
+  "Company Name",
+  "Agent Name",
+  "Direct Phone Number",
+  "Physical Address",
+  "City",
+  "State",
+  "Zip Code",
+  "Category",
+  "Website",
+  "Google Place ID",
+  "Star Rating",
+  "Review Count",
+  "Google Maps Link",
+  "Scraped Timestamp",
+] as const;
+
 const BONUS_DIGITAL_PROFILES = [
   "LinkedIn Profile (if available)",
   "Facebook Page (if available)",
@@ -608,11 +625,7 @@ function SectionQuantity({
 
 function SectionGuarantee({ tier }: { tier: LeadTier }) {
   const fields =
-    tier === "VERIFIED_EMAIL"
-      ? DATA_GUARANTEES
-      : DATA_GUARANTEES.filter(
-          (field) => field !== "100% SMTP Deliverable Email",
-        );
+    tier === "VERIFIED_EMAIL" ? DATA_GUARANTEES : PHONE_DATA_GUARANTEES;
   const headingId = `included-data-${tier.toLowerCase()}`;
   return (
     <section
@@ -645,25 +658,27 @@ function SectionGuarantee({ tier }: { tier: LeadTier }) {
           </li>
         ))}
       </ul>
-      <div className="space-y-2.5 border-t border-slate-100 pt-3">
-        <h4 className="text-xs font-semibold text-slate-500">
-          Bonus Enriched Profiles
-        </h4>
-        <ul
-          aria-label="Optional bonus profiles"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2.5 text-xs text-slate-600"
-        >
-          {BONUS_DIGITAL_PROFILES.map((item) => (
-            <li key={item} className="flex items-start gap-2.5">
-              <Check
-                aria-hidden="true"
-                className="mt-0.5 h-3.5 w-3.5 text-emerald-500 flex-shrink-0"
-              />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {tier === "VERIFIED_EMAIL" && (
+        <div className="space-y-2.5 border-t border-slate-100 pt-3">
+          <h4 className="text-xs font-semibold text-slate-500">
+            Bonus Enriched Profiles (if available)
+          </h4>
+          <ul
+            aria-label="Optional bonus profiles"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2.5 text-xs text-slate-600"
+          >
+            {BONUS_DIGITAL_PROFILES.map((item) => (
+              <li key={item} className="flex items-start gap-2.5">
+                <Check
+                  aria-hidden="true"
+                  className="mt-0.5 h-3.5 w-3.5 text-emerald-500 flex-shrink-0"
+                />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

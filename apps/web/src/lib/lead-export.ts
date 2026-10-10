@@ -7,6 +7,7 @@ import { pipeline } from "node:stream/promises";
 import archiver from "archiver";
 import { db, type Prisma } from "@fine-leads/database";
 import { redactLeadForTier } from "./lead-access";
+import { SOCIAL_PROFILE_FIELDS } from "./lead-profiles";
 import {
   LeadExportError,
   stateExportName,
@@ -59,6 +60,7 @@ const select = {
       reviewCount: true,
       scrapedAt: true,
       googleMapsLink: true,
+      socialProfiles: true,
     },
   },
 } satisfies Prisma.UnlockedLeadSelect;
@@ -102,7 +104,8 @@ export function exportLead(unlock: Unlock) {
     googleMapsLink: lead.googleMapsLink,
     leadTier: unlock.purchase.tier,
   };
-  if (unlock.purchase.tier !== "PHONE_ONLY") return result;
+  if (unlock.purchase.tier !== "PHONE_ONLY")
+    return { ...result, socialProfiles: lead.socialProfiles };
   // Protect against duplicate contact emails embedded in otherwise allowed text/URL fields.
   return Object.fromEntries(
     Object.entries(result).map(([key, value]) => [
@@ -115,10 +118,10 @@ export function exportLead(unlock: Unlock) {
     ]),
   ) as typeof result;
 }
-function row(unlock: Unlock, format: LeadExportFormat) {
+function row(unlock: Unlock, format: LeadExportFormat, includeBonus: boolean) {
   const lead = exportLead(unlock);
   if (format === "json") return JSON.stringify(lead);
-  return [
+  const fields = [
     csvCell(lead.companyName),
     phoneCell(lead.phone),
     ...[
@@ -138,7 +141,16 @@ function row(unlock: Unlock, format: LeadExportFormat) {
       lead.scrapedAt,
       lead.googleMapsLink,
     ].map(csvCell),
-  ].join(",");
+  ];
+  if (includeBonus)
+    fields.push(
+      ...SOCIAL_PROFILE_FIELDS.map((field) =>
+        csvCell(
+          "socialProfiles" in lead ? lead.socialProfiles?.[field.key] : null,
+        ),
+      ),
+    );
+  return fields.join(",");
 }
 async function queryBatch(args: Prisma.UnlockedLeadFindManyArgs) {
   for (let attempt = 0; ; attempt++) {
@@ -172,6 +184,7 @@ export async function prepareLeadExport(
   format: LeadExportFormat,
   grouping: LeadExportGrouping,
   signal?: AbortSignal,
+  includeBonus = true,
 ): Promise<PreparedLeadExport> {
   if (!Number.isSafeInteger(expectedCount) || expectedCount < 1)
     throw new LeadExportError(
@@ -242,12 +255,21 @@ export async function prepareLeadExport(
           files.set(name, file);
           await write(
             file,
-            format === "csv" ? headers.map(csvCell).join(",") + "\r\n" : "[\n",
+            format === "csv"
+              ? [
+                  ...headers,
+                  ...(includeBonus
+                    ? SOCIAL_PROFILE_FIELDS.map((field) => field.label)
+                    : []),
+                ]
+                  .map(csvCell)
+                  .join(",") + "\r\n"
+              : "[\n",
           );
         }
         const chunk =
           (format === "json" && file.rows ? ",\n" : "") +
-          row(unlock, format) +
+          row(unlock, format, includeBonus) +
           (format === "csv" ? "\r\n" : "");
         const parts = chunks.get(name) ?? [];
         parts.push(chunk);

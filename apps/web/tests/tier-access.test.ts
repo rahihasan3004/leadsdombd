@@ -289,7 +289,7 @@ describe("CSV streams", () => {
     ).toBe(403);
     expect(dbMock.leadPurchase.findFirst).toHaveBeenCalledWith({
       where: { id: "foreign", userId: "user-1", status: "COMPLETED" },
-      select: { id: true },
+      select: { id: true, tier: true },
     });
     expect(dbMock.unlockedLead.count).not.toHaveBeenCalled();
     expect(dbMock.leadExport.create).not.toHaveBeenCalled();

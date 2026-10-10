@@ -19,7 +19,7 @@ Limits: 100,000 rows, 128 MiB artifact/source data cap, 95-second preparation bu
 
 ## Tier and CSV safety
 
-Every row uses its associated purchase tier, never a query-supplied tier. PHONE_ONLY exports have an empty/null email; full packs include only a currently validated/deliverable email. JSON uses a fixed allowlist, not raw Agent objects or nested metadata containing duplicate email addresses. PHONE_ONLY also strips plain and percent-encoded email strings embedded in allowed text/URL fields. CSV string cells neutralize formula prefixes; the spreadsheet-friendly phone formula is constructed only from a strictly numeric ten-digit phone.
+Every row uses its associated purchase tier, never a query-supplied tier. PHONE_ONLY exports have an empty/null email and no social-profile values. Full packs include only a currently validated/deliverable email plus available allowlisted social links. An owned PHONE_ONLY order omits bonus CSV columns entirely; mixed-tier CSV files leave those cells blank for PHONE_ONLY rows. JSON includes normalized socialProfiles only for VERIFIED_EMAIL rows. These same rules apply inside split-state ZIP files. Query parameters cannot override the stored purchase tier. JSON uses a fixed allowlist, not raw Agent objects or nested metadata containing duplicate email addresses. PHONE_ONLY also strips plain and percent-encoded email strings embedded in allowed text/URL fields. CSV string cells neutralize formula prefixes; the spreadsheet-friendly phone formula is constructed only from a strictly numeric ten-digit phone.
 
 ## Vault experience
 

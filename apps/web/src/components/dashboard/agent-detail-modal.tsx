@@ -24,6 +24,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { LeadTier } from "@fine-leads/utils";
+import {
+  normalizeSocialProfiles,
+  SOCIAL_PROFILE_FIELDS,
+  isSocialProfileUrl,
+} from "@/lib/lead-profiles";
 import { ColdCallingTierBadge } from "./lead-tier-badge";
 
 export interface AgentData {
@@ -147,7 +152,13 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
   );
 }
 
-function SectionHeader({ icon: Icon, label }: { icon: React.ComponentType<{ className?: string }>; label: string }) {
+function SectionHeader({
+  icon: Icon,
+  label,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+}) {
   return (
     <div className="flex items-center gap-2 pb-2 mb-2 border-b border-slate-100">
       <Icon className="w-4 h-4 text-slate-500" />
@@ -201,7 +212,9 @@ function AttrRow({
         </div>
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
-        {copyable && value !== "--" && <CopyButton value={value} label={label} />}
+        {copyable && value !== "--" && (
+          <CopyButton value={value} label={label} />
+        )}
         {href && value !== "--" && (
           <a
             href={href}
@@ -218,10 +231,23 @@ function AttrRow({
   );
 }
 
-export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps) {
+export function AgentDetailModal({
+  agent,
+  open,
+  onClose,
+}: AgentDetailModalProps) {
   // Hand-rolled modal: Escape, focus trap/return and page scroll lock.
   const dialogRef = useRef<HTMLDivElement>(null);
   useModalA11y(dialogRef, open && !!agent, onClose);
+
+  const profiles =
+    agent?.leadTier === "VERIFIED_EMAIL"
+      ? normalizeSocialProfiles(agent.socialProfiles, agent)
+      : null;
+  const website =
+    agent?.leadTier === "PHONE_ONLY" && isSocialProfileUrl(agent.websiteUrl)
+      ? null
+      : agent?.websiteUrl;
 
   const handleCopyAllInfo = useCallback(
     (e: React.MouseEvent) => {
@@ -232,24 +258,39 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
         agent.category ? `Category: ${agent.category}` : null,
         [agent.city, agent.state].filter(Boolean).join(", ") || null,
         agent.phone ? `Phone: ${formatPhone(agent.phone)}` : null,
-        agent.leadTier !== "PHONE_ONLY" && agent.email ? `Email: ${agent.email}` : null,
-        agent.websiteUrl ? `Website: ${agent.websiteUrl}` : null,
+        agent.leadTier !== "PHONE_ONLY" && agent.email
+          ? `Email: ${agent.email}`
+          : null,
+        website ? `Website: ${website}` : null,
         agent.brokerageAddress ? `Address: ${agent.brokerageAddress}` : null,
-        [agent.city, agent.state, agent.zipCode?.slice(0, 5)].filter(Boolean).join(", ") || null,
-        agent.timezone ? `Timezone: ${formatTimezoneDisplay(agent.timezone)}` : null,
+        [agent.city, agent.state, agent.zipCode?.slice(0, 5)]
+          .filter(Boolean)
+          .join(", ") || null,
+        agent.timezone
+          ? `Timezone: ${formatTimezoneDisplay(agent.timezone)}`
+          : null,
         agent.brokerageName ? `Brokerage: ${agent.brokerageName}` : null,
         agent.googlePlaceId ? `Google Place ID: ${agent.googlePlaceId}` : null,
         agent.dataSource ? `Data Source: ${agent.dataSource}` : null,
-        agent.rating != null ? `Rating: ${agent.rating.toFixed(1)} (${agent.reviewCount ?? 0} reviews)` : null,
+        agent.rating != null
+          ? `Rating: ${agent.rating.toFixed(1)} (${agent.reviewCount ?? 0} reviews)`
+          : null,
         agent.scrapedAt ? `Scraped: ${formatTimestamp(agent.scrapedAt)}` : null,
         agent.googleMapsLink ? `Google Maps: ${agent.googleMapsLink}` : null,
-      ].filter(Boolean).join("\n");
+        ...SOCIAL_PROFILE_FIELDS.flatMap((field) =>
+          profiles?.[field.key]
+            ? [`${field.label}: ${profiles[field.key]}`]
+            : [],
+        ),
+      ]
+        .filter(Boolean)
+        .join("\n");
 
       navigator.clipboard.writeText(lines).then(() => {
         toast.success("Business info copied");
       });
     },
-    [agent],
+    [agent, profiles, website],
   );
 
   if (!agent || !open || typeof document === "undefined") return null;
@@ -280,7 +321,10 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
         </button>
 
         <div className="pr-10">
-          <h2 id="agent-modal-title" className="text-lg font-bold text-slate-900 flex items-start gap-2 min-w-0">
+          <h2
+            id="agent-modal-title"
+            className="text-lg font-bold text-slate-900 flex items-start gap-2 min-w-0"
+          >
             <Building2 className="h-5 w-5 mt-0.5 shrink-0 text-slate-500" />
             <span className="min-w-0 break-words">{agent.fullName}</span>
           </h2>
@@ -333,13 +377,13 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
               }
             />
           )}
-          {agent.websiteUrl && (
+          {website && (
             <AttrRow
               icon={Globe}
               label="Website"
-              value={agent.websiteUrl}
+              value={website}
               copyable
-              href={agent.websiteUrl}
+              href={website}
             />
           )}
         </div>
@@ -356,7 +400,9 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
             <AttrRow
               icon={Compass}
               label="City, State, Zip Code"
-              value={[agent.city, agent.state, agent.zipCode?.slice(0, 5)].filter(Boolean).join(", ")}
+              value={[agent.city, agent.state, agent.zipCode?.slice(0, 5)]
+                .filter(Boolean)
+                .join(", ")}
             />
           )}
           <AttrRow
@@ -417,6 +463,29 @@ export function AgentDetailModal({ agent, open, onClose }: AgentDetailModalProps
             />
           )}
         </div>
+        {agent.leadTier === "VERIFIED_EMAIL" && profiles && (
+          <section
+            className="mt-5 space-y-1"
+            aria-label="Bonus enriched profiles"
+          >
+            <SectionHeader
+              icon={ExternalLink}
+              label="Bonus Enriched Profiles (if available)"
+            />
+            {SOCIAL_PROFILE_FIELDS.map((field) =>
+              profiles[field.key] ? (
+                <AttrRow
+                  key={field.key}
+                  icon={ExternalLink}
+                  label={field.label}
+                  value={profiles[field.key]!}
+                  href={profiles[field.key]!}
+                  copyable
+                />
+              ) : null,
+            )}
+          </section>
+        )}
       </div>
     </div>,
     document.body,

@@ -240,18 +240,39 @@ describe("lead package border and enriched checklist regressions", () => {
           /<ul[^>]*aria-label="Core included fields"[^>]*>([\s\S]*?)<\/ul>/,
         )?.[1] ?? "";
       expect(core.match(/<li[ >]/g)).toHaveLength(
-        tier === "VERIFIED_EMAIL" ? 17 : 16,
+        tier === "VERIFIED_EMAIL" ? 17 : 14,
       );
       expect(core).toContain("Company Name");
       expect(core).toContain("Direct Phone Number");
-      expect(core).toContain("Live Google Maps Link");
+      expect(core).toContain(
+        tier === "PHONE_ONLY" ? "Google Maps Link" : "Live Google Maps Link",
+      );
+      if (tier === "PHONE_ONLY") {
+        expect(core).toContain("Agent Name");
+        expect(core).not.toContain("Timezone");
+        expect(core).not.toContain("Data Source");
+      }
       if (tier === "PHONE_ONLY") expect(core).not.toContain("Email");
       else expect(core).toContain("100% SMTP Deliverable Email");
       const bonus =
         section!.match(
           /<ul[^>]*aria-label="Optional bonus profiles"[^>]*>([\s\S]*?)<\/ul>/,
         )?.[1] ?? "";
+      if (tier === "PHONE_ONLY") {
+        expect(section).not.toContain("Bonus Enriched Profiles");
+        expect(section).not.toContain("Optional bonus profiles");
+        for (const label of [
+          "LinkedIn",
+          "Facebook",
+          "Instagram",
+          "WhatsApp",
+          "Twitter",
+        ])
+          expect(section).not.toContain(label);
+        return;
+      }
       expect(bonus.match(/<li[ >]/g)).toHaveLength(5);
+      expect(section).toContain("Bonus Enriched Profiles (if available)");
       for (const label of [
         "LinkedIn Profile (if available)",
         "Facebook Page (if available)",

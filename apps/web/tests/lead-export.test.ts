@@ -291,4 +291,107 @@ describe("multi-state safe lead exports", () => {
       expect(text).toContain("Realty");
     },
   );
+  it.each([
+    ["PHONE_ONLY", "csv", "combined"],
+    ["PHONE_ONLY", "csv", "split"],
+    ["PHONE_ONLY", "json", "combined"],
+    ["PHONE_ONLY", "json", "split"],
+    ["VERIFIED_EMAIL", "csv", "combined"],
+    ["VERIFIED_EMAIL", "csv", "split"],
+    ["VERIFIED_EMAIL", "json", "combined"],
+    ["VERIFIED_EMAIL", "json", "split"],
+  ] as const)(
+    "enforces %s bonus access in %s %s exports",
+    async (tier, format, grouping) => {
+      const bonus = {
+        linkedin: "https://linkedin.com/in/customer",
+        facebook: "https://facebook.com/customer",
+        instagram: "https://instagram.com/customer",
+        whatsapp: "https://wa.me/12125551234",
+        twitter: "https://x.com/customer",
+        tiktok: "https://tiktok.com/@customer",
+        youtube: "https://youtube.com/@customer",
+      };
+      const source = lead("social", "TX", tier);
+      const record = {
+        ...source,
+        agent: {
+          ...source.agent,
+          socialProfiles: {
+            ...bonus,
+            _lobstr: { nameForEmails: "internal-only@example.com" },
+            email: "hidden-metadata@example.com",
+          },
+        },
+      };
+      m.purchase.mockResolvedValue({ id: "p1", tier });
+      m.count.mockResolvedValue(1);
+      m.batch.mockResolvedValue([record]);
+      const response = await GET(
+        req(
+          "purchaseId=p1&state=TX&format=" +
+            format +
+            "&grouping=" +
+            grouping +
+            "&tier=VERIFIED_EMAIL&includeSocial=true",
+        ),
+      );
+      expect(response.status).toBe(200);
+      const text =
+        grouping === "split"
+          ? unzip(Buffer.from(await response.arrayBuffer())).get(
+              "Texas." + format,
+            )!
+          : await response.text();
+      expect(text).not.toContain("internal-only@example.com");
+      expect(text).not.toContain("hidden-metadata@example.com");
+      if (tier === "PHONE_ONLY") {
+        for (const url of Object.values(bonus)) expect(text).not.toContain(url);
+        expect(text).not.toContain("secret-social@example.com");
+        if (format === "csv")
+          expect(text.split(String.fromCharCode(10))[0]).not.toContain(
+            "LinkedIn",
+          );
+        else expect(JSON.parse(text)[0]).not.toHaveProperty("socialProfiles");
+      } else {
+        for (const url of Object.values(bonus)) expect(text).toContain(url);
+        expect(text).toContain("secret-social@example.com");
+        if (format === "csv") expect(text).toContain("LinkedIn Profile");
+        else expect(JSON.parse(text)[0].socialProfiles).toEqual(bonus);
+      }
+    },
+  );
+  it.each(["csv", "json"])(
+    "keeps phone rows empty and full rows enriched in mixed-tier %s exports",
+    async (format) => {
+      const phone = lead("p", "TX", "PHONE_ONLY"),
+        full = lead("f", "GA");
+      m.batch.mockResolvedValue([
+        {
+          ...phone,
+          agent: {
+            ...phone.agent,
+            socialProfiles: {
+              linkedin: "https://linkedin.com/in/phone-private",
+            },
+          },
+        },
+        {
+          ...full,
+          agent: {
+            ...full.agent,
+            socialProfiles: {
+              linkedin: "https://linkedin.com/in/full-visible",
+            },
+          },
+        },
+      ]);
+      const response = await GET(req("state=ALL&format=" + format));
+      const text = await response.text();
+      expect(text).not.toContain("phone-private");
+      expect(text).toContain("full-visible");
+      if (format === "json")
+        expect(JSON.parse(text)[0]).not.toHaveProperty("socialProfiles");
+    },
+  );
 });

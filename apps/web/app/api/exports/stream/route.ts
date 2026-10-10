@@ -21,6 +21,7 @@ export async function GET(req: Request) {
     if (!session?.user?.id)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const options = parseExportOptions(new URL(req.url).searchParams);
+    let includeBonus = true;
     if (options.purchaseId) {
       const purchase = await db.leadPurchase.findFirst({
         where: {
@@ -28,13 +29,14 @@ export async function GET(req: Request) {
           userId: session.user.id,
           status: "COMPLETED",
         },
-        select: { id: true },
+        select: { id: true, tier: true },
       });
       if (!purchase)
         return NextResponse.json(
           { error: "Purchase not found or not authorized" },
           { status: 403 },
         );
+      includeBonus = purchase.tier !== "PHONE_ONLY";
     }
     const where: Prisma.UnlockedLeadWhereInput = {
       userId: session.user.id,
@@ -80,6 +82,7 @@ export async function GET(req: Request) {
       options.format,
       options.grouping,
       req.signal,
+      includeBonus,
     );
     // Audit marks a fully prepared artifact, not proof the customer received every byte.
     await db.leadExport
