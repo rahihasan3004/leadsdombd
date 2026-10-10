@@ -1,7 +1,10 @@
-import { db } from "@fine-leads/database";
+import { db, Prisma as PrismaRuntime } from "@fine-leads/database";
 import { generateTxnRef } from "@fine-leads/utils";
 import type { Prisma, UserRole } from "@fine-leads/database";
-import type { SubscriptionTier, SubscriptionStatus } from "@fine-leads/database";
+import type {
+  SubscriptionTier,
+  SubscriptionStatus,
+} from "@fine-leads/database";
 
 const ADMIN_REF_CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -96,6 +99,15 @@ export async function getAdminUsers(query: AdminUsersQuery) {
   };
 }
 
+export class AdminUserMutationError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 export async function updateUser(
   userId: string,
   data: {
@@ -105,8 +117,95 @@ export async function updateUser(
     balanceReason?: string;
   },
   adminId: string,
+  actorTokenVersion?: number,
 ) {
   const { role, organizationId, walletBalanceAdjustment, balanceReason } = data;
+
+  if (role !== undefined) {
+    if (!["USER", "ADMIN", "SUPER_ADMIN"].includes(role))
+      throw new AdminUserMutationError(400, "Invalid role");
+    if (walletBalanceAdjustment !== undefined)
+      throw new AdminUserMutationError(
+        400,
+        "Role changes must be a separate request",
+      );
+    return db.$transaction(
+      async (tx) => {
+        // Serialize administrative role changes, including last-super-admin checks.
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended('fine-leads:roles', 0))`;
+        const actor = await tx.user.findUnique({
+          where: { id: adminId },
+          select: { role: true, tokenVersion: true },
+        });
+        if (
+          !actor ||
+          actor.role !== "SUPER_ADMIN" ||
+          actor.tokenVersion !== actorTokenVersion
+        )
+          throw new AdminUserMutationError(
+            403,
+            "Fresh SUPER_ADMIN authorization is required for role changes",
+          );
+        if (adminId === userId)
+          throw new AdminUserMutationError(
+            403,
+            "You cannot change your own role",
+          );
+        const target = await tx.user.findUnique({
+          where: { id: userId },
+          select: { role: true },
+        });
+        if (!target) throw new AdminUserMutationError(404, "User not found");
+        if (
+          target.role === "SUPER_ADMIN" &&
+          role !== "SUPER_ADMIN" &&
+          (await tx.user.count({ where: { role: "SUPER_ADMIN" } })) <= 1
+        )
+          throw new AdminUserMutationError(
+            409,
+            "Cannot demote the last SUPER_ADMIN",
+          );
+        const updated = await tx.user.update({
+          where: { id: userId },
+          data: {
+            role,
+            tokenVersion: { increment: 1 },
+            ...(organizationId
+              ? { organization: { connect: { id: organizationId } } }
+              : {}),
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            walletBalance: true,
+            organization: { select: { id: true, name: true } },
+          },
+        });
+        await tx.session.deleteMany({ where: { userId } });
+        await tx.auditLog.create({
+          data: {
+            userId: adminId,
+            action: "user.role_change",
+            resource: "User",
+            resourceId: userId,
+            details: {
+              previousRole: target.role,
+              newRole: role,
+              sessionsRevoked: true,
+            },
+          },
+        });
+        return updated;
+      },
+      {
+        isolationLevel: PrismaRuntime.TransactionIsolationLevel.ReadCommitted,
+        maxWait: 10000,
+        timeout: 15000,
+      },
+    );
+  }
 
   if (walletBalanceAdjustment !== undefined) {
     const user = await db.user.findUnique({
@@ -129,9 +228,13 @@ export async function updateUser(
           type: isAddition ? "BONUS" : "REFUND",
           amount: Math.abs(walletBalanceAdjustment),
           balanceAfter: newBalance,
-          description: balanceReason ?? `Admin balance adjustment by ${adminId}`,
+          description:
+            balanceReason ?? `Admin balance adjustment by ${adminId}`,
           status: "COMPLETED",
-          metadata: { adjustedBy: adminId, previousBalance: user.walletBalance },
+          metadata: {
+            adjustedBy: adminId,
+            previousBalance: user.walletBalance,
+          },
         },
       }),
       db.user.update({
@@ -153,7 +256,8 @@ export async function updateUser(
 
   const updateData: Prisma.UserUpdateInput = {};
   if (role) updateData.role = role;
-  if (organizationId) updateData.organization = { connect: { id: organizationId } };
+  if (organizationId)
+    updateData.organization = { connect: { id: organizationId } };
 
   return db.user.update({
     where: { id: userId },
@@ -315,13 +419,11 @@ export async function revokeUnlockStates(
         where: { id: purchase.id },
         data: {
           unlockedStates: {
-            set: purchase.unlockedStates.filter(
-              (s) => !stateCodes.includes(s)
-            ),
+            set: purchase.unlockedStates.filter((s) => !stateCodes.includes(s)),
           },
         },
-      })
-    )
+      }),
+    ),
   );
 
   await db.auditLog.create({
@@ -379,7 +481,11 @@ export async function overrideSubscription(
       action: "user.subscription_override",
       resource: "Subscription",
       resourceId: subscription.id,
-      details: { previousTier: existing?.tier, newTier: data.tier, newStatus: data.status },
+      details: {
+        previousTier: existing?.tier,
+        newTier: data.tier,
+        newStatus: data.status,
+      },
     },
   });
 

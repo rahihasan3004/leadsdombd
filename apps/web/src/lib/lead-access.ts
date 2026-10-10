@@ -94,32 +94,16 @@ export async function getAgentLeadAccess(
 ) {
   const access = new Map<string, LeadTier>();
   if (!agents.length) return access;
-  const [unlocks, legacyPacks] = await Promise.all([
-    db.unlockedLead.findMany({
-      where: {
-        userId,
-        agentId: { in: agents.map((agent) => agent.id) },
-        purchase: { status: "COMPLETED" },
-      },
-      select: { agentId: true, purchase: { select: { tier: true } } },
-    }),
-    // Card/legacy state packs with no per-lead unlocks retain their old access.
-    // New quantity orders always create unlockedLead rows and cannot use this path.
-    db.leadPurchase.findMany({
-      where: { userId, status: "COMPLETED", unlockedLeads: { none: {} } },
-      select: { tier: true, unlockedStates: true },
-    }),
-  ]);
+  const unlocks = await db.unlockedLead.findMany({
+    where: {
+      userId,
+      agentId: { in: agents.map((agent) => agent.id) },
+      purchase: { userId, status: "COMPLETED" },
+    },
+    select: { agentId: true, purchase: { select: { tier: true } } },
+  });
+  // No subscription or zero-unlock state-pack fallback. A quantity is not a license.
   for (const unlock of unlocks)
     access.set(unlock.agentId, unlock.purchase.tier);
-  for (const agent of agents) {
-    const packs = legacyPacks.filter((pack) =>
-      pack.unlockedStates.includes(agent.state?.toUpperCase() ?? ""),
-    );
-    if (packs.some((pack) => pack.tier === "VERIFIED_EMAIL"))
-      access.set(agent.id, "VERIFIED_EMAIL");
-    else if (packs.length && !access.has(agent.id))
-      access.set(agent.id, "PHONE_ONLY");
-  }
   return access;
 }

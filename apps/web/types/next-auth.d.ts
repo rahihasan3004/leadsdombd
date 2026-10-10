@@ -11,6 +11,7 @@ declare module "next-auth" {
       role: UserRole | string;
       walletBalance?: number;
       credits?: number;
+      tokenVersion: number;
       organizationId?: string | null;
     };
   }
@@ -23,6 +24,7 @@ declare module "next-auth" {
     role?: UserRole | string;
     walletBalance?: number;
     credits?: number;
+    tokenVersion?: number;
     organizationId?: string | null;
   }
 }
@@ -37,6 +39,7 @@ declare module "@auth/core/types" {
       role: UserRole | string;
       walletBalance?: number;
       credits?: number;
+      tokenVersion: number;
       organizationId?: string | null;
     };
   }
@@ -49,6 +52,7 @@ declare module "@auth/core/types" {
     role?: UserRole | string;
     walletBalance?: number;
     credits?: number;
+    tokenVersion?: number;
     organizationId?: string | null;
   }
 }

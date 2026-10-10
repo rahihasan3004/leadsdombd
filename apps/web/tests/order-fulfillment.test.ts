@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => {
     walletTransaction: methods(),
     unlockedLead: methods(),
     orderEmailNotification: methods(),
+    auditLog: methods(),
     $transaction: vi.fn(),
   };
   return {
@@ -220,6 +221,28 @@ describe("atomic fulfillment and refund", () => {
     expect(
       mocks.db.walletTransaction.create.mock.calls[0]![0].data,
     ).toMatchObject({ amount: 4, type: "REFUND", balanceAfter: 14 });
+  });
+  it("marks failed card fulfillment for external refund without inventing refunded credits", async () => {
+    expect(
+      await refundFulfillment(
+        { ...job, creditsHeld: 0 },
+        "token",
+        "FAILED_RUN",
+      ),
+    ).toBe(true);
+    expect(mocks.db.leadPurchase.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "FAILED" }),
+      }),
+    );
+    expect(mocks.db.user.update).not.toHaveBeenCalled();
+    expect(mocks.db.walletTransaction.create).not.toHaveBeenCalled();
+    expect(mocks.failedEmail).not.toHaveBeenCalled();
+    expect(mocks.db.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ action: "card_order.refund_required" }),
+      }),
+    );
   });
   it("does not refund twice after the status transition", async () => {
     mocks.db.leadPurchase.updateMany.mockResolvedValue({ count: 0 });

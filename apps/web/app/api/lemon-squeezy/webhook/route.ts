@@ -1,10 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { z } from "zod";
 import { db, Prisma } from "@fine-leads/database";
-import { getLemonSqueezyStoreId, getLemonSqueezyWebhookSecret } from "@/lib/lemon-squeezy";
+import {
+  getLemonSqueezyStoreId,
+  getLemonSqueezyWebhookSecret,
+} from "@/lib/lemon-squeezy";
 import { verifyCheckoutCustomData, type PricedOrder } from "@/lib/payments";
 
+import { createQuantityLeadPurchase } from "@/lib/quantity-purchase";
+import { processNextFulfillment } from "@/lib/scraper/order-fulfillment";
+import { sendOrderProcessingEmail } from "@/lib/email/order-emails";
+export const maxDuration = 120;
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -12,7 +19,7 @@ export const dynamic = "force-dynamic";
 /* Payload schema (only the fields we rely on)                         */
 /* ------------------------------------------------------------------ */
 
-const cents = z.coerce.number().int().nonnegative();
+const cents = z.coerce.number().int().nonnegative().safe();
 
 const orderAttributesSchema = z.object({
   store_id: z.coerce.string().optional(),
@@ -43,7 +50,11 @@ const webhookSchema = z.object({
 
 type OrderAttributes = z.infer<typeof orderAttributesSchema>;
 type Tx = Prisma.TransactionClient;
-type Outcome = { status: "processed" | "ignored" | "rejected"; detail: string };
+type Outcome = {
+  status: "processed" | "ignored" | "rejected" | "pending";
+  detail: string;
+  queuedPurchaseId?: string;
+};
 
 class RetryableWebhookError extends Error {}
 
@@ -51,9 +62,16 @@ class RetryableWebhookError extends Error {}
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-function isValidSignature(rawBody: string, signature: string, secret: string): boolean {
+function isValidSignature(
+  rawBody: string,
+  signature: string,
+  secret: string,
+): boolean {
   if (!/^[0-9a-f]{64}$/i.test(signature)) return false;
-  const expected = crypto.createHmac("sha256", secret).update(rawBody, "utf8").digest();
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(rawBody, "utf8")
+    .digest();
   return crypto.timingSafeEqual(Buffer.from(signature, "hex"), expected);
 }
 
@@ -67,9 +85,14 @@ function netPaidUsdCents(a: OrderAttributes): number {
  * Lemon Squeezy does not send a per-delivery id, so the idempotency key is
  * derived from the resource id plus the state that makes the event unique.
  */
-function idempotencyKey(eventName: string, orderId: string, a: OrderAttributes | null): string {
+function idempotencyKey(
+  eventName: string,
+  orderId: string,
+  a: OrderAttributes | null,
+): string {
   if (eventName === "order_created") return `ls:order_created:${orderId}`;
-  if (eventName === "order_refunded") return `ls:order_refunded:${orderId}:${a?.refunded_amount ?? 0}`;
+  if (eventName === "order_refunded")
+    return `ls:order_refunded:${orderId}:${a?.refunded_amount ?? 0}`;
   return `ls:${eventName}:${orderId}:${a?.updated_at ?? "na"}`;
 }
 
@@ -84,7 +107,8 @@ async function handleOrderCreated(
   tx: Tx,
   orderId: string,
   attrs: OrderAttributes,
-  customData: unknown
+  customData: unknown,
+  alreadyFullyRefunded = false,
 ): Promise<Outcome> {
   if (attrs.status !== "paid") {
     return { status: "ignored", detail: `order status ${attrs.status}` };
@@ -92,37 +116,78 @@ async function handleOrderCreated(
 
   const verified = verifyCheckoutCustomData(customData);
   if (!verified) {
-    return { status: "rejected", detail: "custom data missing, unknown or signature mismatch" };
+    return {
+      status: "rejected",
+      detail: "custom data missing, unknown or signature mismatch",
+    };
   }
   const { userId, order } = verified;
 
   const paid = netPaidUsdCents(attrs);
   if (paid < order.amountCents) {
-    return { status: "rejected", detail: `underpaid: paid ${paid}c, expected ${order.amountCents}c` };
+    return {
+      status: "rejected",
+      detail: `underpaid: paid ${paid}c, expected ${order.amountCents}c`,
+    };
   }
 
-  const user = await tx.user.findUnique({ where: { id: userId }, select: { id: true } });
+  const user = await tx.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
   if (!user) throw new RetryableWebhookError(`user ${userId} not found`);
 
-  await fulfillOrder(tx, user.id, orderId, order);
-  return { status: "processed", detail: `${order.type} fulfilled` };
+  const queuedPurchaseId = await fulfillOrder(
+    tx,
+    user.id,
+    orderId,
+    order,
+    alreadyFullyRefunded,
+  );
+  return {
+    status: "processed",
+    detail: `${order.type} fulfilled`,
+    ...(queuedPurchaseId ? { queuedPurchaseId } : {}),
+  };
 }
 
-async function fulfillOrder(tx: Tx, userId: string, orderId: string, order: PricedOrder) {
+async function fulfillOrder(
+  tx: Tx,
+  userId: string,
+  orderId: string,
+  order: PricedOrder,
+  alreadyFullyRefunded: boolean,
+) {
   const amountPaid = new Prisma.Decimal(order.amountCents).div(100);
 
   if (order.type === "LEAD_PURCHASE") {
-    await tx.leadPurchase.create({
-      data: {
-        userId,
-        unlockedStates: order.states,
-        leadCount: order.quantity,
-        amountPaid,
-        status: "COMPLETED",
+    if (alreadyFullyRefunded) {
+      await tx.leadPurchase.create({
+        data: {
+          userId,
+          tier: order.tier,
+          unlockedStates: order.states,
+          leadCount: order.quantity,
+          amountPaid,
+          status: "REFUNDED",
+          refundedAt: new Date(),
+          referenceId: leadPurchaseRef(orderId),
+        },
+      });
+      return;
+    }
+    const purchase = await createQuantityLeadPurchase(tx, {
+      userId,
+      states: order.states,
+      quantity: order.quantity,
+      tier: order.tier,
+      funding: {
+        kind: "card",
         referenceId: leadPurchaseRef(orderId),
+        amountCents: order.amountCents,
       },
     });
-    return;
+    return purchase.status === "PROCESSING" ? purchase.orderId : undefined;
   }
 
   const updated = await tx.user.update({
@@ -140,14 +205,21 @@ async function fulfillOrder(tx: Tx, userId: string, orderId: string, order: Pric
       balanceAfter: updated.credits,
       description: `Wallet top-up via Lemon Squeezy (Order #${orderId})`,
       referenceId: topupRef(orderId),
-      metadata: { lsOrderId: orderId, tierId: order.tierId, amountCents: order.amountCents },
+      metadata: {
+        lsOrderId: orderId,
+        tierId: order.tierId,
+        amountCents: order.amountCents,
+      },
     },
   });
 }
 
-async function handleOrderRefunded(tx: Tx, orderId: string, attrs: OrderAttributes): Promise<Outcome> {
-  const isFull = attrs.status === "refunded" || attrs.refunded === true || attrs.refunded_amount >= attrs.total;
-  const fraction = isFull || attrs.total === 0 ? 1 : Math.min(1, attrs.refunded_amount / attrs.total);
+async function handleOrderRefunded(
+  tx: Tx,
+  orderId: string,
+  attrs: OrderAttributes,
+): Promise<Outcome> {
+  const isFull = isFullRefund(attrs);
 
   // Lead purchase paid by card: revoke access only on full refund.
   const purchase = await tx.leadPurchase.findUnique({
@@ -155,10 +227,40 @@ async function handleOrderRefunded(tx: Tx, orderId: string, attrs: OrderAttribut
     select: { id: true, status: true },
   });
   if (purchase) {
-    if (!isFull) return { status: "processed", detail: "partial refund on lead purchase; access kept" };
+    if (!isFull)
+      return {
+        status: "processed",
+        detail: "partial refund on lead purchase; access kept",
+      };
     await tx.leadPurchase.updateMany({
-      where: { id: purchase.id, status: "COMPLETED" },
+      where: {
+        id: purchase.id,
+        status: { in: ["COMPLETED", "PROCESSING", "FAILED", "PENDING"] },
+      },
       data: { status: "REFUNDED", refundedAt: new Date() },
+    });
+    await tx.unlockedLead.deleteMany({ where: { purchaseId: purchase.id } });
+    // Updating the job row invalidates any worker lease before it can allocate data.
+    await tx.leadFulfillmentJob.updateMany({
+      where: { purchaseId: purchase.id },
+      data: {
+        status: "FAILED",
+        leaseToken: null,
+        leaseUntil: null,
+        lastError: "CARD_PAYMENT_REFUNDED",
+      },
+    });
+    await tx.orderEmailNotification.updateMany({
+      where: {
+        purchaseId: purchase.id,
+        status: { in: ["PENDING", "SENDING"] },
+      },
+      data: {
+        status: "SKIPPED",
+        leaseToken: null,
+        leaseUntil: null,
+        lastError: "CARD_PAYMENT_REFUNDED",
+      },
     });
     return { status: "processed", detail: "lead purchase revoked" };
   }
@@ -167,17 +269,31 @@ async function handleOrderRefunded(tx: Tx, orderId: string, attrs: OrderAttribut
   const topup = await tx.walletTransaction.findFirst({
     where: {
       type: "RECHARGE",
-      OR: [{ referenceId: topupRef(orderId) }, { referenceId: { startsWith: `${topupRef(orderId)}_` } }],
+      OR: [
+        { referenceId: topupRef(orderId) },
+        { referenceId: { startsWith: `${topupRef(orderId)}_` } },
+      ],
     },
     select: { id: true, userId: true, amount: true },
   });
-  if (!topup) return { status: "ignored", detail: "no matching order found" };
+  if (!topup)
+    return { status: "pending", detail: "awaiting matching order_created" };
 
   const purchasedCredits = Math.trunc(Number(topup.amount));
-  const targetRevoked = isFull ? purchasedCredits : Math.floor(purchasedCredits * fraction);
+  const targetRevoked =
+    isFull || attrs.total === 0
+      ? purchasedCredits
+      : Number(
+          (BigInt(purchasedCredits) *
+            BigInt(Math.min(attrs.refunded_amount, attrs.total))) /
+            BigInt(attrs.total),
+        );
 
   const prior = await tx.walletTransaction.aggregate({
-    where: { type: "ADJUSTMENT", metadata: { path: ["lsOrderId"], equals: orderId } },
+    where: {
+      type: "ADJUSTMENT",
+      metadata: { path: ["lsOrderId"], equals: orderId },
+    },
     _sum: { amount: true },
   });
   const alreadyRevoked = Math.abs(Number(prior._sum.amount ?? 0));
@@ -199,13 +315,20 @@ async function handleOrderRefunded(tx: Tx, orderId: string, attrs: OrderAttribut
         balanceAfter: updated.credits,
         description: `Credits reversed: Lemon Squeezy refund (Order #${orderId})`,
         referenceId: `ls_refund_${orderId}_${attrs.refunded_amount}`,
-        metadata: { lsOrderId: orderId, refundedAmountCents: attrs.refunded_amount, full: isFull },
+        metadata: {
+          lsOrderId: orderId,
+          refundedAmountCents: attrs.refunded_amount,
+          full: isFull,
+        },
       },
     });
   }
 
   if (isFull) {
-    await tx.walletTransaction.update({ where: { id: topup.id }, data: { status: "REFUNDED" } });
+    await tx.walletTransaction.update({
+      where: { id: topup.id },
+      data: { status: "REFUNDED" },
+    });
   }
 
   return { status: "processed", detail: `revoked ${toRevoke} credits` };
@@ -215,11 +338,70 @@ async function handleOrderRefunded(tx: Tx, orderId: string, attrs: OrderAttribut
 /* Route                                                               */
 /* ------------------------------------------------------------------ */
 
-async function recordEvent(eventId: string, status: string, payload: Prisma.InputJsonValue) {
+function isFullRefund(attrs: OrderAttributes) {
+  // A refund flag alone does not prove that a cumulative partial refund is full.
+  return (
+    attrs.status === "refunded" ||
+    (attrs.total > 0 && attrs.refunded_amount >= attrs.total)
+  );
+}
+async function pendingRefunds(tx: Tx, orderId: string) {
+  // Include historical ignored refunds so a provider retry can heal the previous bug.
+  return tx.webhookEvent.findMany({
+    where: {
+      provider: "lemonsqueezy",
+      eventId: { startsWith: `ls:order_refunded:${orderId}:` },
+      status: { in: ["pending", "ignored"] },
+    },
+    orderBy: { processedAt: "asc" },
+  });
+}
+function refundAttributes(
+  payload: unknown,
+  orderId: string,
+): OrderAttributes | null {
+  const envelope = webhookSchema.safeParse(payload);
+  if (
+    !envelope.success ||
+    envelope.data.meta.event_name !== "order_refunded" ||
+    envelope.data.data.type !== "orders" ||
+    envelope.data.data.id !== orderId
+  )
+    return null;
+  const attributes = orderAttributesSchema.safeParse(
+    envelope.data.data.attributes,
+  );
+  return attributes.success ? attributes.data : null;
+}
+async function reconcileRefunds(
+  tx: Tx,
+  orderId: string,
+  rows: Awaited<ReturnType<typeof pendingRefunds>>,
+) {
+  for (const row of rows) {
+    const attrs = refundAttributes(row.payload, orderId);
+    if (!attrs) continue;
+    const outcome = await handleOrderRefunded(tx, orderId, attrs);
+    await tx.webhookEvent.update({
+      where: { eventId: row.eventId },
+      data: { status: outcome.status, processedAt: new Date() },
+    });
+  }
+}
+async function recordEvent(
+  eventId: string,
+  status: string,
+  payload: Prisma.InputJsonValue,
+) {
+  // Failure logging must never overwrite a concurrently committed successful event.
   await db.webhookEvent.upsert({
     where: { eventId },
     create: { eventId, provider: "lemonsqueezy", status, payload },
-    update: { status, processedAt: new Date() },
+    update: {},
+  });
+  await db.webhookEvent.updateMany({
+    where: { eventId, status: { in: ["failed", "pending"] } },
+    data: { status, processedAt: new Date() },
   });
 }
 
@@ -227,7 +409,10 @@ export async function POST(req: NextRequest) {
   const secret = getLemonSqueezyWebhookSecret();
   if (!secret) {
     console.error("[LS_WEBHOOK] LEMONSQUEEZY_WEBHOOK_SECRET is not configured");
-    return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Webhook not configured" },
+      { status: 500 },
+    );
   }
 
   const rawBody = await req.text();
@@ -254,62 +439,165 @@ export async function POST(req: NextRequest) {
   const orderId = data.id;
   const payload = json as Prisma.InputJsonValue;
 
-  const isOrderEvent = data.type === "orders" && (eventName === "order_created" || eventName === "order_refunded");
-  const attrsResult = isOrderEvent ? orderAttributesSchema.safeParse(data.attributes) : null;
+  const isOrderEvent =
+    data.type === "orders" &&
+    (eventName === "order_created" || eventName === "order_refunded");
+  const attrsResult = isOrderEvent
+    ? orderAttributesSchema.safeParse(data.attributes)
+    : null;
   const attrs = attrsResult?.success ? attrsResult.data : null;
   const eventId = idempotencyKey(eventName, orderId, attrs);
 
   if (isOrderEvent && !attrs) {
-    await recordEvent(eventId, "rejected", payload);
-    return NextResponse.json({ error: "Malformed order attributes" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Malformed order attributes" },
+      { status: 400 },
+    );
   }
 
   const expectedStore = getLemonSqueezyStoreId();
   if (attrs?.store_id && expectedStore && attrs.store_id !== expectedStore) {
-    await recordEvent(eventId, "rejected", payload);
-    return NextResponse.json({ received: true, ignored: "foreign store" }, { status: 200 });
-  }
-
-  const existing = await db.webhookEvent.findUnique({ where: { eventId }, select: { status: true } });
-  if (existing && existing.status !== "failed") {
-    return NextResponse.json({ received: true, duplicate: true }, { status: 200 });
+    return NextResponse.json(
+      { received: true, ignored: "foreign store" },
+      { status: 200 },
+    );
   }
 
   try {
-    const outcome = await db.$transaction(async (tx): Promise<Outcome> => {
-      let result: Outcome;
-      if (eventName === "order_created" && attrs) {
-        result = await handleOrderCreated(tx, orderId, attrs, meta.custom_data);
-      } else if (eventName === "order_refunded" && attrs) {
-        result = await handleOrderRefunded(tx, orderId, attrs);
-      } else {
-        result = { status: "ignored", detail: `unhandled event ${eventName}` };
+    const outcome = await db.$transaction(
+      async (tx): Promise<Outcome> => {
+        // Shared lock exists even before an order/top-up row exists. ReadCommitted reads
+        // AFTER this lock see every prior committed cumulative refund and its ledger delta.
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`lemonsqueezy:order:${orderId}`}, 0))`;
+        const existing = await tx.webhookEvent.findUnique({
+          where: { eventId },
+          select: { status: true },
+        });
+        const refunds =
+          eventName === "order_created"
+            ? await pendingRefunds(tx, orderId)
+            : [];
+        if (existing && ["processed", "rejected"].includes(existing.status)) {
+          if (existing.status === "processed" && eventName === "order_created")
+            await reconcileRefunds(tx, orderId, refunds);
+          return { status: "ignored", detail: "duplicate" };
+        }
+        let result: Outcome;
+        if (eventName === "order_created" && attrs) {
+          // A legacy pre-existing deterministic payment reference is also idempotent.
+          const verified = verifyCheckoutCustomData(meta.custom_data);
+          const known =
+            !verified || attrs.status !== "paid"
+              ? null
+              : verified.order.type === "LEAD_PURCHASE"
+                ? await tx.leadPurchase.findUnique({
+                    where: { referenceId: leadPurchaseRef(orderId) },
+                    select: { id: true },
+                  })
+                : await tx.walletTransaction.findFirst({
+                    where: { referenceId: topupRef(orderId) },
+                    select: { id: true },
+                  });
+          result = known
+            ? { status: "processed", detail: "existing payment reconciled" }
+            : await handleOrderCreated(
+                tx,
+                orderId,
+                attrs,
+                meta.custom_data,
+                refunds.some((row) => {
+                  const a = refundAttributes(row.payload, orderId);
+                  return !!a && isFullRefund(a);
+                }),
+              );
+          if (result.status === "processed")
+            await reconcileRefunds(tx, orderId, refunds);
+        } else if (eventName === "order_refunded" && attrs) {
+          result = await handleOrderRefunded(tx, orderId, attrs);
+        } else {
+          result = {
+            status: "ignored",
+            detail: `unhandled event ${eventName}`,
+          };
+        }
+        await tx.webhookEvent.upsert({
+          where: { eventId },
+          create: {
+            eventId,
+            provider: "lemonsqueezy",
+            status: result.status,
+            payload,
+          },
+          update: { status: result.status, payload, processedAt: new Date() },
+        });
+        return result;
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+        maxWait: 10000,
+        timeout: 30000,
+      },
+    );
+    if (outcome.queuedPurchaseId) {
+      const purchaseId = outcome.queuedPurchaseId;
+      try {
+        after(async () => {
+          try {
+            await sendOrderProcessingEmail(purchaseId);
+          } catch {
+            console.warn("[LS_PROCESSING_EMAIL_DEFERRED]", { purchaseId });
+          }
+          try {
+            await processNextFulfillment({ purchaseId });
+          } catch {
+            console.warn("[LS_FULFILLMENT_DEFERRED]", { purchaseId });
+          }
+        });
+      } catch {
+        console.warn("[LS_FULFILLMENT_DEFERRED]", { purchaseId });
       }
-
-      await tx.webhookEvent.upsert({
-        where: { eventId },
-        create: { eventId, provider: "lemonsqueezy", status: result.status, payload },
-        update: { status: result.status, processedAt: new Date() },
-      });
-      return result;
-    });
+    }
+    if (outcome.detail === "duplicate")
+      return NextResponse.json(
+        { received: true, duplicate: true },
+        { status: 200 },
+      );
 
     if (outcome.status === "rejected") {
       console.error(`[LS_WEBHOOK_REJECTED] ${eventId}: ${outcome.detail}`);
     } else {
-      console.info(`[LS_WEBHOOK] ${eventId}: ${outcome.status} (${outcome.detail})`);
+      console.info(
+        `[LS_WEBHOOK] ${eventId}: ${outcome.status} (${outcome.detail})`,
+      );
     }
-    return NextResponse.json({ received: true, status: outcome.status }, { status: 200 });
+    return NextResponse.json(
+      { received: true, status: outcome.status },
+      { status: 200 },
+    );
   } catch (error: unknown) {
-    // Unique constraint on referenceId/eventId => a concurrent delivery already won.
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return NextResponse.json({ received: true, duplicate: true }, { status: 200 });
+    // A unique violation in allocation is not proof of a duplicated payment.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      const committed = await db.webhookEvent.findUnique({
+        where: { eventId },
+        select: { status: true },
+      });
+      if (committed?.status === "processed")
+        return NextResponse.json(
+          { received: true, duplicate: true },
+          { status: 200 },
+        );
     }
 
     console.error(`[LS_WEBHOOK_FAILED] ${eventId}:`, error);
     await recordEvent(eventId, "failed", payload).catch(() => undefined);
     // Non-2xx so Lemon Squeezy retries and the failure is visible in its dashboard.
     const status = error instanceof RetryableWebhookError ? 422 : 500;
-    return NextResponse.json({ error: "Webhook processing failed" }, { status });
+    return NextResponse.json(
+      { error: "Webhook processing failed" },
+      { status },
+    );
   }
 }

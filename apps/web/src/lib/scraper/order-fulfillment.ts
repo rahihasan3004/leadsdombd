@@ -145,9 +145,12 @@ export async function refundFulfillment(
       await guardLease(tx, job, token);
       const changed = await tx.leadPurchase.updateMany({
         where: { id: job.purchaseId, status: "PROCESSING" },
-        data: { status: "REFUNDED", refundedAt: new Date() },
+        data:
+          job.creditsHeld > 0
+            ? { status: "REFUNDED", refundedAt: new Date() }
+            : { status: "FAILED" },
       });
-      if (changed.count === 1) {
+      if (changed.count === 1 && job.creditsHeld > 0) {
         const user = await tx.user.update({
           where: { id: job.purchase.userId },
           data: { credits: { increment: job.creditsHeld } },
@@ -174,6 +177,20 @@ export async function refundFulfillment(
         });
         await enqueueOrderEmail(tx, job.purchaseId, "FAILED");
       }
+      if (changed.count === 1 && job.creditsHeld === 0) {
+        await tx.unlockedLead.deleteMany({
+          where: { purchaseId: job.purchaseId },
+        });
+        await tx.auditLog.create({
+          data: {
+            userId: job.purchase.userId,
+            action: "card_order.refund_required",
+            resource: "LeadPurchase",
+            resourceId: job.purchaseId,
+            details: { reason, externalRefundRequired: true },
+          },
+        });
+      }
       await tx.leadFulfillmentRun.updateMany({
         where: { jobId: job.id, status: { notIn: ["DONE", "FAILED"] } },
         data: { status: "FAILED" },
@@ -191,7 +208,7 @@ export async function refundFulfillment(
     },
     { timeout: 30_000 },
   );
-  if (refunded) {
+  if (refunded && job.creditsHeld > 0) {
     try {
       await sendOrderFailedEmail(job.purchaseId);
     } catch {
@@ -275,7 +292,11 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
     }
     if (job.expiresAt <= now) {
       await refundFulfillment(job, token, "FULFILLMENT_EXPIRED");
-      return { worked: true, purchaseId: job.purchaseId, status: "REFUNDED" };
+      return {
+        worked: true,
+        purchaseId: job.purchaseId,
+        status: job.creditsHeld > 0 ? "REFUNDED" : "FAILED",
+      };
     }
     if (await completeFulfillment(job, token))
       return { worked: true, purchaseId: job.purchaseId, status: "COMPLETED" };
@@ -295,7 +316,10 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
       return {
         worked: true,
         purchaseId: job.purchaseId,
-        status: result.status,
+        status:
+          result.status === "REFUNDED" && job.creditsHeld === 0
+            ? "FAILED"
+            : result.status,
       };
     }
     const ambiguous = await db.leadFulfillmentRun.findFirst({
@@ -362,7 +386,7 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
             return {
               worked: true,
               purchaseId: job.purchaseId,
-              status: "REFUNDED",
+              status: job.creditsHeld > 0 ? "REFUNDED" : "FAILED",
             };
           }
           throw error;
@@ -378,7 +402,11 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
       if (["ERROR", "ABORTED"].includes(status.status)) {
         await persistRun(job, token, run.id, { status: "FAILED" });
         await refundFulfillment(job, token, "LOBSTR_RUN_FAILED");
-        return { worked: true, purchaseId: job.purchaseId, status: "REFUNDED" };
+        return {
+          worked: true,
+          purchaseId: job.purchaseId,
+          status: job.creditsHeld > 0 ? "REFUNDED" : "FAILED",
+        };
       }
       if (status.status === "DONE" && status.export_done === true) {
         await persistRun(job, token, run.id, { status: "INGESTING" });
@@ -456,7 +484,11 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
     } else if (!run) {
       if (job.purchase.tier === "PHONE_ONLY") {
         await refundFulfillment(job, token, "INSUFFICIENT_QUALIFIED_RESULTS");
-        return { worked: true, purchaseId: job.purchaseId, status: "REFUNDED" };
+        return {
+          worked: true,
+          purchaseId: job.purchaseId,
+          status: job.creditsHeld > 0 ? "REFUNDED" : "FAILED",
+        };
       }
       const waiting = await db.leadFulfillmentCandidate.findMany({
         where: {
@@ -470,7 +502,11 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
       });
       if (!waiting.length) {
         await refundFulfillment(job, token, "INSUFFICIENT_VERIFIED_RESULTS");
-        return { worked: true, purchaseId: job.purchaseId, status: "REFUNDED" };
+        return {
+          worked: true,
+          purchaseId: job.purchaseId,
+          status: job.creditsHeld > 0 ? "REFUNDED" : "FAILED",
+        };
       }
       if (!options.verifyEmail) {
         nextDelay = 30_000;
@@ -570,7 +606,11 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
     });
     if (error instanceof LobstrError && error.code === "CONFIGURATION") {
       await refundFulfillment(job, token, "LOBSTR_CONFIGURATION_ERROR");
-      return { worked: true, purchaseId: job.purchaseId, status: "REFUNDED" };
+      return {
+        worked: true,
+        purchaseId: job.purchaseId,
+        status: job.creditsHeld > 0 ? "REFUNDED" : "FAILED",
+      };
     }
     errorCode =
       error instanceof LobstrError
@@ -578,7 +618,11 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
         : "FULFILLMENT_RETRY";
     if (job.failureCount >= 7) {
       await refundFulfillment(job, token, "FULFILLMENT_RETRIES_EXHAUSTED");
-      return { worked: true, purchaseId: job.purchaseId, status: "REFUNDED" };
+      return {
+        worked: true,
+        purchaseId: job.purchaseId,
+        status: job.creditsHeld > 0 ? "REFUNDED" : "FAILED",
+      };
     }
     nextDelay = Math.min(300_000, 5_000 * 2 ** job.failureCount);
     return { worked: true, purchaseId: job.purchaseId, status: "RETRYING" };

@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   US_STATES,
   calculateLeadPrice,
+  type LeadTier,
   findTierById,
   VOLUME_PRICING_TIERS,
 } from "@fine-leads/utils";
@@ -18,7 +19,9 @@ export const LEAD_PURCHASE_MIN_QUANTITY = 100;
 export const LEAD_PURCHASE_MAX_QUANTITY = 100_000;
 const MIN_CHECKOUT_CENTS = 50;
 
-const VALID_STATE_CODES: ReadonlySet<string> = new Set(US_STATES.map((s) => s.code));
+const VALID_STATE_CODES: ReadonlySet<string> = new Set(
+  US_STATES.map((s) => s.code),
+);
 const TIER_IDS = VOLUME_PRICING_TIERS.map((t) => t.id) as [string, ...string[]];
 
 /** Validates, upper-cases, de-duplicates and sorts US state codes. */
@@ -39,6 +42,7 @@ export const checkoutRequestSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("LEAD_PURCHASE"),
     states: stateCodesSchema,
+    tier: z.enum(["PHONE_ONLY", "VERIFIED_EMAIL"]).default("VERIFIED_EMAIL"),
     quantity: z
       .number()
       .int()
@@ -47,7 +51,7 @@ export const checkoutRequestSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
-export type CheckoutRequest = z.infer<typeof checkoutRequestSchema>;
+export type CheckoutRequest = z.input<typeof checkoutRequestSchema>;
 
 export type PricedOrder =
   | {
@@ -60,6 +64,7 @@ export type PricedOrder =
       type: "LEAD_PURCHASE";
       states: string[];
       quantity: number;
+      tier: LeadTier;
       amountCents: number;
     };
 
@@ -79,11 +84,13 @@ export function priceOrder(request: CheckoutRequest): PricedOrder {
   }
 
   const amountCents = Math.round(calculateLeadPrice(request.quantity) * 100);
-  if (amountCents < MIN_CHECKOUT_CENTS) throw new PricingError("Order total too low");
+  if (amountCents < MIN_CHECKOUT_CENTS)
+    throw new PricingError("Order total too low");
   return {
     type: "LEAD_PURCHASE",
     states: request.states,
     quantity: request.quantity,
+    tier: request.tier ?? "VERIFIED_EMAIL",
     amountCents,
   };
 }
@@ -98,29 +105,70 @@ function getSigningKey(): string {
   const secret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET?.trim();
   if (!secret) throw new Error("LEMONSQUEEZY_WEBHOOK_SECRET is not configured");
   // Domain-separated so the raw webhook secret is never reused directly.
-  return crypto.createHmac("sha256", secret).update("leadsdom:checkout-custom-data:v1").digest("hex");
+  return crypto
+    .createHmac("sha256", secret)
+    .update("leadsdom:checkout-custom-data:v1")
+    .digest("hex");
 }
 
 function canonicalPayload(userId: string, order: PricedOrder): string {
   return order.type === "WALLET_TOPUP"
-    ? ["v1", userId, order.type, order.tierId, order.credits, order.amountCents].join("|")
-    : ["v1", userId, order.type, order.states.join(","), order.quantity, order.amountCents].join("|");
+    ? [
+        "v1",
+        userId,
+        order.type,
+        order.tierId,
+        order.credits,
+        order.amountCents,
+      ].join("|")
+    : [
+        "v1",
+        userId,
+        order.type,
+        order.states.join(","),
+        order.quantity,
+        order.amountCents,
+      ].join("|");
 }
 
-function sign(userId: string, order: PricedOrder): string {
-  return crypto.createHmac("sha256", getSigningKey()).update(canonicalPayload(userId, order)).digest("hex");
+function sign(userId: string, order: PricedOrder, tierBound = false): string {
+  const payload =
+    tierBound && order.type === "LEAD_PURCHASE"
+      ? [
+          "v2",
+          userId,
+          order.type,
+          order.states.join(","),
+          order.quantity,
+          order.tier,
+          order.amountCents,
+        ].join("|")
+      : canonicalPayload(userId, order);
+  return crypto
+    .createHmac("sha256", getSigningKey())
+    .update(payload)
+    .digest("hex");
 }
 
-export function buildCheckoutCustomData(userId: string, order: PricedOrder): CheckoutCustomData {
+export function buildCheckoutCustomData(
+  userId: string,
+  order: PricedOrder,
+): CheckoutCustomData {
   const base: CheckoutCustomData = {
     user_id: userId,
     type: order.type,
     amount_cents: String(order.amountCents),
-    sig: sign(userId, order),
+    sig: sign(userId, order, order.type === "LEAD_PURCHASE"),
   };
   return order.type === "WALLET_TOPUP"
     ? { ...base, tier_id: order.tierId, credits: String(order.credits) }
-    : { ...base, states: order.states.join(","), quantity: String(order.quantity) };
+    : {
+        ...base,
+        version: "v2",
+        tier: order.tier,
+        states: order.states.join(","),
+        quantity: String(order.quantity),
+      };
 }
 
 function safeEqualHex(a: string, b: string): boolean {
@@ -133,6 +181,8 @@ const customDataSchema = z.object({
   type: z.enum(["WALLET_TOPUP", "LEAD_PURCHASE"]),
   sig: z.string().min(1),
   tier_id: z.string().optional(),
+  version: z.literal("v2").optional(),
+  tier: z.enum(["PHONE_ONLY", "VERIFIED_EMAIL"]).optional(),
   amount_cents: z.string().regex(/^\d+$/).optional(),
   states: z.string().optional(),
   quantity: z.string().optional(),
@@ -145,7 +195,7 @@ const customDataSchema = z.object({
  * Returns null if anything was tampered with or is unknown.
  */
 export function verifyCheckoutCustomData(
-  raw: unknown
+  raw: unknown,
 ): { userId: string; order: PricedOrder } | null {
   const parsed = customDataSchema.safeParse(raw);
   if (!parsed.success) return null;
@@ -153,7 +203,10 @@ export function verifyCheckoutCustomData(
 
   let request: CheckoutRequest;
   if (data.type === "WALLET_TOPUP") {
-    const result = checkoutRequestSchema.safeParse({ type: data.type, tierId: data.tier_id });
+    const result = checkoutRequestSchema.safeParse({
+      type: data.type,
+      tierId: data.tier_id,
+    });
     if (!result.success) return null;
     request = result.data;
   } else {
@@ -161,6 +214,7 @@ export function verifyCheckoutCustomData(
       type: data.type,
       states: (data.states ?? "").split(",").filter(Boolean),
       quantity: Number(data.quantity),
+      tier: data.version === "v2" ? data.tier : "VERIFIED_EMAIL",
     });
     if (!result.success) return null;
     request = result.data;
@@ -175,12 +229,22 @@ export function verifyCheckoutCustomData(
 
   if (order.type === "WALLET_TOPUP" && data.amount_cents !== undefined) {
     const quotedCents = Number(data.amount_cents);
-    if (!Number.isSafeInteger(quotedCents) || quotedCents < MIN_CHECKOUT_CENTS) return null;
+    if (!Number.isSafeInteger(quotedCents) || quotedCents < MIN_CHECKOUT_CENTS)
+      return null;
     // New checkouts are still priced by priceOrder(). The signature below proves
     // this amount was server-issued, including quotes from before a tier update.
     order = { ...order, amountCents: quotedCents };
   }
 
-  if (!safeEqualHex(data.sig, sign(data.user_id, order))) return null;
+  if (
+    order.type === "LEAD_PURCHASE" &&
+    data.version !== "v2" &&
+    data.tier !== undefined
+  )
+    return null;
+  if (order.type === "LEAD_PURCHASE" && data.version === "v2" && !data.tier)
+    return null;
+  if (!safeEqualHex(data.sig, sign(data.user_id, order, data.version === "v2")))
+    return null;
   return { userId: data.user_id, order };
 }

@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 const { authMock, dbMock } = vi.hoisted(() => ({
   authMock: vi.fn(),
   dbMock: {
+    user: { findUnique: vi.fn() },
     agent: { findMany: vi.fn(), findUnique: vi.fn(), count: vi.fn() },
     leadPurchase: { findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn() },
     unlockedLead: { findMany: vi.fn(), count: vi.fn() },
@@ -75,6 +76,7 @@ beforeEach(() => {
   dbMock.agent.findUnique.mockResolvedValue(lead);
   dbMock.agent.count.mockResolvedValue(1);
   dbMock.subscription.findFirst.mockResolvedValue(null);
+  dbMock.user.findUnique.mockResolvedValue({ role: "USER", tokenVersion: 0 });
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
 
@@ -336,20 +338,17 @@ describe("alternative agent access routes", () => {
         where: {
           userId: "user-1",
           agentId: { in: ["a1"] },
-          purchase: { status: "COMPLETED" },
+          purchase: { userId: "user-1", status: "COMPLETED" },
         },
       }),
     );
-    expect(dbMock.leadPurchase.findMany.mock.calls[0][0].where).toMatchObject({
-      status: "COMPLETED",
-      unlockedLeads: { none: {} },
-    });
+    expect(dbMock.leadPurchase.findMany).not.toHaveBeenCalled();
   });
   it("avoids queries for an empty page", async () => {
     expect((await getAgentLeadAccess("user-1", [])).size).toBe(0);
     expect(dbMock.unlockedLead.findMany).not.toHaveBeenCalled();
   });
-  it("keeps legacy state-pack access but not unrelated states", async () => {
+  it("never grants state-wide access to zero-allocation legacy quantity orders", async () => {
     dbMock.leadPurchase.findMany.mockResolvedValue([
       { tier: "VERIFIED_EMAIL", unlockedStates: ["CA"] },
     ]);
@@ -357,7 +356,7 @@ describe("alternative agent access routes", () => {
       lead,
       { id: "tx1", state: "TX" },
     ]);
-    expect(access.get("a1")).toBe("VERIFIED_EMAIL");
+    expect(access.has("a1")).toBe(false);
     expect(access.has("tx1")).toBe(false);
   });
   it("redacts full email in the agent list for a phone-tier unlock", async () => {
@@ -400,9 +399,7 @@ describe("alternative agent access routes", () => {
     ).json();
     expect(body.isUnlocked).toBe(false);
     expect(body.email).not.toBe(lead.email);
-    expect(
-      dbMock.leadPurchase.findMany.mock.calls[0][0].where.unlockedLeads,
-    ).toEqual({ none: {} });
+    expect(dbMock.leadPurchase.findMany).not.toHaveBeenCalled();
   });
   it("includes verified email for an individually unlocked full-pack lead", async () => {
     dbMock.unlockedLead.findMany.mockResolvedValue([
@@ -414,5 +411,83 @@ describe("alternative agent access routes", () => {
       })
     ).json();
     expect(body.email).toBe(lead.email);
+  });
+});
+
+describe("P0 explicit entitlement regression", () => {
+  const detail = () =>
+    agentGET(request("/api/agents/a1"), {
+      params: Promise.resolve({ id: "a1" }),
+    });
+  it.each(["FREE", "PRO", "ENTERPRISE"])(
+    "%s ACTIVE subscription never grants lead access",
+    async (tier) => {
+      dbMock.subscription.findFirst.mockResolvedValue({
+        id: "sub",
+        tier,
+        status: "ACTIVE",
+      });
+      const body = await (await detail()).json();
+      expect(body.isUnlocked).toBe(false);
+      expect(body.email).not.toBe(lead.email);
+      expect(body.socialProfiles).toBeUndefined();
+      expect(dbMock.subscription.findFirst).not.toHaveBeenCalled();
+    },
+  );
+  it("ACTIVE subscription cannot upgrade a phone-only unlock", async () => {
+    dbMock.subscription.findFirst.mockResolvedValue({
+      id: "free-sub",
+      tier: "FREE",
+      status: "ACTIVE",
+    });
+    dbMock.unlockedLead.findMany.mockResolvedValue([
+      { agentId: "a1", purchase: { tier: "PHONE_ONLY" } },
+    ]);
+    expect(await (await detail()).json()).toMatchObject({
+      email: null,
+      socialProfiles: null,
+      leadTier: "PHONE_ONLY",
+    });
+  });
+  it("explicit verified unlock includes verified email", async () => {
+    dbMock.unlockedLead.findMany.mockResolvedValue([
+      { agentId: "a1", purchase: { tier: "VERIFIED_EMAIL" } },
+    ]);
+    expect(await (await detail()).json()).toMatchObject({
+      email: lead.email,
+      leadTier: "VERIFIED_EMAIL",
+    });
+  });
+  it.each(["USER", null])(
+    "stale admin JWT cannot bypass fresh role %s",
+    async (role) => {
+      authMock.mockResolvedValue({
+        user: { id: "user-1", role: "ADMIN", tokenVersion: 0 },
+      });
+      dbMock.user.findUnique.mockResolvedValue(
+        role ? { role, tokenVersion: 0 } : null,
+      );
+      expect((await (await detail()).json()).isUnlocked).toBe(false);
+    },
+  );
+  it("revoked admin token is denied even if DB role is still admin", async () => {
+    authMock.mockResolvedValue({
+      user: { id: "user-1", role: "ADMIN", tokenVersion: 0 },
+    });
+    dbMock.user.findUnique.mockResolvedValue({
+      role: "ADMIN",
+      tokenVersion: 1,
+    });
+    expect((await (await detail()).json()).isUnlocked).toBe(false);
+  });
+  it("fresh authorized admin retains admin access", async () => {
+    authMock.mockResolvedValue({
+      user: { id: "user-1", role: "ADMIN", tokenVersion: 2 },
+    });
+    dbMock.user.findUnique.mockResolvedValue({
+      role: "ADMIN",
+      tokenVersion: 2,
+    });
+    expect((await (await detail()).json()).email).toBe(lead.email);
   });
 });

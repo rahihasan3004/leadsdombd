@@ -36,7 +36,7 @@ const PUBLIC_FIELDS = [
 
 export async function GET(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  props: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await props.params;
@@ -58,19 +58,24 @@ export async function GET(
 
     let tier: LeadTier | undefined;
     if (session?.user?.id) {
-      const [access, subscription] = await Promise.all([
-        getAgentLeadAccess(session.user.id, [agent]),
-        db.subscription.findFirst({
-          where: { userId: session.user.id, status: "ACTIVE" }, select: { id: true },
-        }),
-      ]);
-      // A pre-existing active subscription is an independent full-data entitlement.
-      tier = subscription ? "VERIFIED_EMAIL" : access.get(agent.id);
+      tier = (await getAgentLeadAccess(session.user.id, [agent])).get(agent.id);
     }
     const isUnlocked = tier !== undefined;
-
-    const userRole = session?.user.role;
-    const isAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN";
+    // Raw admin access must use a fresh principal, not a potentially stale JWT role.
+    let isAdmin = false;
+    if (
+      session?.user?.id &&
+      ["ADMIN", "SUPER_ADMIN"].includes(session.user.role)
+    ) {
+      const principal = await db.user.findUnique({
+        where: { id: session.user.id },
+        select: { role: true, tokenVersion: true },
+      });
+      isAdmin =
+        !!principal &&
+        ["ADMIN", "SUPER_ADMIN"].includes(principal.role) &&
+        principal.tokenVersion === (session.user.tokenVersion ?? 0);
+    }
 
     if (!isUnlocked && !isAdmin) {
       return NextResponse.json({
@@ -94,7 +99,7 @@ export async function GET(
     console.error("[AGENT_DETAIL_ERROR]", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
