@@ -6,9 +6,9 @@ import { advanceOrderFulfillment } from "@/lib/scraper/fulfillment-runner";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 120;
-const STALE_ORDER_MS = 3 * 60_000;
+const SYNC_THROTTLE_MS = 8000;
 
-/** Owner-only fallback. Never accepts provider run IDs, result data or tier overrides. */
+/** Active owner-only sync. Never accepts provider run IDs, result data or tier overrides. */
 export async function POST(
   request: Request,
   context: { params: Promise<{ purchaseId: string }> },
@@ -27,7 +27,6 @@ export async function POST(
       where: { id: purchaseId, userId: session.user.id },
       select: {
         status: true,
-        createdAt: true,
         fulfillmentJob: { select: { id: true } },
       },
     });
@@ -40,8 +39,6 @@ export async function POST(
       );
     if (purchase.status !== "PROCESSING")
       return respond(purchase.status, "NOT_PENDING");
-    if (purchase.createdAt.getTime() > Date.now() - STALE_ORDER_MS)
-      return respond(purchase.status, "TOO_RECENT");
     if (!purchase.fulfillmentJob)
       return respond(purchase.status, "NO_FULFILLMENT_JOB");
     // DB throttle shared across instances/tabs; also prevents stealing an active worker lease.
@@ -51,7 +48,7 @@ export async function POST(
         id: purchase.fulfillmentJob.id,
         purchaseId,
         status: { in: ["QUEUED", "ACTIVE", "NEEDS_REVIEW"] },
-        updatedAt: { lte: new Date(Date.now() - 15_000) },
+        updatedAt: { lte: new Date(Date.now() - SYNC_THROTTLE_MS) },
         OR: [{ leaseUntil: null }, { leaseUntil: { lte: now } }],
       },
       data: { updatedAt: now },

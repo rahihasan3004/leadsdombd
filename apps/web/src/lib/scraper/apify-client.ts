@@ -228,9 +228,9 @@ export class CompassApifyClient {
             language: "en",
             skipClosedPlaces: true,
             scrapePlaceDetailPage: true,
-            scrapeContacts:
-              parsed.leadTier === "VERIFIED_EMAIL" ||
-              process.env.APIFY_SCRAPE_CONTACTS === "true",
+            // Website/social contact extraction is chargeable and strictly opt-in by purchased tier.
+            // PHONE_ONLY (and untyped admin smoke tests) always stay Maps-only.
+            scrapeContacts: parsed.leadTier === "VERIFIED_EMAIL",
             maxReviews: 0,
             maxImages: 0,
           },

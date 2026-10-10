@@ -8,7 +8,7 @@ Uses typed REST calls; no SDK dependency is required. Target actor: `compass/cra
 - `APIFY_FULFILLMENT_ENABLED=true` and `SCRAPER_PROVIDER=apify`: primary provider for new shortage jobs.
 - Alternatively, keep Lobstr primary and set `SCRAPER_FALLBACK_PROVIDER=apify`. Fallback is allowed only when a Lobstr dispatch was definitely rejected or is unconfigured. Ambiguous paid POSTs and quota/rate-limit failures do not trigger fallback.
 - `APIFY_MAX_RUN_CHARGE_USD=1`: conservative per-run spend ceiling; adjust explicitly for production volumes.
-- `APIFY_SCRAPE_CONTACTS=true`: optional paid website/contact enrichment for non-email runs; defaults off. VERIFIED_EMAIL runs enable it automatically. Discovered email is never treated as SMTP-verified without independent evidence.
+- Website/social contact crawling is enabled strictly for explicit `VERIFIED_EMAIL` dispatches. `PHONE_ONLY` and untyped admin smoke tests always set `scrapeContacts=false`, regardless of the legacy `APIFY_SCRAPE_CONTACTS` setting. Maps detail scraping remains enabled to obtain native phone/address fields; reviews and images remain disabled. Discovered email is never treated as SMTP-verified without independent evidence.
 
 Defaults preserve existing Lobstr behavior. Apify-selected new jobs use the existing durable serial fulfillment pipeline. Lobstr's 50-slot parallel capacity reservation is not applied to Apify. Existing Lobstr parallel jobs continue with Lobstr; they are not migrated in flight.
 
@@ -39,3 +39,7 @@ The default `APIFY_EMAIL_VALIDATION_MODE=syntax` accepts extracted emails only a
 `syntax_valid` and `mx_valid` are APIFY-only tier eligibility statuses, NOT proof of mailbox deliverability; `isVerified` remains false. The legacy `isDeliverable` boolean acts as the inventory eligibility flag for these staged statuses. Stronger SMTP evidence and hard failures are not overwritten. A mode upgrade excludes weaker statuses until revalidated. Phone-only contact/social redaction remains unchanged.
 
 VERIFIED_EMAIL runs request at least `max(2*N,20)` candidate capacity and enable contact extraction. Ingestion scans the buffer but canonical allocation still grants exactly N leads and completes immediately once sufficient inventory is eligible. This buffer cannot guarantee N eligible emails and the existing paid-run budget may cap results; genuine shortages/errors retain exactly-once refund handling. No migrations or paid runs are needed for this change.
+
+## Active Vault resolution
+
+Visible PROCESSING orders auto-sync every eight seconds while the tab is visible. Requests are serialized per order, preserved across list refreshes, and cancelled when an order leaves the view or the page unmounts. The owner-only sync route has no three-minute age gate; shared eight-second throttling and durable worker leases remain enforced. A completed pinned Apify run advances through ingestion and canonical exact-N allocation without starting another paid run. Actual actor pricing and completion times depend on Apify and source coverage; no fixed cost or speed guarantee is implied.

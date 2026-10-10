@@ -24,24 +24,20 @@ const request = (origin?: string) =>
 const context = { params: Promise.resolve({ purchaseId: "p1" }) };
 beforeEach(() => {
   mocks.auth.mockReset().mockResolvedValue({ user: { id: "u1" } });
-  mocks.purchase
-    .mockReset()
-    .mockResolvedValue({
-      status: "PROCESSING",
-      createdAt: new Date(Date.now() - 240_000),
-      fulfillmentJob: { id: "j1" },
-    });
+  mocks.purchase.mockReset().mockResolvedValue({
+    status: "PROCESSING",
+    createdAt: new Date(Date.now() - 240_000),
+    fulfillmentJob: { id: "j1" },
+  });
   mocks.throttle.mockReset().mockResolvedValue({ count: 1 });
-  mocks.runner
-    .mockReset()
-    .mockResolvedValue({
-      worked: true,
-      steps: 2,
-      outcomes: [{ purchaseId: "p1", status: "COMPLETED" }],
-    });
+  mocks.runner.mockReset().mockResolvedValue({
+    worked: true,
+    steps: 2,
+    outcomes: [{ purchaseId: "p1", status: "COMPLETED" }],
+  });
 });
 afterEach(() => vi.restoreAllMocks());
-describe("owner-only stale order recovery", () => {
+describe("owner-only active order recovery", () => {
   it("requires authentication before database access", async () => {
     mocks.auth.mockResolvedValue(null);
     expect((await POST(request(), context)).status).toBe(401);
@@ -61,17 +57,20 @@ describe("owner-only stale order recovery", () => {
     );
     expect(mocks.runner).not.toHaveBeenCalled();
   });
-  it("leaves recent processing orders alone", async () => {
-    mocks.purchase.mockResolvedValue({
-      status: "PROCESSING",
-      createdAt: new Date(),
-      fulfillmentJob: { id: "j1" },
+  it("actively resolves a recent processing order without a three-minute delay", async () => {
+    mocks.purchase
+      .mockResolvedValueOnce({
+        status: "PROCESSING",
+        createdAt: new Date(),
+        fulfillmentJob: { id: "j1" },
+      })
+      .mockResolvedValueOnce({ status: "COMPLETED" });
+    expect(await (await POST(request(), context)).json()).toEqual({
+      status: "COMPLETED",
+      syncStatus: "COMPLETED",
     });
-    expect(await (await POST(request(), context)).json()).toMatchObject({
-      syncStatus: "TOO_RECENT",
-    });
-    expect(mocks.throttle).not.toHaveBeenCalled();
-    expect(mocks.runner).not.toHaveBeenCalled();
+    expect(mocks.throttle).toHaveBeenCalledOnce();
+    expect(mocks.runner).toHaveBeenCalledOnce();
   });
   it.each(["COMPLETED", "REFUNDED", "FAILED"])(
     "never reprocesses a %s order",

@@ -13,6 +13,10 @@ import {
   Mail,
   MapPin,
 } from "lucide-react";
+import {
+  createVaultOrderSync,
+  VAULT_SYNC_INTERVAL_MS,
+} from "@/lib/vault-order-sync";
 import { LatestRequest } from "@/lib/latest-request";
 import { toast } from "sonner";
 import type { LeadTier } from "@fine-leads/utils";
@@ -128,7 +132,9 @@ export default function ListsPage() {
   const modalRequest = useRef(new LatestRequest());
   const [agentLoading, setAgentLoading] = useState(false);
   const leadSearchRef = useRef<HTMLInputElement>(null);
-  const syncAttempts = useRef(new Map<string, number>());
+  const orderSync = useRef<ReturnType<typeof createVaultOrderSync> | null>(
+    null,
+  );
 
   // Resolve the billing deep link before issuing the first (and only) page request.
   useEffect(() => {
@@ -190,15 +196,21 @@ export default function ListsPage() {
     };
   }, [ordersReady, orderPage, orderSearch, refreshTick]);
 
-  const hasProcessingOrders = purchases.some(
-    (purchase) => purchase.status === "PROCESSING",
+  const processingOrderKey = JSON.stringify(
+    selectedPurchase
+      ? []
+      : purchases
+          .filter((purchase) => purchase.status === "PROCESSING")
+          .map((purchase) => purchase.id)
+          .sort(),
   );
+  const hasProcessingOrders = processingOrderKey !== "[]";
   useEffect(() => {
     if (!hasProcessingOrders) return;
     const timer = setInterval(() => {
       if (document.visibilityState === "visible")
         setRefreshTick((tick) => tick + 1);
-    }, 15_000);
+    }, VAULT_SYNC_INTERVAL_MS);
     const refreshOnFocus = () => {
       if (document.visibilityState === "visible")
         setRefreshTick((tick) => tick + 1);
@@ -212,39 +224,32 @@ export default function ListsPage() {
     };
   }, [hasProcessingOrders]);
 
-  // One bounded owner-only sync per refresh, not a request for every order on the page.
+  // Keep in-flight syncs stable across list refreshes and other orders completing.
   useEffect(() => {
-    if (document.visibilityState !== "visible") return;
-    const now = Date.now();
-    const stale = purchases.find(
-      (purchase) =>
-        purchase.status === "PROCESSING" &&
-        now - new Date(purchase.createdAt).getTime() > 3 * 60_000 &&
-        now - (syncAttempts.current.get(purchase.id) ?? 0) >= 30_000,
+    const sync = createVaultOrderSync({
+      onStatus: (purchaseId, status) => {
+        if (status === "PROCESSING") return;
+        setPurchases((previous) =>
+          previous.map((purchase) =>
+            purchase.id === purchaseId ? { ...purchase, status } : purchase,
+          ),
+        );
+        setRefreshTick((tick) => tick + 1);
+      },
+      onError: (purchaseId, message) =>
+        toast.error(message, { id: `vault-sync-${purchaseId}` }),
+    });
+    orderSync.current = sync;
+    return () => {
+      sync.stop();
+      orderSync.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    orderSync.current?.setPurchaseIds(
+      JSON.parse(processingOrderKey) as string[],
     );
-    if (!stale) return;
-    syncAttempts.current.set(stale.id, now);
-    const controller = new AbortController();
-    void fetch(`/api/purchases/${encodeURIComponent(stale.id)}/sync`, {
-      method: "POST",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (controller.signal.aborted) return;
-        if (!response.ok) throw new Error("Sync failed");
-        const result = await response.json();
-        if (!controller.signal.aborted && result.status !== "PROCESSING")
-          setRefreshTick((tick) => tick + 1);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted)
-          toast.error(
-            "Order sync failed. Status checks will retry automatically.",
-            { id: "vault-sync" },
-          );
-      });
-    return () => controller.abort();
-  }, [purchases]);
+  }, [processingOrderKey]);
 
   useEffect(() => {
     setLeadPage(0);

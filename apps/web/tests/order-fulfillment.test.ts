@@ -887,3 +887,67 @@ it("does not refund legacy SMTP candidates when no verifier is available", async
   );
   expect(mocks.db.walletTransaction.create).not.toHaveBeenCalled();
 });
+
+vi.mock("@fine-leads/auth", () => ({
+  auth: async () => ({ user: { id: "u1" } }),
+}));
+import { POST as syncOwnedOrder } from "../app/api/purchases/[purchaseId]/sync/route";
+it("an owner sync immediately resolves a 72-second-old completed Apify run through the real durable runner", async () => {
+  const reference = `apify:${"a".repeat(24)}:run_1`;
+  mocks.db.leadPurchase.findFirst
+    .mockResolvedValueOnce({
+      status: "PROCESSING",
+      createdAt: new Date(Date.now() - 72000),
+      fulfillmentJob: { id: job.id },
+    })
+    .mockResolvedValueOnce({ status: "COMPLETED" });
+  mocks.db.leadFulfillmentRun.findFirst
+    .mockResolvedValueOnce(null)
+    .mockResolvedValueOnce({ ...run, status: "POLLING", runId: reference })
+    .mockResolvedValueOnce(null)
+    .mockResolvedValueOnce({ ...run, status: "INGESTING", runId: reference });
+  mocks.apifyStatus.mockResolvedValue({
+    id: "run_1",
+    status: "SUCCEEDED",
+    defaultDatasetId: "dataset_1",
+  });
+  mocks.apifyPage.mockResolvedValue({
+    page: 1,
+    total_pages: 1,
+    total_results: 20,
+    data: Array.from({ length: 20 }, (_, i) => ({ title: "Lead " + i })),
+  });
+  let n = 0;
+  mocks.apifyIngest.mockImplementation(async () => ({
+    kind: "lead",
+    agentId: "a" + ++n,
+    eligible: true,
+  }));
+  mocks.db.leadFulfillmentCandidate.findMany
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([{ agentId: "a1" }, { agentId: "a2" }]);
+  const response = await syncOwnedOrder(
+    new Request("https://app.test/api/purchases/p1/sync", {
+      method: "POST",
+      headers: { origin: "https://app.test" },
+    }),
+    { params: Promise.resolve({ purchaseId: "p1" }) },
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    status: "COMPLETED",
+    syncStatus: "COMPLETED",
+  });
+  expect(mocks.apifyStatus).toHaveBeenCalledWith(reference);
+  expect(mocks.apifyPage).toHaveBeenCalledWith(reference, 1, 100);
+  expect(mocks.apifyIngest).toHaveBeenCalledTimes(2);
+  expect(mocks.db.unlockedLead.createMany).toHaveBeenCalledOnce();
+  expect(mocks.db.leadPurchase.updateMany).toHaveBeenCalledWith(
+    expect.objectContaining({ data: { status: "COMPLETED" } }),
+  );
+  expect(mocks.apifyDispatch).not.toHaveBeenCalled();
+  expect(mocks.db.walletTransaction.create).not.toHaveBeenCalled();
+  expect(mocks.failedEmail).not.toHaveBeenCalled();
+});

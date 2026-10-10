@@ -31,7 +31,10 @@ describe("pending Vault order presentation", () => {
       "utf8",
     );
     expect(source).toContain('purchase.status === "PROCESSING"');
-    expect(source).toContain("15_000");
+    expect(source).toContain("VAULT_SYNC_INTERVAL_MS");
+    expect(source).toContain("createVaultOrderSync({");
+    expect(source).toContain("orderSync.current?.setPurchaseIds(");
+    expect(source).not.toContain("syncAttempts");
     expect(
       source.match(/disabled=\{!isOrderDownloadable\(purchase.status\)\}/g),
     ).toHaveLength(2);

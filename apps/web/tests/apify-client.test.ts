@@ -304,3 +304,36 @@ it("rounds capacity up across multiple searches so total capacity never undercut
       .maxCrawledPlacesPerSearch,
   ).toBe(8);
 });
+
+it.each(["PHONE_ONLY", undefined] as const)(
+  "never enables paid website/social contacts for %s even with the legacy env flag",
+  async (leadTier) => {
+    vi.stubEnv("APIFY_SCRAPE_CONTACTS", "true");
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(json({ data: run }));
+    await new CompassApifyClient({
+      pool: new ApifyTokenPool(["token"]),
+      fetcher,
+    }).dispatchApifyScrape({ ...input, leadTier });
+    expect(JSON.parse(String(fetcher.mock.calls[0]![1]?.body))).toMatchObject({
+      scrapeContacts: false,
+      scrapePlaceDetailPage: true,
+      maxCrawledPlacesPerSearch: 5,
+      maxReviews: 0,
+      maxImages: 0,
+    });
+  },
+);
+it("keeps contact extraction enabled when the purchased email tier explicitly requests it", async () => {
+  vi.stubEnv("APIFY_SCRAPE_CONTACTS", "false");
+  const fetcher = vi.fn<typeof fetch>().mockResolvedValue(json({ data: run }));
+  await new CompassApifyClient({
+    pool: new ApifyTokenPool(["token"]),
+    fetcher,
+  }).dispatchApifyScrape({ ...input, leadTier: "VERIFIED_EMAIL" });
+  expect(JSON.parse(String(fetcher.mock.calls[0]![1]?.body))).toMatchObject({
+    scrapeContacts: true,
+    maxCrawledPlacesPerSearch: 20,
+  });
+});
