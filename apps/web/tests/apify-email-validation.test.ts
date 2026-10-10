@@ -172,10 +172,11 @@ describe("serverless staged Apify email validation", () => {
     );
   });
   it.each([
-    [1, 20],
-    [5, 20],
-    [11, 22],
-    [10000, 20000],
+    [1, 40],
+    [5, 40],
+    [11, 40],
+    [13, 46],
+    [10000, 35000],
   ])("buffers %s requested emails to %s candidates", (n, expected) => {
     expect(apifyCandidateLimit(n, "VERIFIED_EMAIL")).toBe(expected);
     expect(apifyCandidateLimit(n, "PHONE_ONLY")).toBe(n);
@@ -187,20 +188,18 @@ describe("serverless staged Apify email validation", () => {
       "https://validator.example.com/check",
     );
     vi.stubEnv("APIFY_EMAIL_VALIDATOR_TOKEN", "test-only-token");
-    const fetcher = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            email: "a@example.com",
-            status: "deliverable",
-            isDeliverable: true,
-            isCatchAll: false,
-            isDisposable: false,
-            smtpCode: 250,
-          }),
-        ),
-      );
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          email: "a@example.com",
+          status: "deliverable",
+          isDeliverable: true,
+          isCatchAll: false,
+          isDisposable: false,
+          smtpCode: 250,
+        }),
+      ),
+    );
     vi.stubGlobal("fetch", fetcher);
     expect(await validateApifyEmail("a@example.com")).toEqual({
       status: "deliverable",
@@ -224,20 +223,18 @@ describe("serverless staged Apify email validation", () => {
       );
       vi.stubGlobal(
         "fetch",
-        vi
-          .fn()
-          .mockResolvedValue(
-            new Response(
-              JSON.stringify({
-                email: "a@example.com",
-                status,
-                isDeliverable: true,
-                isCatchAll: false,
-                isDisposable: false,
-                smtpCode: null,
-              }),
-            ),
+        vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              email: "a@example.com",
+              status,
+              isDeliverable: true,
+              isCatchAll: false,
+              isDisposable: false,
+              smtpCode: null,
+            }),
           ),
+        ),
       );
       await expect(validateApifyEmail("a@example.com")).rejects.toThrow(
         "inconclusive",
@@ -252,20 +249,18 @@ describe("serverless staged Apify email validation", () => {
     );
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(
-            JSON.stringify({
-              email: "other@example.com",
-              status: "deliverable",
-              isDeliverable: true,
-              isCatchAll: false,
-              isDisposable: false,
-              smtpCode: 250,
-            }),
-          ),
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            email: "other@example.com",
+            status: "deliverable",
+            isDeliverable: true,
+            isCatchAll: false,
+            isDisposable: false,
+            smtpCode: 250,
+          }),
         ),
+      ),
     );
     await expect(validateApifyEmail("a@example.com")).rejects.toThrow(
       "mismatch",

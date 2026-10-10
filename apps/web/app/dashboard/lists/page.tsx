@@ -24,6 +24,7 @@ import {
   OrderStatusBadge,
   isOrderDownloadable,
 } from "@/components/dashboard/order-status-badge";
+import { OrderDeliveryEstimate } from "@/components/dashboard/order-delivery-estimate";
 import { VaultExportControl } from "@/components/dashboard/vault-export-control";
 import { Skeleton } from "@fine-leads/ui";
 import { BrandedLoader } from "@/components/ui/branded-loader";
@@ -915,6 +916,10 @@ export default function ListsPage() {
                           {formatDate(purchase.createdAt)}
                         </span>
                       </div>
+                      <OrderDeliveryEstimate
+                        status={purchase.status}
+                        quantity={purchase.quantity}
+                      />
                       <div className="flex items-center gap-2 mt-3">
                         <button
                           type="button"
@@ -1025,6 +1030,10 @@ export default function ListsPage() {
                         </td>
                         <td className="px-4 align-middle text-xs">
                           <OrderStatusBadge status={purchase.status} />
+                          <OrderDeliveryEstimate
+                            status={purchase.status}
+                            quantity={purchase.quantity}
+                          />
                         </td>
                         <td className="px-4 align-middle text-xs text-right">
                           <div className="flex items-center justify-end gap-1.5">

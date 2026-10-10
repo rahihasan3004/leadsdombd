@@ -36,7 +36,9 @@ export async function advanceOrderFulfillment(
     // A scheduler may move to a different due job; the DB retains fairness/backoff.
     if (
       options.purchaseId &&
-      !["DISPATCHED", "INGESTING", "VERIFYING"].includes(result.status)
+      !["DISPATCHED", "INGESTING", "VERIFYING", "RETRY_QUEUED"].includes(
+        result.status,
+      )
     )
       break;
   }

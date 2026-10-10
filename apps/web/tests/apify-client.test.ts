@@ -277,14 +277,14 @@ describe("typed Compass REST runner", () => {
   });
 });
 
-it("VERIFIED_EMAIL enables website contacts and overscrapes the 20-candidate floor", async () => {
+it("VERIFIED_EMAIL enables website contacts and overscrapes the 40-candidate floor", async () => {
   const fetcher = vi.fn<typeof fetch>().mockResolvedValue(json({ data: run }));
   await new CompassApifyClient({
     pool: new ApifyTokenPool(["token"]),
     fetcher,
   }).dispatchApifyScrape({ ...input, leadTier: "VERIFIED_EMAIL" });
   expect(JSON.parse(String(fetcher.mock.calls[0]![1]?.body))).toMatchObject({
-    maxCrawledPlacesPerSearch: 20,
+    maxCrawledPlacesPerSearch: 40,
     scrapeContacts: true,
   });
 });
@@ -302,7 +302,7 @@ it("rounds capacity up across multiple searches so total capacity never undercut
   expect(
     JSON.parse(String(fetcher.mock.calls[0]![1]?.body))
       .maxCrawledPlacesPerSearch,
-  ).toBe(8);
+  ).toBe(14);
 });
 
 it.each(["PHONE_ONLY", undefined] as const)(
@@ -334,7 +334,7 @@ it("keeps contact extraction enabled when the purchased email tier explicitly re
   }).dispatchApifyScrape({ ...input, leadTier: "VERIFIED_EMAIL" });
   expect(JSON.parse(String(fetcher.mock.calls[0]![1]?.body))).toMatchObject({
     scrapeContacts: true,
-    maxCrawledPlacesPerSearch: 20,
+    maxCrawledPlacesPerSearch: 40,
   });
 });
 

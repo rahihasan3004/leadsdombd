@@ -917,7 +917,11 @@ it("does not refund legacy SMTP candidates when no verifier is available", async
   expect(mocks.db.leadFulfillmentCandidate.findMany).toHaveBeenCalledWith(
     expect.objectContaining({
       where: expect.objectContaining({
-        agent: { email: { not: null }, dataSource: "APIFY" },
+        agent: expect.objectContaining({
+          email: { not: null },
+          dataSource: "APIFY",
+          NOT: expect.any(Object),
+        }),
       }),
     }),
   );
@@ -1054,4 +1058,143 @@ it("completes a ten-lead cold-calling page atomically without per-record cursor 
   );
   expect(mocks.db.unlockedLead.createMany).toHaveBeenCalledOnce();
   expect(mocks.db.walletTransaction.create).not.toHaveBeenCalled();
+});
+
+describe("Apify exact-quota deficit scheduling", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  const reference = "apify:" + "a".repeat(24) + ":completed_run";
+  function activeApifyOrder() {
+    const purchase = {
+      ...job.purchase,
+      lobstrRunId: reference,
+      leadCount: 100,
+    };
+    mocks.db.leadFulfillmentJob.findUniqueOrThrow.mockResolvedValue({
+      ...job,
+      purchase,
+    });
+    mocks.db.leadPurchase.findUniqueOrThrow.mockResolvedValue(purchase);
+    mocks.db.leadFulfillmentRun.findMany.mockImplementation(
+      async ({ select }) =>
+        select.id
+          ? []
+          : [
+              {
+                state: "TX",
+                zipCode: null,
+                targetQuantity: 100,
+                runId: reference,
+              },
+            ],
+    );
+  }
+  it("queues only the true deficit on a new durable ZIP, without a refund or partial allocation", async () => {
+    activeApifyOrder();
+    // initial allocation checks no inventory; scheduling then observes 49 eligible records
+    mocks.db.agent.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(
+        Array.from({ length: 49 }, (_, i) => ({ id: "email-" + i })),
+      );
+    expect((await processNextFulfillment()).status).toBe("RETRY_QUEUED");
+    expect(mocks.db.leadFulfillmentRun.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        jobId: job.id,
+        targetQuantity: 51,
+        status: "QUEUED",
+        state: "TX",
+        zipCode: expect.stringMatching(/^\d{5}$/),
+      }),
+    });
+    expect(mocks.db.unlockedLead.createMany).not.toHaveBeenCalled();
+    expect(mocks.db.walletTransaction.create).not.toHaveBeenCalled();
+    expect(mocks.db.leadPurchase.updateMany).not.toHaveBeenCalled();
+  });
+  it("keeps a retry pinned to Apify and forwards its reserved ZIP", async () => {
+    activeApifyOrder();
+    mocks.db.leadFulfillmentRun.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ ...run, zipCode: "78701", targetQuantity: 51 });
+    mocks.apifyDispatch.mockResolvedValue({
+      runReference: reference,
+      run: {
+        id: "completed_run",
+        status: "RUNNING",
+        defaultDatasetId: "dataset",
+      },
+    });
+    expect((await processNextFulfillment()).status).toBe("DISPATCHED");
+    expect(mocks.apifyDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxPlaces: 51,
+        leadTier: "VERIFIED_EMAIL",
+        searchStrings: expect.arrayContaining([
+          expect.stringContaining("78701"),
+        ]),
+      }),
+    );
+    expect(mocks.trigger).not.toHaveBeenCalled();
+  });
+  it("stops paid loops at the configured ceiling without partially delivering or refunding", async () => {
+    activeApifyOrder();
+    vi.stubEnv("APIFY_MAX_FULFILLMENT_RUNS", "1");
+    expect((await processNextFulfillment()).status).toBe("NEEDS_REVIEW");
+    expect(mocks.db.leadFulfillmentRun.create).not.toHaveBeenCalled();
+    expect(mocks.db.unlockedLead.createMany).not.toHaveBeenCalled();
+    expect(mocks.db.walletTransaction.create).not.toHaveBeenCalled();
+  });
+  it("never resumes or allocates a refunded order", async () => {
+    activeApifyOrder();
+    mocks.db.leadFulfillmentJob.findUniqueOrThrow.mockResolvedValue({
+      ...job,
+      purchase: { ...job.purchase, status: "REFUNDED", lobstrRunId: reference },
+    });
+    expect((await processNextFulfillment()).status).toBe("REFUNDED");
+    expect(mocks.apifyDispatch).not.toHaveBeenCalled();
+    expect(mocks.db.unlockedLead.createMany).not.toHaveBeenCalled();
+    expect(mocks.db.leadPurchase.updateMany).not.toHaveBeenCalled();
+  });
+  it("saves overflow pages before committing exact-N allocation", async () => {
+    activeApifyOrder();
+    mocks.db.leadFulfillmentRun.findMany.mockResolvedValue([{ id: "r1" }]);
+    mocks.db.leadFulfillmentRun.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        ...run,
+        status: "INGESTING",
+        runId: reference,
+        targetQuantity: 1,
+      });
+    mocks.apifyStatus.mockResolvedValue({
+      id: "completed_run",
+      status: "SUCCEEDED",
+      defaultDatasetId: "dataset",
+    });
+    mocks.apifyPage.mockResolvedValue({
+      page: 1,
+      total_pages: 2,
+      total_results: 150,
+      data: Array.from({ length: 100 }, (_, i) => ({
+        title: "candidate-" + i,
+      })),
+    });
+    mocks.apifyIngest.mockImplementation(async () => ({
+      kind: "lead",
+      agentId: "overflow",
+      created: true,
+    }));
+    expect((await processNextFulfillment()).status).toBe("INGESTING");
+    expect(mocks.apifyIngest).toHaveBeenCalledTimes(100);
+    expect(mocks.db.leadFulfillmentRun.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          resultPage: 2,
+          resultOffset: 0,
+          processedCount: 100,
+          status: "INGESTING",
+        }),
+      }),
+    );
+    expect(mocks.db.unlockedLead.createMany).not.toHaveBeenCalled();
+  });
 });

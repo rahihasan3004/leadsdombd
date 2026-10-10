@@ -31,5 +31,7 @@ export function validExtractedEmail(email: string): boolean {
 export function apifyCandidateLimit(quantity: number, tier?: string): number {
   if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 10000)
     throw new Error("Invalid Apify quantity");
-  return tier === "VERIFIED_EMAIL" ? Math.max(quantity * 2, 20) : quantity;
+  return tier === "VERIFIED_EMAIL"
+    ? Math.max(Math.ceil(quantity * 3.5), 40)
+    : quantity;
 }

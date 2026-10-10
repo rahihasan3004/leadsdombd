@@ -14,6 +14,21 @@ import {
   type IngestionSummary,
 } from "./lead-mapper";
 import type { CompassRecord } from "./apify-client";
+import { validExtractedEmail } from "./apify-email-policy";
+
+/** Native arrays are preferred, but invalid entries must not mask a valid fallback. */
+export function selectApifyEmail(record: CompassRecord): string | null {
+  const values = [
+    ...(Array.isArray(record.emails) ? record.emails : []),
+    ...(Array.isArray(record.email) ? record.email : [record.email]),
+  ];
+  for (const value of values) {
+    if (typeof value !== "string") continue;
+    const email = value.trim().toLowerCase();
+    if (validExtractedEmail(email)) return email;
+  }
+  return null;
+}
 
 const first = (value: unknown): unknown =>
   Array.isArray(value)
@@ -59,11 +74,7 @@ export function mapApifyLead(
       Phone:
         normalizePhone(first(record.phoneUnformatted)) ??
         normalizePhone(first(record.phone)),
-      Email: Array.isArray(record.emails)
-        ? record.emails
-            .filter((item): item is string => typeof item === "string")
-            .join(",")
-        : first(record.email),
+      Email: selectApifyEmail(record),
       Address: record.address,
       City: record.city,
       "State Code": state,

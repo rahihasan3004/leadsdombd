@@ -9,7 +9,8 @@ import {
 import { LobstrError, LobstrDispatchError } from "./lobstr-client";
 import { advanceParallelJob } from "./parallel-dispatcher";
 import { ingestLobstrLead } from "./lead-mapper";
-import { apifyCandidateLimit } from "./apify-email-policy";
+import { leadInventoryWhere } from "../lead-access";
+import { nextApifyZip, apifyMaxFulfillmentRuns } from "./apify-deficit";
 import { validateExistingApifyEmail } from "./apify-email-validator";
 import { ingestApifyPages } from "./apify-mapper";
 import { getFulfillmentClient } from "./scraper-provider";
@@ -295,6 +296,19 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
         status: job.purchase.status,
       };
     }
+    const pinnedApifyEmail =
+      job.purchase.tier === "VERIFIED_EMAIL" &&
+      job.purchase.lobstrRunId?.startsWith("apify:");
+    if (job.expiresAt <= now && pinnedApifyEmail) {
+      nextStatus = "NEEDS_REVIEW";
+      nextDelay = 300_000;
+      errorCode = "APIFY_FULFILLMENT_DEADLINE_REVIEW";
+      return {
+        worked: true,
+        purchaseId: job.purchaseId,
+        status: "NEEDS_REVIEW",
+      };
+    }
     if (job.expiresAt <= now) {
       await refundFulfillment(job, token, "FULFILLMENT_EXPIRED");
       return {
@@ -303,7 +317,21 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
         status: job.creditsHeld > 0 ? "REFUNDED" : "FAILED",
       };
     }
-    if (await completeFulfillment(job, token))
+    // Finish saving every discovered page before settling the order. Overflow is inventory.
+    const unfinishedApify =
+      job.purchase.lobstrRunId?.startsWith("apify:") &&
+      (
+        await db.leadFulfillmentRun.findMany({
+          where: {
+            jobId: job.id,
+            status: "INGESTING",
+            runId: { startsWith: "apify:" },
+          },
+          select: { id: true },
+          take: 1,
+        })
+      ).length > 0;
+    if (!unfinishedApify && (await completeFulfillment(job, token)))
       return { worked: true, purchaseId: job.purchaseId, status: "COMPLETED" };
     if (job.parallelConfig !== null && job.parallelConfig !== undefined) {
       const result = await advanceParallelJob(
@@ -348,13 +376,19 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
       orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
     });
     if (run?.status === "QUEUED") {
-      const client = getFulfillmentClient(undefined, job.purchase.tier);
+      const client = getFulfillmentClient(
+        job.purchase.lobstrRunId?.startsWith("apify:")
+          ? job.purchase.lobstrRunId
+          : undefined,
+        job.purchase.tier,
+      );
       await persistRun(job, token, run.id, { status: "DISPATCHING" });
       try {
         const dispatched = await client.triggerScrapeRun({
           state: run.state,
           category: job.category,
           limit: run.targetQuantity,
+          ...(run.zipCode ? { zipCode: run.zipCode } : {}),
         });
         await persistRun(
           job,
@@ -439,7 +473,7 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
       if (page.data.length !== expectedOnPage)
         throw new LobstrError("Incomplete run results page");
       const candidateLimit = run.runId.startsWith("apify:")
-        ? apifyCandidateLimit(run.targetQuantity, job.purchase.tier)
+        ? page.total_results
         : run.targetQuantity;
       if (run.runId.startsWith("apify:")) {
         const records = page.data.slice(
@@ -480,7 +514,8 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
                 status: done ? "DONE" : "INGESTING",
               },
             });
-            completed = await completeFulfillmentInTransaction(tx, job, token);
+            completed =
+              done && (await completeFulfillmentInTransaction(tx, job, token));
           },
           (tx) => guardLease(tx, job, token),
         );
@@ -560,7 +595,12 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
           verificationDone: false,
           agent: {
             email: { not: null },
-            ...(!options.verifyEmail ? { dataSource: "APIFY" } : {}),
+            ...(!options.verifyEmail
+              ? {
+                  dataSource: "APIFY",
+                  NOT: leadInventoryWhere("VERIFIED_EMAIL"),
+                }
+              : {}),
           },
         },
         take: 3,
@@ -584,7 +624,7 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
             where: {
               jobId: job.id,
               verificationDone: false,
-              agent: { email: { not: null } },
+              agent: { email: { not: null }, dataSource: { not: "APIFY" } },
             },
             select: { agentId: true },
           }))
@@ -594,6 +634,64 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
             worked: true,
             purchaseId: job.purchaseId,
             status: "WAITING_VERIFICATION",
+          };
+        }
+        const history = await db.leadFulfillmentRun.findMany({
+          where: { jobId: job.id },
+          select: {
+            state: true,
+            zipCode: true,
+            targetQuantity: true,
+            runId: true,
+          },
+        });
+        const apifyHistory = history.filter((item) =>
+          item.runId?.startsWith("apify:"),
+        );
+        if (apifyHistory.length) {
+          const nextZip = nextApifyZip(job.purchase.unlockedStates, history);
+          if (!nextZip || history.length >= apifyMaxFulfillmentRuns()) {
+            nextStatus = "NEEDS_REVIEW";
+            nextDelay = 300_000;
+            errorCode = nextZip
+              ? "APIFY_RUN_BUDGET_REVIEW"
+              : "APIFY_TERRITORY_EXHAUSTED";
+            return {
+              worked: true,
+              purchaseId: job.purchaseId,
+              status: "NEEDS_REVIEW",
+            };
+          }
+          // The same eligibility predicate used by allocation determines the real deficit.
+          await db.$transaction(
+            async (tx) => {
+              await guardLease(tx, job, token);
+              const eligible = await tx.agent.findMany({
+                where: freshInventoryWhere(
+                  job.purchase.userId,
+                  job.purchase.unlockedStates,
+                  job.purchase.tier,
+                ),
+                take: job.purchase.leadCount,
+                select: { id: true },
+              });
+              const deficit = job.purchase.leadCount - eligible.length;
+              if (deficit > 0)
+                await tx.leadFulfillmentRun.create({
+                  data: {
+                    jobId: job.id,
+                    ...nextZip,
+                    targetQuantity: Math.min(10000, deficit),
+                    status: "QUEUED",
+                  },
+                });
+            },
+            { timeout: 15_000 },
+          );
+          return {
+            worked: true,
+            purchaseId: job.purchaseId,
+            status: "RETRY_QUEUED",
           };
         }
         await refundFulfillment(job, token, "INSUFFICIENT_VERIFIED_RESULTS");
