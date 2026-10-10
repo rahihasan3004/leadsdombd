@@ -15,7 +15,6 @@ import {
   Search,
   Database,
   CreditCard,
-  Coins,
   Plus,
   HelpCircle,
   Settings,
@@ -118,12 +117,9 @@ export function Sidebar({
   const creditsCard = (
     <section
       data-sidebar-credits
-      className="mx-4 mb-4 min-w-0 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm"
+      className="mx-4 mb-4 min-w-0 rounded-2xl border border-blue-200 bg-white p-4 shadow-none"
     >
-      <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-        <Coins aria-hidden="true" className="h-4 w-4 shrink-0 text-blue-600" />
-        <span>Available Credits</span>
-      </div>
+      <p className="text-xs font-semibold text-slate-600">Available Credits</p>
       <p
         role="status"
         aria-live="polite"
@@ -150,7 +146,7 @@ export function Sidebar({
       <Link
         href="/dashboard/billing"
         onClick={closeMobile}
-        className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+        className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-none transition-colors hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
       >
         <Plus aria-hidden="true" className="h-4 w-4 shrink-0" />
         Buy Credits

@@ -94,4 +94,22 @@ describe("Sidebar wallet credit card", () => {
     expect(html).toContain("break-all");
     expect(html).toContain("min-h-11 w-full");
   });
+  it("keeps both wallet cards flat, icon-free at the label, and preserves the plus CTA", () => {
+    const html = render(51877, true);
+    const cards =
+      html.match(/<section[^>]*data-sidebar-credits[\s\S]*?<\/section>/g) ?? [];
+    expect(cards).toHaveLength(2);
+    for (const card of cards) {
+      expect(card).toContain("border border-blue-200 bg-white p-4 shadow-none");
+      expect(card).not.toContain("bg-gradient");
+      expect(card).not.toContain("shadow-sm");
+      expect(card).not.toContain("lucide-coins");
+      expect(card).not.toContain("ring-2");
+      expect(card).toContain(">Available Credits</p>");
+      expect(card).toContain("lucide-plus");
+      expect(card).toContain("Buy Credits");
+      expect(card).toContain('href="/dashboard/billing"');
+      expect(card).toContain('aria-label="51,877 Credits"');
+    }
+  });
 });
