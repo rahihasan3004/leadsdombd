@@ -1,5 +1,8 @@
 "use client";
 
+import { useState, useRef } from "react";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { signIn } from "next-auth/react";
 
 function GitHubIcon() {
@@ -18,19 +21,37 @@ interface GitHubButtonProps {
 }
 
 export function GitHubButton({ variant = "outline" }: GitHubButtonProps) {
-  const handleSignIn = () => {
-    signIn("github", { callbackUrl: "/dashboard" });
+  const lock = useRef(false);
+  const [loading, setLoading] = useState(false);
+  const handleSignIn = async () => {
+    if (lock.current) return;
+    lock.current = true;
+    setLoading(true);
+    try {
+      await signIn("github", { callbackUrl: "/dashboard" });
+    } catch {
+      toast.error("Unable to sign in with GitHub. Please retry.");
+    } finally {
+      lock.current = false;
+      setLoading(false);
+    }
   };
 
   if (variant === "outline") {
     return (
       <button
         onClick={handleSignIn}
+        disabled={loading}
+        aria-busy={loading}
         type="button"
         className="w-full h-11 flex items-center justify-center gap-2.5 bg-white border border-surface-200 text-surface-900 hover:bg-surface-100 rounded-md text-sm font-medium transition-colors shadow-none cursor-pointer"
       >
-        <GitHubIcon />
-        Continue with GitHub
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <GitHubIcon />
+        )}
+        {loading ? "Redirecting..." : "Continue with GitHub"}
       </button>
     );
   }
@@ -38,11 +59,13 @@ export function GitHubButton({ variant = "outline" }: GitHubButtonProps) {
   return (
     <button
       onClick={handleSignIn}
+      disabled={loading}
+      aria-busy={loading}
       type="button"
       className="w-full h-11 flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full text-sm font-semibold transition-all duration-200 shadow-none border-0 cursor-pointer mb-6"
     >
-      <GitHubIcon />
-      Continue with GitHub
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitHubIcon />}
+      {loading ? "Redirecting..." : "Continue with GitHub"}
     </button>
   );
 }

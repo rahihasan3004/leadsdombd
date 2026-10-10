@@ -18,17 +18,12 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/verify-email");
 
   const isProtectedRoute =
-    pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/admin");
+    pathname.startsWith("/dashboard") || pathname.startsWith("/admin");
 
   if (isProtectedRoute && !isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
-    loginUrl.searchParams.set("callbackUrl", pathname);
+    loginUrl.searchParams.set("callbackUrl", pathname + req.nextUrl.search);
     return NextResponse.redirect(loginUrl);
-  }
-
-  if (isAuthRoute && isLoggedIn) {
-    return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin));
   }
 
   return NextResponse.next();

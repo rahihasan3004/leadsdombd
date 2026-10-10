@@ -1,15 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Button } from "@fine-leads/ui";
 import { BrandedLoader } from "@/components/ui/branded-loader";
 import { Menu } from "lucide-react";
-
-const MAX_RETRIES = 20;
-let retryCount = 0;
 
 export default function DashboardLayout({
   children,
@@ -23,18 +20,18 @@ export default function DashboardLayout({
   // Leads Vault is flat white on phones (incl. the main padding around it); slate canvas from md up.
   const whiteOnMobile = pathname?.startsWith("/dashboard/lists") ?? false;
 
+  useEffect(() => {
+    if (status === "unauthenticated")
+      router.replace(
+        `/login?callbackUrl=${encodeURIComponent(pathname + window.location.search)}`,
+      );
+  }, [status, router, pathname]);
+
   if (status === "loading") {
     return <BrandedLoader />;
   }
 
   if (status === "unauthenticated" || !session?.user) {
-    if (retryCount < MAX_RETRIES) {
-      retryCount++;
-      setTimeout(() => router.push("/login"), 0);
-    } else {
-      retryCount = 0;
-      router.push("/login");
-    }
     return null;
   }
 

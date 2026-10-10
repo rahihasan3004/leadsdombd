@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   walletCreditQueryOptions,
@@ -19,8 +19,10 @@ import {
   HelpCircle,
   Settings,
   LogOut,
+  Loader2,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Logo } from "@/components/logo";
 import { useModalA11y } from "@/hooks/use-modal-a11y";
 
@@ -55,6 +57,21 @@ export function Sidebar({
   mobileOpen,
   onMobileOpenChange,
 }: SidebarProps) {
+  const logoutLock = useRef(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const handleSignOut = async () => {
+    if (logoutLock.current) return;
+    logoutLock.current = true;
+    setLoggingOut(true);
+    try {
+      await nextAuthSignOut({ callbackUrl: "/login" });
+    } catch {
+      toast.error("Sign-out failed. Please retry.");
+    } finally {
+      logoutLock.current = false;
+      setLoggingOut(false);
+    }
+  };
   const pathname = usePathname();
   // One authenticated query feeds both desktop and mobile; wallet invalidations refresh it after purchases/top-ups.
   const { data: credits, isError } = useQuery(
@@ -187,14 +204,17 @@ export function Sidebar({
         </div>
         <button
           type="button"
-          onClick={() => {
-            closeMobile();
-            nextAuthSignOut({ callbackUrl: "/login" });
-          }}
-          aria-label="Sign out"
+          onClick={handleSignOut}
+          disabled={loggingOut}
+          aria-busy={loggingOut}
+          aria-label={loggingOut ? "Signing out..." : "Sign out"}
           className="-mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
         >
-          <LogOut className="h-4 w-4 shrink-0" />
+          {loggingOut ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <LogOut className="h-4 w-4 shrink-0" />
+          )}
         </button>
       </div>
     </div>

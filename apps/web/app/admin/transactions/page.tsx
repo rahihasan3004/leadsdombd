@@ -1,7 +1,10 @@
 "use client";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { useSafeMutation } from "@/hooks/use-safe-mutation";
 
 import { useState, useCallback } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -87,7 +90,10 @@ interface KPIs {
   totalRefunded: number;
 }
 
-const TX_TYPE_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "success" | "warning" | "outline"> = {
+const TX_TYPE_BADGE_VARIANT: Record<
+  string,
+  "default" | "secondary" | "destructive" | "success" | "warning" | "outline"
+> = {
   RECHARGE: "success",
   PURCHASE: "secondary",
   REFUND: "warning",
@@ -95,7 +101,10 @@ const TX_TYPE_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructi
   ADJUSTMENT: "outline",
 };
 
-const PURCHASE_STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "success" | "warning" | "outline"> = {
+const PURCHASE_STATUS_BADGE_VARIANT: Record<
+  string,
+  "default" | "secondary" | "destructive" | "success" | "warning" | "outline"
+> = {
   COMPLETED: "success",
   REFUNDED: "warning",
   PENDING: "secondary",
@@ -120,7 +129,9 @@ export default function AdminTransactionsPage() {
   const kpisQuery = useQuery({
     queryKey: ["admin-financials-kpis"],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/financials/purchases?limit=1&includeKpis=true`);
+      const res = await fetch(
+        `/api/admin/financials/purchases?limit=1&includeKpis=true`,
+      );
       if (!res.ok) throw new Error("Failed to fetch KPIs");
       const data = await res.json();
       return data.kpis as KPIs;
@@ -128,7 +139,12 @@ export default function AdminTransactionsPage() {
   });
 
   const purchasesQuery = useQuery({
-    queryKey: ["admin-purchases", purchasesStatus, purchasesState, purchasesPage],
+    queryKey: [
+      "admin-purchases",
+      purchasesStatus,
+      purchasesState,
+      purchasesPage,
+    ],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (purchasesStatus !== "ALL") params.set("status", purchasesStatus);
@@ -136,12 +152,17 @@ export default function AdminTransactionsPage() {
       params.set("page", String(purchasesPage));
       params.set("limit", String(limit));
 
-      const res = await fetch(`/api/admin/financials/purchases?${params.toString()}`);
+      const res = await fetch(
+        `/api/admin/financials/purchases?${params.toString()}`,
+      );
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
         throw new Error(err.error ?? "Failed to fetch purchases");
       }
-      return res.json() as Promise<{ purchases: LeadPurchase[]; pagination: Pagination }>;
+      return res.json() as Promise<{
+        purchases: LeadPurchase[];
+        pagination: Pagination;
+      }>;
     },
   });
 
@@ -153,20 +174,28 @@ export default function AdminTransactionsPage() {
       params.set("page", String(txnPage));
       params.set("limit", String(limit));
 
-      const res = await fetch(`/api/admin/financials/transactions?${params.toString()}`);
+      const res = await fetch(
+        `/api/admin/financials/transactions?${params.toString()}`,
+      );
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
         throw new Error(err.error ?? "Failed to fetch transactions");
       }
-      return res.json() as Promise<{ transactions: WalletTransaction[]; pagination: Pagination }>;
+      return res.json() as Promise<{
+        transactions: WalletTransaction[];
+        pagination: Pagination;
+      }>;
     },
   });
 
-  const refundMutation = useMutation({
+  const refundMutation = useSafeMutation({
     mutationFn: async (purchaseId: string) => {
-      const res = await fetch(`/api/admin/financials/purchases/${purchaseId}/refund`, {
-        method: "POST",
-      });
+      const res = await fetch(
+        `/api/admin/financials/purchases/${purchaseId}/refund`,
+        {
+          method: "POST",
+        },
+      );
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
         throw new Error(err.error ?? "Failed to refund purchase");
@@ -174,6 +203,7 @@ export default function AdminTransactionsPage() {
       return res.json();
     },
     onSuccess: () => {
+      toast.success("Changes saved successfully");
       queryClient.invalidateQueries({ queryKey: ["admin-purchases"] });
       queryClient.invalidateQueries({ queryKey: ["admin-financials-kpis"] });
       queryClient.invalidateQueries({ queryKey: ["admin-transactions"] });
@@ -202,7 +232,9 @@ export default function AdminTransactionsPage() {
             <div className="text-2xl font-bold text-surface-950 dark:text-white">
               {kpis ? formatCurrency(kpis.totalRevenue) : "—"}
             </div>
-            <p className="text-xs text-surface-400 mt-1">From completed purchases</p>
+            <p className="text-xs text-surface-400 mt-1">
+              From completed purchases
+            </p>
           </CardContent>
         </Card>
 
@@ -217,7 +249,9 @@ export default function AdminTransactionsPage() {
             <div className="text-2xl font-bold text-surface-950 dark:text-white">
               {kpis ? formatCurrency(kpis.totalWalletBalance) : "—"}
             </div>
-            <p className="text-xs text-surface-400 mt-1">Total user wallet balance</p>
+            <p className="text-xs text-surface-400 mt-1">
+              Total user wallet balance
+            </p>
           </CardContent>
         </Card>
 
@@ -232,7 +266,9 @@ export default function AdminTransactionsPage() {
             <div className="text-2xl font-bold text-red-600 dark:text-red-400">
               {kpis ? formatCurrency(kpis.totalRefunded) : "—"}
             </div>
-            <p className="text-xs text-surface-400 mt-1">Total amount refunded</p>
+            <p className="text-xs text-surface-400 mt-1">
+              Total amount refunded
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -297,123 +333,156 @@ export default function AdminTransactionsPage() {
                     <TableHead className="w-[120px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
-              <TableBody>
-                {purchasesQuery.isLoading ? (
-                  Array.from({ length: 8 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell><Skeleton className="h-4 w-[130px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[70px]" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-[60px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[90px]" /></TableCell>
-                      <TableCell><Skeleton className="h-8 w-[100px]" /></TableCell>
+                <TableBody>
+                  {purchasesQuery.isLoading ? (
+                    Array.from({ length: 8 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell>
+                          <Skeleton className="h-4 w-[130px]" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-[150px]" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-[100px]" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-[70px]" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-5 w-[60px]" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-[90px]" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-8 w-[100px]" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : purchasesQuery.data?.purchases.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center text-surface-400 py-10"
+                      >
+                        No purchases found
+                      </TableCell>
                     </TableRow>
-                  ))
-                ) : purchasesQuery.data?.purchases.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-surface-400 py-10">
-                      No purchases found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  purchasesQuery.data?.purchases.map((purchase) => (
-                    <TableRow key={purchase.id}>
-                      <TableCell className="font-mono text-xs text-surface-600 dark:text-surface-400">
-                        {purchase.referenceId}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-sm text-surface-900 dark:text-surface-100">
-                            {purchase.user.name ?? "—"}
-                          </span>
-                          <span className="text-xs text-surface-400">
-                            {purchase.user.email}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {purchase.unlockedStates.length > 0 ? (
-                            purchase.unlockedStates.map((code) => (
-                              <Badge key={code} variant="outline" className="text-xs px-1.5">
-                                {code}
-                              </Badge>
-                            ))
+                  ) : (
+                    purchasesQuery.data?.purchases.map((purchase) => (
+                      <TableRow key={purchase.id}>
+                        <TableCell className="font-mono text-xs text-surface-600 dark:text-surface-400">
+                          {purchase.referenceId}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm text-surface-900 dark:text-surface-100">
+                              {purchase.user.name ?? "—"}
+                            </span>
+                            <span className="text-xs text-surface-400">
+                              {purchase.user.email}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {purchase.unlockedStates.length > 0 ? (
+                              purchase.unlockedStates.map((code) => (
+                                <Badge
+                                  key={code}
+                                  variant="outline"
+                                  className="text-xs px-1.5"
+                                >
+                                  {code}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-xs text-surface-400">
+                                —
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm text-surface-700 dark:text-surface-200">
+                          {formatCurrency(purchase.amountPaid)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              PURCHASE_STATUS_BADGE_VARIANT[purchase.status] ??
+                              "secondary"
+                            }
+                            className="text-xs"
+                          >
+                            {purchase.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-surface-400">
+                          {formatDate(purchase.createdAt)}
+                        </TableCell>
+                        <TableCell>
+                          {purchase.status === "COMPLETED" ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950"
+                              disabled={refundMutation.isPending}
+                              onClick={() => {
+                                setRefundTarget(purchase);
+                                setRefundOpen(true);
+                              }}
+                            >
+                              Issue Refund
+                            </Button>
                           ) : (
                             <span className="text-xs text-surface-400">—</span>
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm text-surface-700 dark:text-surface-200">
-                        {formatCurrency(purchase.amountPaid)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={PURCHASE_STATUS_BADGE_VARIANT[purchase.status] ?? "secondary"}
-                          className="text-xs"
-                        >
-                          {purchase.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-surface-400">
-                        {formatDate(purchase.createdAt)}
-                      </TableCell>
-                      <TableCell>
-                        {purchase.status === "COMPLETED" ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950"
-                            disabled={refundMutation.isPending}
-                            onClick={() => {
-                              setRefundTarget(purchase);
-                              setRefundOpen(true);
-                            }}
-                          >
-                            Issue Refund
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-surface-400">—</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
-          {purchasesQuery.data && purchasesQuery.data.pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-surface-400">
-                Showing {(purchasesQuery.data.pagination.page - 1) * limit + 1}–
-                {Math.min(purchasesQuery.data.pagination.page * limit, purchasesQuery.data.pagination.total)} of{" "}
-                {purchasesQuery.data.pagination.total} purchases
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={purchasesPage <= 1}
-                  onClick={() => setPurchasesPage((p) => Math.max(1, p - 1))}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={purchasesPage >= purchasesQuery.data.pagination.totalPages}
-                  onClick={() => setPurchasesPage((p) => p + 1)}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+          {purchasesQuery.data &&
+            purchasesQuery.data.pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-surface-400">
+                  Showing{" "}
+                  {(purchasesQuery.data.pagination.page - 1) * limit + 1}–
+                  {Math.min(
+                    purchasesQuery.data.pagination.page * limit,
+                    purchasesQuery.data.pagination.total,
+                  )}{" "}
+                  of {purchasesQuery.data.pagination.total} purchases
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={purchasesPage <= 1}
+                    onClick={() => setPurchasesPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      purchasesPage >= purchasesQuery.data.pagination.totalPages
+                    }
+                    onClick={() => setPurchasesPage((p) => p + 1)}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </TabsContent>
 
         <TabsContent value="transactions" className="space-y-3">
@@ -425,9 +494,9 @@ export default function AdminTransactionsPage() {
                 setTxnPage(1);
               }}
             >
-            <SelectTrigger className="w-full sm:w-[160px]">
-              <SelectValue placeholder="Filter by type" />
-            </SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[160px]">
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Types</SelectItem>
                 <SelectItem value="RECHARGE">Recharge</SelectItem>
@@ -453,147 +522,198 @@ export default function AdminTransactionsPage() {
                     <TableHead>Timestamp</TableHead>
                   </TableRow>
                 </TableHeader>
-              <TableBody>
-                {transactionsQuery.isLoading ? (
-                  Array.from({ length: 8 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell><Skeleton className="h-4 w-[130px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-[60px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[70px]" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-[60px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[90px]" /></TableCell>
-                    </TableRow>
-                  ))
-                ) : transactionsQuery.data?.transactions.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-surface-400 py-10">
-                      No transactions found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  transactionsQuery.data?.transactions.map((tx) => (
-                    <TableRow key={tx.id}>
-                      <TableCell className="font-mono text-xs text-surface-600 dark:text-surface-400">
-                        {tx.referenceId}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-sm text-surface-900 dark:text-surface-100">
-                            {tx.user.name ?? "—"}
-                          </span>
-                          <span className="text-xs text-surface-400">
-                            {tx.user.email}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={TX_TYPE_BADGE_VARIANT[tx.type] ?? "secondary"}
-                          className="text-xs"
-                        >
-                          {tx.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        <span
-                          className={
-                            tx.type === "PURCHASE"
-                              ? "text-red-600"
-                              : "text-emerald-600"
-                          }
-                        >
-                          {tx.type === "PURCHASE" ? "-" : "+"}
-                          {formatCurrency(tx.amount)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            tx.status === "COMPLETED"
-                              ? "success"
-                              : tx.status === "FAILED"
-                                ? "destructive"
-                                : "secondary"
-                          }
-                          className="text-xs"
-                        >
-                          {tx.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-surface-400 max-w-[200px] truncate">
-                        {tx.description ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-sm text-surface-400">
-                        {formatDate(tx.createdAt)}
+                <TableBody>
+                  {transactionsQuery.isLoading ? (
+                    Array.from({ length: 8 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell>
+                          <Skeleton className="h-4 w-[130px]" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-[150px]" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-5 w-[60px]" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-[70px]" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-5 w-[60px]" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-[150px]" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-[90px]" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : transactionsQuery.data?.transactions.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center text-surface-400 py-10"
+                      >
+                        No transactions found
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  ) : (
+                    transactionsQuery.data?.transactions.map((tx) => (
+                      <TableRow key={tx.id}>
+                        <TableCell className="font-mono text-xs text-surface-600 dark:text-surface-400">
+                          {tx.referenceId}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm text-surface-900 dark:text-surface-100">
+                              {tx.user.name ?? "—"}
+                            </span>
+                            <span className="text-xs text-surface-400">
+                              {tx.user.email}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              TX_TYPE_BADGE_VARIANT[tx.type] ?? "secondary"
+                            }
+                            className="text-xs"
+                          >
+                            {tx.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          <span
+                            className={
+                              tx.type === "PURCHASE"
+                                ? "text-red-600"
+                                : "text-emerald-600"
+                            }
+                          >
+                            {tx.type === "PURCHASE" ? "-" : "+"}
+                            {formatCurrency(tx.amount)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              tx.status === "COMPLETED"
+                                ? "success"
+                                : tx.status === "FAILED"
+                                  ? "destructive"
+                                  : "secondary"
+                            }
+                            className="text-xs"
+                          >
+                            {tx.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-surface-400 max-w-[200px] truncate">
+                          {tx.description ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-sm text-surface-400">
+                          {formatDate(tx.createdAt)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
-          {transactionsQuery.data && transactionsQuery.data.pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-surface-400">
-                Showing {(transactionsQuery.data.pagination.page - 1) * limit + 1}–
-                {Math.min(transactionsQuery.data.pagination.page * limit, transactionsQuery.data.pagination.total)} of{" "}
-                {transactionsQuery.data.pagination.total} transactions
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={txnPage <= 1}
-                  onClick={() => setTxnPage((p) => Math.max(1, p - 1))}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={txnPage >= transactionsQuery.data.pagination.totalPages}
-                  onClick={() => setTxnPage((p) => p + 1)}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+          {transactionsQuery.data &&
+            transactionsQuery.data.pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-surface-400">
+                  Showing{" "}
+                  {(transactionsQuery.data.pagination.page - 1) * limit + 1}–
+                  {Math.min(
+                    transactionsQuery.data.pagination.page * limit,
+                    transactionsQuery.data.pagination.total,
+                  )}{" "}
+                  of {transactionsQuery.data.pagination.total} transactions
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={txnPage <= 1}
+                    onClick={() => setTxnPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      txnPage >= transactionsQuery.data.pagination.totalPages
+                    }
+                    onClick={() => setTxnPage((p) => p + 1)}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </TabsContent>
       </Tabs>
 
-      <AlertDialog open={refundOpen} onOpenChange={setRefundOpen}>
+      <AlertDialog
+        open={refundOpen}
+        onOpenChange={(open) => {
+          if (!refundMutation.isPending) setRefundOpen(open);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Issue Refund</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to refund this purchase? This will:
               <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-                <li>Mark the purchase as <strong>REFUNDED</strong></li>
-                <li>Return the credits spent on this order to the user&apos;s credit balance (card payments must be refunded in Lemon Squeezy)</li>
+                <li>
+                  Mark the purchase as <strong>REFUNDED</strong>
+                </li>
+                <li>
+                  Return the credits spent on this order to the user&apos;s
+                  credit balance (card payments must be refunded in Lemon
+                  Squeezy)
+                </li>
                 <li>Revoke the individual leads unlocked by this order</li>
-                <li>Remove the refunded states from the user&apos;s active territory access</li>
+                <li>
+                  Remove the refunded states from the user&apos;s active
+                  territory access
+                </li>
               </ul>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={refundMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={refundMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
+              aria-busy={refundMutation.isPending}
               className="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
               disabled={refundMutation.isPending}
-              onClick={() => {
+              onClick={(event) => {
+                event.preventDefault();
                 if (refundTarget) {
                   refundMutation.mutate(refundTarget.id);
                 }
               }}
             >
-              {refundMutation.isPending ? "Processing..." : "Confirm Refund"}
+              {refundMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Confirm Refund"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

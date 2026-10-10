@@ -1,6 +1,8 @@
 "use client";
+import { LatestRequest } from "@/lib/latest-request";
+import { Loader2 } from "lucide-react";
 
-import { useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -30,7 +32,8 @@ type LedgerTx = WalletData["transactions"][number];
 /** Human-readable reference; lead purchases link to the matching order in Leads Vault. */
 function TxRef({ tx }: { tx: LedgerTx }) {
   const ref = tx.displayRef || `LD-TXN-${tx.id.slice(-8).toUpperCase()}`;
-  const base = "block max-w-full truncate whitespace-nowrap font-mono text-xs sm:text-sm tracking-tight";
+  const base =
+    "block max-w-full truncate whitespace-nowrap font-mono text-xs sm:text-sm tracking-tight";
   if (tx.orderRef) {
     return (
       <Link
@@ -52,7 +55,10 @@ function TxRef({ tx }: { tx: LedgerTx }) {
 export default function BillingPage() {
   const queryClient = useQueryClient();
 
-  const [selectedTier, setSelectedTier] = useState<PricingTier>(VOLUME_PRICING_TIERS[0]);
+  const actionLock = useRef(false);
+  const [selectedTier, setSelectedTier] = useState<PricingTier>(
+    VOLUME_PRICING_TIERS[0],
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -62,34 +68,48 @@ export default function BillingPage() {
   });
   const [liveCredits, setLiveCredits] = useState<number | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
+  const billingRequest = useRef(new LatestRequest());
+  const [totalTransactions, setTotalTransactions] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
 
   const ITEMS_PER_PAGE = 5;
 
   const fetchBillingData = useCallback(async () => {
+    const controller = billingRequest.current.start();
     try {
       const [txRes, profileRes] = await Promise.all([
-        fetch("/api/billing/transactions"),
-        fetch("/api/user/profile"),
+        fetch(
+          `/api/billing/transactions?page=${currentPage}&limit=${ITEMS_PER_PAGE}`,
+          { signal: controller.signal },
+        ),
+        fetch("/api/user/profile", { signal: controller.signal }),
       ]);
+      if (controller.signal.aborted) return;
       if (profileRes.ok) {
         const profileJson = await profileRes.json();
         setLiveCredits(Number(profileJson.credits ?? 0));
       }
       if (txRes.ok) {
         const json = await txRes.json();
+        if (controller.signal.aborted) return;
+        setTotalTransactions(
+          json.pagination?.total ?? json.transactions.length,
+        );
         setData(json);
         setError(null);
       } else {
         const json = await txRes.json().catch(() => ({}));
         setError(json.error || "Failed to load billing data");
+        toast.error(json.error || "Failed to load billing data");
       }
     } catch {
+      if (controller.signal.aborted) return;
       setError("Network error. Please check your connection and try again.");
+      toast.error("Network error. Please check your connection and try again.");
     } finally {
-      setPageLoading(false);
+      if (!controller.signal.aborted) setPageLoading(false);
     }
-  }, []);
+  }, [currentPage]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && (window as any).createLemonSqueezy) {
@@ -100,7 +120,9 @@ export default function BillingPage() {
         eventHandler: (_event: string, data: any) => {
           if (_event === "Checkout.Success") {
             (window as any).LemonSqueezy?.Url?.Close?.();
-            toast.success("Credits added successfully!");
+            toast.info(
+              "Payment received. Credits will appear after payment confirmation.",
+            );
             queryClient.invalidateQueries({ queryKey: ["wallet"] });
             queryClient.invalidateQueries({ queryKey: ["dashboard"] });
             queryClient.invalidateQueries({ queryKey: ["billing"] });
@@ -112,61 +134,67 @@ export default function BillingPage() {
   }, [queryClient, fetchBillingData]);
 
   useEffect(() => {
-    fetchBillingData();
+    void fetchBillingData();
+    return () => billingRequest.current.cancel();
   }, [fetchBillingData]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [data.transactions.length]);
+  const handleAddFunds = useCallback(
+    async (confirmedTier?: PricingTier) => {
+      // Only the tier id is sent; the server resolves price and credits.
+      const tier = confirmedTier ?? selectedTier ?? VOLUME_PRICING_TIERS[0];
 
-  const handleAddFunds = useCallback(async (confirmedTier?: PricingTier) => {
-    // Only the tier id is sent; the server resolves price and credits.
-    const tier = confirmedTier ?? selectedTier ?? VOLUME_PRICING_TIERS[0];
+      if (actionLock.current) return;
+      actionLock.current = true;
+      setLoading(true);
+      setError(null);
+      setSuccessMessage(null);
 
-    setLoading(true);
-    setError(null);
-    setSuccessMessage(null);
+      try {
+        const res = await fetch("/api/billing/recharge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ type: "WALLET_TOPUP", tierId: tier.id }),
+        });
 
-    try {
-      const res = await fetch("/api/billing/recharge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ type: "WALLET_TOPUP", tierId: tier.id }),
-      });
+        const json = await res.json();
 
-      const json = await res.json();
-
-      if (res.ok) {
-        setSelectedTier(VOLUME_PRICING_TIERS[0]);
-        if (json.url) {
-          const embedUrl = json.url.includes("?")
-            ? `${json.url}&embed=1`
-            : `${json.url}?embed=1`;
-          if (typeof window !== "undefined" && (window as any).LemonSqueezy) {
-            (window as any).LemonSqueezy.Url.Open(embedUrl);
-          } else {
-            window.location.href = embedUrl;
+        if (res.ok) {
+          setSelectedTier(VOLUME_PRICING_TIERS[0]);
+          if (json.url) {
+            const embedUrl = json.url.includes("?")
+              ? `${json.url}&embed=1`
+              : `${json.url}?embed=1`;
+            if (typeof window !== "undefined" && (window as any).LemonSqueezy) {
+              (window as any).LemonSqueezy.Url.Open(embedUrl);
+            } else {
+              window.location.href = embedUrl;
+            }
+            return;
           }
-          return;
+          setSuccessMessage(json.message || "Credits added successfully.");
+          if (json.newBalance != null) {
+            setLiveCredits(Number(json.newBalance));
+          }
+          await fetchBillingData();
+        } else {
+          setError(json.error || "Failed to add credits");
+          toast.error(json.error || "Failed to add credits");
         }
-        setSuccessMessage(json.message || "Credits added successfully.");
-        if (json.newBalance != null) {
-          setLiveCredits(Number(json.newBalance));
-        }
-        await fetchBillingData();
-      } else {
-        setError(json.error || "Failed to add credits");
+      } catch {
+        setError("Network error. Please try again.");
+        toast.error("Network error. Please try again.");
+      } finally {
+        actionLock.current = false;
+        setLoading(false);
       }
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedTier, fetchBillingData]);
+    },
+    [selectedTier, fetchBillingData],
+  );
 
   const formatCredits = (val: any) => {
-    const num = typeof val === "number" ? val : Number(val?.toString?.() || val || 0);
+    const num =
+      typeof val === "number" ? val : Number(val?.toString?.() || val || 0);
     return isNaN(num) ? "0" : num.toLocaleString();
   };
 
@@ -179,18 +207,21 @@ export default function BillingPage() {
   };
 
   const transactions = data.transactions;
-  const totalPages = Math.max(1, Math.ceil(transactions.length / ITEMS_PER_PAGE));
-  const paginatedTransactions = transactions.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  const totalPages = Math.max(1, Math.ceil(totalTransactions / ITEMS_PER_PAGE));
+  const paginatedTransactions = transactions;
 
   if (pageLoading) {
     return <BrandedLoader />;
   }
 
   const getTypeLabel = (type: string) =>
-    type === "TOPUP" || type === "RECHARGE" ? "Top-up" : type === "PURCHASE" ? "Purchase" : type === "REFUND" ? "Refund" : type;
+    type === "TOPUP" || type === "RECHARGE"
+      ? "Top-up"
+      : type === "PURCHASE"
+        ? "Purchase"
+        : type === "REFUND"
+          ? "Refund"
+          : type;
 
   const STATUS_DISPLAY: Record<string, { label: string; className: string }> = {
     COMPLETED: { label: "Completed", className: "text-emerald-600" },
@@ -214,14 +245,14 @@ export default function BillingPage() {
   };
 
   return (
-      <div className="w-full bg-slate-50 p-3.5 sm:p-6 lg:p-8 pb-12 sm:pb-12 lg:pb-12 space-y-4">
+    <div className="w-full bg-slate-50 p-3.5 sm:p-6 lg:p-8 pb-12 sm:pb-12 lg:pb-12 space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
           Billing & Credits
         </h1>
         <p className="mt-1.5 text-sm text-slate-500">
-          Pre-load credits for instant 1-click lead purchases and manage
-          your transaction ledger.
+          Pre-load credits for instant 1-click lead purchases and manage your
+          transaction ledger.
         </p>
       </div>
 
@@ -235,7 +266,9 @@ export default function BillingPage() {
               <div className="text-3xl font-bold text-slate-900 tabular-nums">
                 {formatCredits(liveCredits ?? data?.credits ?? 0)}
               </div>
-              <span className="text-sm font-medium text-slate-400">Credits</span>
+              <span className="text-sm font-medium text-slate-400">
+                Credits
+              </span>
             </div>
           </div>
 
@@ -248,9 +281,7 @@ export default function BillingPage() {
             />
 
             {error && (
-              <div className="text-xs font-medium text-red-600">
-                {error}
-              </div>
+              <div className="text-xs font-medium text-red-600">{error}</div>
             )}
 
             {successMessage && (
@@ -260,7 +291,8 @@ export default function BillingPage() {
             )}
 
             <div className="text-xs text-slate-400">
-              Secure 256-Bit Encrypted Checkout · Instant Balance Credit · No Monthly Lock-in
+              Secure 256-Bit Encrypted Checkout · Instant Balance Credit · No
+              Monthly Lock-in
             </div>
           </div>
         </div>
@@ -272,7 +304,8 @@ export default function BillingPage() {
             </div>
 
             <p className="text-xs text-slate-500 leading-relaxed">
-              For acquisition teams, marketing agencies, and funds requiring 50,000+ lead bulk territories.
+              For acquisition teams, marketing agencies, and funds requiring
+              50,000+ lead bulk territories.
             </p>
 
             <ul className="space-y-3">
@@ -281,10 +314,7 @@ export default function BillingPage() {
                 "Dedicated data manager and CRM mapping",
                 "Flexible invoicing and wire transfer support",
               ].map((benefit) => (
-                <li
-                  key={benefit}
-                  className="text-sm text-slate-700"
-                >
+                <li key={benefit} className="text-sm text-slate-700">
                   {benefit}
                 </li>
               ))}
@@ -303,7 +333,9 @@ export default function BillingPage() {
       <div className="bg-white shadow-none border-0 rounded-2xl p-6 flex flex-col justify-between min-h-[300px]">
         {error && (
           <div className="mb-4 rounded-xl bg-red-50 border border-red-200/60 p-4 flex items-center gap-3">
-            <span className="text-xs font-medium text-red-600 flex-1">{error}</span>
+            <span className="text-xs font-medium text-red-600 flex-1">
+              {error}
+            </span>
             <button
               type="button"
               onClick={() => setError(null)}
@@ -315,104 +347,148 @@ export default function BillingPage() {
         )}
         {/* Top: Header */}
         <div className="shrink-0">
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">Transaction Ledger</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Full historical record of your credit top-ups, lead purchases, and automated adjustments.</p>
+          <h2 className="text-base font-bold text-slate-900 tracking-tight">
+            Transaction Ledger
+          </h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Full historical record of your credit top-ups, lead purchases, and
+            automated adjustments.
+          </p>
         </div>
 
-         {/* Middle: 5 Rows Table OR Empty State (Same Fixed Space) */}
+        {/* Middle: 5 Rows Table OR Empty State (Same Fixed Space) */}
         <div className="flex-1 flex flex-col justify-center my-2 overflow-hidden">
           {transactions.length > 0 ? (
             <>
-            {/* Below sm: stacked cards instead of a sideways-scrolling table */}
-            <ul className="divide-y divide-slate-100 sm:hidden">
-              {paginatedTransactions.map((tx) => {
-                const typeConfig = getTypeConfig(tx.type);
-                const status = STATUS_DISPLAY[tx.status];
-                return (
-                  <li key={tx.id} className="py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <TxRef tx={tx} />
-                        <p className="mt-0.5 text-xs text-slate-400">
-                          {formatDate(tx.createdAt)} · {getTypeLabel(tx.type)}
-                        </p>
-                      </div>
-                      <span className={`shrink-0 text-sm font-semibold tabular-nums ${typeConfig.amountClass}`}>
-                        {tx.amount >= 0 ? "+" : ""}
-                        {tx.amount.toLocaleString()} Credits
-                      </span>
-                    </div>
-                    {tx.description && (
-                      <p className="mt-1 text-xs text-slate-600 break-words">{tx.description}</p>
-                    )}
-                    <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
-                      <span className="text-slate-500 tabular-nums">
-                        Balance after: {tx.balanceAfter != null ? tx.balanceAfter.toLocaleString() : "—"}
-                      </span>
-                      {status && <span className={`font-medium ${status.className}`}>{status.label}</span>}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="hidden sm:block w-full overflow-x-auto no-scrollbar">
-            <table className="w-full text-left text-sm min-w-[600px]">
-              <thead className="border-b border-slate-100 text-xs font-normal text-slate-400 uppercase">
-                <tr className="h-8">
-                  <th className="py-2 px-4 font-medium">Reference & Date</th>
-                  <th className="py-2 px-4 font-medium">Type</th>
-                  <th className="py-2 px-4 font-medium">Description</th>
-                  <th className="py-2 px-4 font-medium text-right">Amount</th>
-                  <th className="py-2 px-4 font-medium text-right">Balance After</th>
-                  <th className="py-2 px-4 font-medium text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
+              {/* Below sm: stacked cards instead of a sideways-scrolling table */}
+              <ul className="divide-y divide-slate-100 sm:hidden">
                 {paginatedTransactions.map((tx) => {
-                  const isPositive = tx.amount >= 0;
                   const typeConfig = getTypeConfig(tx.type);
-
+                  const status = STATUS_DISPLAY[tx.status];
                   return (
-                     <tr key={tx.id} className="h-11 hover:bg-slate-50/70 text-xs transition-colors">
-                    <td className="py-2 px-4 whitespace-nowrap">
-                      <TxRef tx={tx} />
-                      <div className="text-xs text-slate-400 mt-0.5">
-                        {formatDate(tx.createdAt)}
+                    <li key={tx.id} className="py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <TxRef tx={tx} />
+                          <p className="mt-0.5 text-xs text-slate-400">
+                            {formatDate(tx.createdAt)} · {getTypeLabel(tx.type)}
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 text-sm font-semibold tabular-nums ${typeConfig.amountClass}`}
+                        >
+                          {tx.amount >= 0 ? "+" : ""}
+                          {tx.amount.toLocaleString()} Credits
+                        </span>
                       </div>
-                    </td>
-                    <td className="py-2 px-4 whitespace-nowrap text-xs text-slate-700">
-                      {tx.type === "TOPUP" || tx.type === "RECHARGE" ? "Top-up" : tx.type === "PURCHASE" ? "Purchase" : tx.type === "REFUND" ? "Refund" : tx.type}
-                    </td>
-                    <td className="py-2 px-4 text-slate-700 text-xs max-w-xs truncate">
-                      {tx.description}
-                    </td>
-                    <td
-                      className={`py-2 px-4 text-xs font-semibold tabular-nums whitespace-nowrap text-right ${typeConfig.amountClass}`}
-                    >
-                      {isPositive ? "+" : ""}
-                      {tx.amount.toLocaleString()} Credits
-                    </td>
-                    <td className="py-2 px-4 text-xs font-medium text-slate-500 tabular-nums whitespace-nowrap text-right">
-                      {tx.balanceAfter != null
-                        ? tx.balanceAfter.toLocaleString()
-                        : "—"}
-                    </td>
-                    <td className="py-2 px-4 whitespace-nowrap text-right text-xs font-medium">
-                      {tx.status === "COMPLETED" && <span className="text-emerald-600">Completed</span>}
-                      {tx.status === "PENDING" && <span className="text-amber-600">Pending</span>}
-                      {tx.status === "FAILED" && <span className="text-red-600">Failed</span>}
-                      {tx.status === "REFUNDED" && <span className="text-slate-500">Refunded</span>}
-                    </td>
-                  </tr>
+                      {tx.description && (
+                        <p className="mt-1 text-xs text-slate-600 break-words">
+                          {tx.description}
+                        </p>
+                      )}
+                      <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+                        <span className="text-slate-500 tabular-nums">
+                          Balance after:{" "}
+                          {tx.balanceAfter != null
+                            ? tx.balanceAfter.toLocaleString()
+                            : "—"}
+                        </span>
+                        {status && (
+                          <span className={`font-medium ${status.className}`}>
+                            {status.label}
+                          </span>
+                        )}
+                      </div>
+                    </li>
                   );
                 })}
-              </tbody>
-            </table>
-            </div>
+              </ul>
+              <div className="hidden sm:block w-full overflow-x-auto no-scrollbar">
+                <table className="w-full text-left text-sm min-w-[600px]">
+                  <thead className="border-b border-slate-100 text-xs font-normal text-slate-400 uppercase">
+                    <tr className="h-8">
+                      <th className="py-2 px-4 font-medium">
+                        Reference & Date
+                      </th>
+                      <th className="py-2 px-4 font-medium">Type</th>
+                      <th className="py-2 px-4 font-medium">Description</th>
+                      <th className="py-2 px-4 font-medium text-right">
+                        Amount
+                      </th>
+                      <th className="py-2 px-4 font-medium text-right">
+                        Balance After
+                      </th>
+                      <th className="py-2 px-4 font-medium text-right">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedTransactions.map((tx) => {
+                      const isPositive = tx.amount >= 0;
+                      const typeConfig = getTypeConfig(tx.type);
+
+                      return (
+                        <tr
+                          key={tx.id}
+                          className="h-11 hover:bg-slate-50/70 text-xs transition-colors"
+                        >
+                          <td className="py-2 px-4 whitespace-nowrap">
+                            <TxRef tx={tx} />
+                            <div className="text-xs text-slate-400 mt-0.5">
+                              {formatDate(tx.createdAt)}
+                            </div>
+                          </td>
+                          <td className="py-2 px-4 whitespace-nowrap text-xs text-slate-700">
+                            {tx.type === "TOPUP" || tx.type === "RECHARGE"
+                              ? "Top-up"
+                              : tx.type === "PURCHASE"
+                                ? "Purchase"
+                                : tx.type === "REFUND"
+                                  ? "Refund"
+                                  : tx.type}
+                          </td>
+                          <td className="py-2 px-4 text-slate-700 text-xs max-w-xs truncate">
+                            {tx.description}
+                          </td>
+                          <td
+                            className={`py-2 px-4 text-xs font-semibold tabular-nums whitespace-nowrap text-right ${typeConfig.amountClass}`}
+                          >
+                            {isPositive ? "+" : ""}
+                            {tx.amount.toLocaleString()} Credits
+                          </td>
+                          <td className="py-2 px-4 text-xs font-medium text-slate-500 tabular-nums whitespace-nowrap text-right">
+                            {tx.balanceAfter != null
+                              ? tx.balanceAfter.toLocaleString()
+                              : "—"}
+                          </td>
+                          <td className="py-2 px-4 whitespace-nowrap text-right text-xs font-medium">
+                            {tx.status === "COMPLETED" && (
+                              <span className="text-emerald-600">
+                                Completed
+                              </span>
+                            )}
+                            {tx.status === "PENDING" && (
+                              <span className="text-amber-600">Pending</span>
+                            )}
+                            {tx.status === "FAILED" && (
+                              <span className="text-red-600">Failed</span>
+                            )}
+                            {tx.status === "REFUNDED" && (
+                              <span className="text-slate-500">Refunded</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </>
           ) : (
             <div className="text-center py-8 text-xs text-slate-400">
-              No transactions recorded yet. Your top-ups and purchases will appear here.
+              No transactions recorded yet. Your top-ups and purchases will
+              appear here.
             </div>
           )}
         </div>
@@ -424,7 +500,7 @@ export default function BillingPage() {
             <strong className="text-slate-900 tabular-nums font-semibold">
               {transactions.length === 0
                 ? "0"
-                : `${(currentPage - 1) * ITEMS_PER_PAGE + 1}–${Math.min(currentPage * ITEMS_PER_PAGE, transactions.length)}`}
+                : `${(currentPage - 1) * ITEMS_PER_PAGE + 1}–${Math.min(currentPage * ITEMS_PER_PAGE, totalTransactions)}`}
             </strong>{" "}
             of{" "}
             <strong className="text-slate-900 tabular-nums font-semibold">

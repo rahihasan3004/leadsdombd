@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -290,23 +291,34 @@ export function RegisterForm() {
     },
   });
 
+  const submitLock = useRef(false);
   const onSubmit = async (data: SignupFormData) => {
-    setServerError(null);
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
+    if (submitLock.current) return;
+    submitLock.current = true;
+    try {
+      setServerError(null);
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
 
-    if (!res.ok) {
-      const err = await res
-        .json()
-        .catch(() => ({ error: "Something went wrong" }));
-      setServerError(err.error || "Something went wrong");
-      return;
+      if (!res.ok) {
+        const err = await res
+          .json()
+          .catch(() => ({ error: "Something went wrong" }));
+        setServerError(err.error || "Something went wrong");
+        toast.error(err.error || "Signup failed");
+        return;
+      }
+
+      router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
+    } catch {
+      setServerError("Network error. Please retry.");
+      toast.error("Signup failed. Please check your connection and retry.");
+    } finally {
+      submitLock.current = false;
     }
-
-    router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
   };
 
   return (
@@ -387,9 +399,7 @@ export function RegisterForm() {
           autoComplete="new-password"
         />
         {errors.password && (
-          <p className="mt-1 text-xs text-red-500">
-            {errors.password.message}
-          </p>
+          <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>
         )}
       </div>
 

@@ -1,8 +1,12 @@
 "use client";
+import { copyText } from "@/lib/copy-text";
+import { Loader2 } from "lucide-react";
+import { parseAgentCsv } from "@/lib/parse-agent-csv";
+import { useSafeMutation } from "@/hooks/use-safe-mutation";
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -86,15 +90,31 @@ const PAGE_SIZE = 25;
 
 function CopyButton({ text }: { text: string | null }) {
   const [copied, setCopied] = useState(false);
+  const copyLock = useRef(false);
+  const [copying, setCopying] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleCopy = useCallback(async () => {
     if (!text) return;
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast.success("Copied to clipboard");
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => setCopied(false), 2000);
+    if (copyLock.current) return;
+    copyLock.current = true;
+    setCopying(true);
+    try {
+      await copyText(text);
+      setCopied(true);
+      toast.success("Copied to clipboard");
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not copy. Please retry.",
+      );
+    } finally {
+      copyLock.current = false;
+      setCopying(false);
+    }
   }, [text]);
 
   useEffect(() => {
@@ -103,12 +123,15 @@ function CopyButton({ text }: { text: string | null }) {
     };
   }, []);
 
-  if (!text) return <span className="text-surface-300 dark:text-surface-600">—</span>;
+  if (!text)
+    return <span className="text-surface-300 dark:text-surface-600">—</span>;
 
   return (
     <button
       type="button"
       onClick={handleCopy}
+      disabled={copying}
+      aria-busy={copying}
       className="inline-flex items-center gap-1 text-sm text-surface-700 dark:text-surface-200 hover:text-primary-600 dark:hover:text-primary-400 transition-colors max-w-[220px] truncate"
       title={text}
     >
@@ -125,7 +148,9 @@ function CopyButton({ text }: { text: string | null }) {
 function CsvColumnHint() {
   return (
     <div className="rounded-md bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 p-3">
-      <p className="text-xs font-medium text-surface-500 mb-2">Expected CSV columns:</p>
+      <p className="text-xs font-medium text-surface-500 mb-2">
+        Expected CSV columns:
+      </p>
       <div className="grid grid-cols-2 gap-1 text-xs text-surface-400 font-mono">
         <span>fullName *</span>
         <span>email</span>
@@ -153,14 +178,21 @@ export default function AdminAgentsPage() {
 
   const [editingAgent, setEditingAgent] = useState<AgentRow | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState<Record<string, string | boolean>>({});
+  const [editForm, setEditForm] = useState<Record<string, string | boolean>>(
+    {},
+  );
 
   const [deleteAgent, setDeleteAgent] = useState<AgentRow | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const [importOpen, setImportOpen] = useState(false);
+  const csvGeneration = useRef(0);
+  const [csvReading, setCsvReading] = useState(false);
+  const [importRows, setImportRows] = useState<Record<string, string>[]>([]);
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importPreview, setImportPreview] = useState<Record<string, string>[]>([]);
+  const [importPreview, setImportPreview] = useState<Record<string, string>[]>(
+    [],
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const agentsQuery = useQuery<AgentsResponse>({
@@ -171,7 +203,8 @@ export default function AdminAgentsPage() {
       params.set("page", String(page));
       if (search) params.set("q", search);
       if (stateFilter) params.set("state", stateFilter);
-      if (deliverabilityFilter !== "all") params.set("isDeliverable", deliverabilityFilter);
+      if (deliverabilityFilter !== "all")
+        params.set("isDeliverable", deliverabilityFilter);
 
       const res = await fetch(`/api/admin/agents?${params.toString()}`);
       if (!res.ok) {
@@ -182,8 +215,14 @@ export default function AdminAgentsPage() {
     },
   });
 
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Record<string, unknown> }) => {
+  const updateMutation = useSafeMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Record<string, unknown>;
+    }) => {
       const body: Record<string, unknown> = {};
       const allowedFields = [
         "fullName",
@@ -224,9 +263,11 @@ export default function AdminAgentsPage() {
     },
   });
 
-  const deleteMutation = useMutation({
+  const deleteMutation = useSafeMutation({
     mutationFn: async (agentId: string) => {
-      const res = await fetch(`/api/admin/agents/${agentId}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/agents/${agentId}`, {
+        method: "DELETE",
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
         throw new Error(err.error ?? "Failed to delete agent");
@@ -244,7 +285,7 @@ export default function AdminAgentsPage() {
     },
   });
 
-  const importMutation = useMutation({
+  const importMutation = useSafeMutation({
     mutationFn: async (rows: Record<string, string>[]) => {
       const res = await fetch("/api/admin/agents/import", {
         method: "POST",
@@ -287,16 +328,16 @@ export default function AdminAgentsPage() {
 
   const openEditDialog = useCallback((agent: AgentRow) => {
     setEditingAgent(agent);
-      setEditForm({
-        fullName: agent.fullName || "",
-        email: agent.email || "",
-        phone: agent.phone || "",
-        brokerageName: agent.brokerageName || "",
-        city: agent.city || "",
-        state: agent.state || "",
-        googlePlaceId: agent.googlePlaceId || "",
-        isDeliverable: agent.isDeliverable,
-      });
+    setEditForm({
+      fullName: agent.fullName || "",
+      email: agent.email || "",
+      phone: agent.phone || "",
+      brokerageName: agent.brokerageName || "",
+      city: agent.city || "",
+      state: agent.state || "",
+      googlePlaceId: agent.googlePlaceId || "",
+      isDeliverable: agent.isDeliverable,
+    });
     setEditOpen(true);
   }, []);
 
@@ -317,141 +358,63 @@ export default function AdminAgentsPage() {
     }
   }, [editingAgent, editForm, updateMutation]);
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImportFile(file);
-    parseCsv(file);
-  }, []);
-
   const parseCsv = useCallback(async (file: File) => {
+    const generation = ++csvGeneration.current;
+    setCsvReading(true);
+    setImportRows([]);
+    setImportPreview([]);
+    setImportFile(null);
     try {
-      const text = await file.text();
-      const lines = text.split(/\r?\n/).filter((line) => line.trim());
-      if (lines.length === 0) {
-        toast.error("CSV file is empty");
-        return;
-      }
-
-      const parseRow = (line: string): string[] => {
-        const result: string[] = [];
-        let current = "";
-        let inQuotes = false;
-        for (let i = 0; i < line.length; i++) {
-          const char = line[i];
-          if (char === "\"") {
-            if (inQuotes && i + 1 < line.length && line[i + 1] === "\"") {
-              current += "\"";
-              i++;
-            } else {
-              inQuotes = !inQuotes;
-            }
-          } else if (char === "," && !inQuotes) {
-            result.push(current.trim());
-            current = "";
-          } else {
-            current += char;
-          }
-        }
-        result.push(current.trim());
-        return result;
-      };
-
-      const headerCells = parseRow(lines[0]);
-      const headers = headerCells.map((h) => h.replace(/^["']|["']$/g, "").trim());
-
-      const rows: Record<string, string>[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cells = parseRow(lines[i]);
-        const row: Record<string, string> = {};
-        headers.forEach((header, idx) => {
-          if (header) {
-            row[header] = (cells[idx] || "").replace(/^["']|["']$/g, "").trim();
-          }
-        });
-        if (Object.keys(row).length > 0 && row.fullName) {
-          rows.push(row);
-        }
-      }
-
+      if (file.size > 5 * 1024 * 1024)
+        throw new Error("CSV must be smaller than 5 MB");
+      const rows = parseAgentCsv(await file.text());
+      if (generation !== csvGeneration.current) return;
+      if (!rows.length) throw new Error("CSV contains no data rows");
+      setImportRows(rows);
       setImportPreview(rows.slice(0, 10));
-      if (rows.length > 0) {
-        setImportFile(file);
-        toast.info(`Parsed ${rows.length} rows from CSV`);
-      } else {
-        toast.error("No valid rows found in CSV");
-      }
-    } catch {
-      toast.error("Failed to parse CSV file");
+      setImportFile(file);
+      toast.info(`Parsed ${rows.length} rows from CSV`);
+    } catch (error) {
+      if (generation === csvGeneration.current)
+        toast.error(
+          error instanceof Error ? error.message : "Failed to read CSV",
+        );
+    } finally {
+      if (generation === csvGeneration.current) setCsvReading(false);
     }
   }, []);
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) void parseCsv(file);
+    },
+    [parseCsv],
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const file = e.dataTransfer.files?.[0];
-    if (file && (file.name.endsWith(".csv") || file.type === "text/csv")) {
-      setImportFile(file);
-      parseCsv(file);
-    } else {
-      toast.error("Please upload a CSV file");
-    }
-  }, [parseCsv]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const file = e.dataTransfer.files?.[0];
+      if (file && (file.name.endsWith(".csv") || file.type === "text/csv")) {
+        setImportFile(file);
+        parseCsv(file);
+      } else {
+        toast.error("Please upload a CSV file");
+      }
+    },
+    [parseCsv],
+  );
 
   const handleStartImport = useCallback(() => {
-    if (!importFile) return;
-    const textPromise = importFile.text();
-    textPromise.then((text) => {
-      const lines = text.split(/\r?\n/).filter((line) => line.trim());
-      const parseRow = (line: string): string[] => {
-        const result: string[] = [];
-        let current = "";
-        let inQuotes = false;
-        for (let i = 0; i < line.length; i++) {
-          const char = line[i];
-          if (char === "\"") {
-            if (inQuotes && i + 1 < line.length && line[i + 1] === "\"") {
-              current += "\"";
-              i++;
-            } else {
-              inQuotes = !inQuotes;
-            }
-          } else if (char === "," && !inQuotes) {
-            result.push(current.trim());
-            current = "";
-          } else {
-            current += char;
-          }
-        }
-        result.push(current.trim());
-        return result;
-      };
-
-      const headerCells = parseRow(lines[0]);
-      const headers = headerCells.map((h) => h.replace(/^["']|["']$/g, "").trim());
-      const rows: Record<string, string>[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cells = parseRow(lines[i]);
-        const row: Record<string, string> = {};
-        headers.forEach((header, idx) => {
-          if (header) {
-            row[header] = (cells[idx] || "").replace(/^["']|["']$/g, "").trim();
-          }
-        });
-        if (Object.keys(row).length > 0 && row.fullName) {
-          rows.push(row);
-        }
-      }
-      importMutation.mutate(rows);
-    }).catch(() => {
-      toast.error("Failed to read CSV file");
-    });
-  }, [importFile, importMutation]);
+    if (csvReading || !importRows.length) return;
+    importMutation.mutate(importRows);
+  }, [csvReading, importRows, importMutation]);
 
   const isPending = updateMutation.isPending || deleteMutation.isPending;
   const data = agentsQuery.data;
@@ -506,7 +469,11 @@ export default function AdminAgentsPage() {
           </Select>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+          >
             <Upload className="mr-2 h-4 w-4" />
             Import CSV
           </Button>
@@ -526,121 +493,152 @@ export default function AdminAgentsPage() {
       <div className="w-full overflow-x-auto no-scrollbar">
         <div className="rounded-md border border-surface-200 dark:border-surface-800">
           <Table className="min-w-[600px]">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Agent</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>State / City</TableHead>
-              <TableHead>Brokerage</TableHead>
-              <TableHead>Deliverable</TableHead>
-              <TableHead className="w-[50px]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {agentsQuery.isLoading ? (
-              Array.from({ length: 10 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-[180px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[140px]" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-[80px]" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-8" /></TableCell>
-                </TableRow>
-              ))
-            ) : data?.agents.length === 0 ? (
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-surface-400 py-10">
-                  No agents found
-                </TableCell>
+                <TableHead>Agent</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>State / City</TableHead>
+                <TableHead>Brokerage</TableHead>
+                <TableHead>Deliverable</TableHead>
+                <TableHead className="w-[50px]" />
               </TableRow>
-            ) : (
-              data?.agents.map((agent) => (
-                <TableRow key={agent.id}>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium text-sm text-surface-950 dark:text-white">
-                        {agent.fullName}
-                      </span>
-                      {agent.googlePlaceId && (
-                        <span className="text-xs text-surface-400">
-                          Place: {agent.googlePlaceId}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <CopyButton text={agent.email} />
-                  </TableCell>
-                  <TableCell>
-                    <CopyButton text={agent.phone} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5 text-sm text-surface-600 dark:text-surface-300">
-                      {agent.state ? (
-                        <Badge variant="outline" className="text-xs font-mono">
-                          {agent.state}
-                        </Badge>
-                      ) : (
-                        <span className="text-surface-300">—</span>
-                      )}
-                      <span className="text-surface-400 text-xs">
-                        {agent.city || "—"}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-surface-600 dark:text-surface-300 max-w-[180px] truncate">
-                    {agent.brokerageName || "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={agent.isDeliverable ? "success" : "destructive"}
-                      className="text-xs"
-                    >
-                      {agent.isDeliverable ? "Deliverable" : "Undeliverable"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" disabled={isPending}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEditDialog(agent)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Edit Agent
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-600 dark:text-red-400"
-                          onClick={() => {
-                            setDeleteAgent(agent);
-                            setDeleteOpen(true);
-                          }}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Agent
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+            </TableHeader>
+            <TableBody>
+              {agentsQuery.isLoading ? (
+                Array.from({ length: 10 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <Skeleton className="h-4 w-[180px]" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-[200px]" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-[120px]" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-[100px]" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-[140px]" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-[80px]" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-8 w-8" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : data?.agents.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="text-center text-surface-400 py-10"
+                  >
+                    No agents found
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ) : (
+                data?.agents.map((agent) => (
+                  <TableRow key={agent.id}>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-medium text-sm text-surface-950 dark:text-white">
+                          {agent.fullName}
+                        </span>
+                        {agent.googlePlaceId && (
+                          <span className="text-xs text-surface-400">
+                            Place: {agent.googlePlaceId}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <CopyButton text={agent.email} />
+                    </TableCell>
+                    <TableCell>
+                      <CopyButton text={agent.phone} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5 text-sm text-surface-600 dark:text-surface-300">
+                        {agent.state ? (
+                          <Badge
+                            variant="outline"
+                            className="text-xs font-mono"
+                          >
+                            {agent.state}
+                          </Badge>
+                        ) : (
+                          <span className="text-surface-300">—</span>
+                        )}
+                        <span className="text-surface-400 text-xs">
+                          {agent.city || "—"}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-surface-600 dark:text-surface-300 max-w-[180px] truncate">
+                      {agent.brokerageName || "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          agent.isDeliverable ? "success" : "destructive"
+                        }
+                        className="text-xs"
+                      >
+                        {agent.isDeliverable ? "Deliverable" : "Undeliverable"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={isPending}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => openEditDialog(agent)}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit Agent
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-red-600 dark:text-red-400"
+                            onClick={() => {
+                              setDeleteAgent(agent);
+                              setDeleteOpen(true);
+                            }}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete Agent
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {data && data.pagination.totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-surface-400">
             Showing {(data.pagination.page - 1) * data.pagination.limit + 1}–
-            {Math.min(data.pagination.page * data.pagination.limit, data.pagination.total)} of{" "}
-            {data.pagination.total} agents
+            {Math.min(
+              data.pagination.page * data.pagination.limit,
+              data.pagination.total,
+            )}{" "}
+            of {data.pagination.total} agents
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -731,7 +729,10 @@ export default function AdminAgentsPage() {
               <Select
                 value={String(editForm.state ?? "")}
                 onValueChange={(v) =>
-                  setEditForm((prev) => ({ ...prev, state: v === "NONE" ? "" : v }))
+                  setEditForm((prev) => ({
+                    ...prev,
+                    state: v === "NONE" ? "" : v,
+                  }))
                 }
               >
                 <SelectTrigger className="mt-1">
@@ -773,10 +774,18 @@ export default function AdminAgentsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={updateMutation.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => setEditOpen(false)}
+              disabled={updateMutation.isPending}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit} disabled={updateMutation.isPending}>
+            <Button
+              aria-busy={updateMutation.isPending}
+              onClick={handleSaveEdit}
+              disabled={updateMutation.isPending}
+            >
               {updateMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
@@ -788,14 +797,20 @@ export default function AdminAgentsPage() {
           <DialogHeader>
             <DialogTitle>Delete Agent</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete {deleteAgent?.fullName}? This action cannot be undone.
+              Are you sure you want to delete {deleteAgent?.fullName}? This
+              action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleteMutation.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteOpen(false)}
+              disabled={deleteMutation.isPending}
+            >
               Cancel
             </Button>
             <Button
+              aria-busy={deleteMutation.isPending}
               variant="destructive"
               onClick={() => {
                 if (deleteAgent) {
@@ -810,12 +825,26 @@ export default function AdminAgentsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+      <Dialog
+        open={importOpen}
+        onOpenChange={(open) => {
+          if (importMutation.isPending) return;
+          if (!open) {
+            csvGeneration.current++;
+            setCsvReading(false);
+            setImportRows([]);
+            setImportPreview([]);
+            setImportFile(null);
+          }
+          setImportOpen(open);
+        }}
+      >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Bulk CSV Import</DialogTitle>
             <DialogDescription>
-              Upload a CSV file with agent records. The system will upsert by email or Google Place ID.
+              Upload a CSV file with agent records. The system will upsert by
+              email or Google Place ID.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -829,7 +858,9 @@ export default function AdminAgentsPage() {
               <FileText className="h-10 w-10 text-surface-400" />
               <div className="text-center">
                 <p className="text-sm font-medium text-surface-700 dark:text-surface-300">
-                  {importFile ? importFile.name : "Drop CSV file here or click to browse"}
+                  {importFile
+                    ? importFile.name
+                    : "Drop CSV file here or click to browse"}
                 </p>
                 <p className="text-xs text-surface-400 mt-1">
                   Supports .csv files
@@ -852,57 +883,74 @@ export default function AdminAgentsPage() {
                 </p>
                 <div className="max-h-40 overflow-auto rounded-md border border-surface-200 dark:border-surface-800">
                   <div className="w-full overflow-x-auto no-scrollbar">
-                  <Table className="min-w-[600px]">
-                    <TableHeader>
-                      <TableRow>
-                        {Object.keys(importPreview[0]).slice(0, 5).map((key) => (
-                          <TableHead key={key} className="text-xs">
-                            {key}
-                          </TableHead>
-                        ))}
-                        {Object.keys(importPreview[0]).length > 5 && (
-                          <TableHead className="text-xs">...</TableHead>
-                        )}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {importPreview.map((row, idx) => (
-                        <TableRow key={idx}>
-                          {Object.keys(row)
+                    <Table className="min-w-[600px]">
+                      <TableHeader>
+                        <TableRow>
+                          {Object.keys(importPreview[0])
                             .slice(0, 5)
                             .map((key) => (
-                              <TableCell key={key} className="text-xs truncate max-w-[120px]">
-                                {row[key] || "—"}
-                              </TableCell>
+                              <TableHead key={key} className="text-xs">
+                                {key}
+                              </TableHead>
                             ))}
-                          {Object.keys(row).length > 5 && (
-                            <TableCell className="text-xs text-surface-400">
-                              +{Object.keys(row).length - 5} more
-                            </TableCell>
+                          {Object.keys(importPreview[0]).length > 5 && (
+                            <TableHead className="text-xs">...</TableHead>
                           )}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {importPreview.map((row, idx) => (
+                          <TableRow key={idx}>
+                            {Object.keys(row)
+                              .slice(0, 5)
+                              .map((key) => (
+                                <TableCell
+                                  key={key}
+                                  className="text-xs truncate max-w-[120px]"
+                                >
+                                  {row[key] || "—"}
+                                </TableCell>
+                              ))}
+                            {Object.keys(row).length > 5 && (
+                              <TableCell className="text-xs text-surface-400">
+                                +{Object.keys(row).length - 5} more
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
           </div>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => {
+                csvGeneration.current++;
+                setImportRows([]);
                 setImportOpen(false);
                 setImportFile(null);
                 setImportPreview([]);
               }}
-              disabled={importMutation.isPending}
+              disabled={csvReading || importMutation.isPending}
             >
               Cancel
             </Button>
-            <Button onClick={handleStartImport} disabled={!importFile || importMutation.isPending}>
-              {importMutation.isPending ? "Importing..." : "Import Agents"}
+            <Button
+              aria-busy={importMutation.isPending}
+              onClick={handleStartImport}
+              disabled={
+                csvReading || !importRows.length || importMutation.isPending
+              }
+            >
+              {csvReading
+                ? "Reading CSV..."
+                : importMutation.isPending
+                  ? "Importing..."
+                  : "Import Agents"}
             </Button>
           </DialogFooter>
         </DialogContent>

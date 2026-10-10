@@ -1,6 +1,7 @@
 "use client";
+import { Loader2 } from "lucide-react";
 
-import { useState, useMemo, useCallback } from "react";
+import { useRef, useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   US_STATES,
@@ -65,6 +66,7 @@ const BONUS_DIGITAL_PROFILES = [
 export function LeadOrderEngine() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const actionLock = useRef(false);
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(0);
   const [quantityInput, setQuantityInput] = useState("");
@@ -115,6 +117,8 @@ export function LeadOrderEngine() {
 
   const handleCheckout = useCallback(async () => {
     if (!isFormValid) return;
+    if (actionLock.current) return;
+    actionLock.current = true;
     setSubmitting(true);
     try {
       const res = await fetch("/api/purchases/order", {
@@ -166,6 +170,7 @@ export function LeadOrderEngine() {
       toast.error("Something went wrong. Please try again.");
       console.error("[CHECKOUT_ERROR]:", err);
     } finally {
+      actionLock.current = false;
       setSubmitting(false);
     }
   }, [
@@ -328,12 +333,18 @@ export function LeadOrderEngine() {
             <button
               type="button"
               onClick={handleCheckout}
-              disabled={!isFormValid || submitting}
+              aria-busy={submitting}
+              disabled={!isFormValid || submitting || creditsLoading}
               className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-none border-0 transition-all duration-200 block text-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting
-                ? "Processing..."
-                : `Unlock ${parsedQty > 0 ? parsedQty.toLocaleString() : ""} Leads (${parsedQty > 0 ? requiredCredits.toLocaleString() : ""} Credits) →`}
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                `Unlock ${parsedQty > 0 ? parsedQty.toLocaleString() : ""} Leads (${parsedQty > 0 ? requiredCredits.toLocaleString() : ""} Credits) →`
+              )}
             </button>
 
             <div className="flex items-center justify-center gap-2 text-xs text-slate-400">

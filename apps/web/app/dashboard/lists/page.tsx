@@ -13,6 +13,8 @@ import {
   Mail,
   MapPin,
 } from "lucide-react";
+import { LatestRequest } from "@/lib/latest-request";
+import { toast } from "sonner";
 import type { LeadTier } from "@fine-leads/utils";
 import {
   OrderStatusBadge,
@@ -120,6 +122,11 @@ export default function ListsPage() {
   const [leads, setLeads] = useState<AgentData[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(false);
   const [totalLeads, setTotalLeads] = useState(0);
+  const [leadsError, setLeadsError] = useState<string | null>(null);
+  const [leadRefresh, setLeadRefresh] = useState(0);
+  const detailRequest = useRef(new LatestRequest());
+  const modalRequest = useRef(new LatestRequest());
+  const [agentLoading, setAgentLoading] = useState(false);
   const leadSearchRef = useRef<HTMLInputElement>(null);
   const syncAttempts = useRef(new Map<string, number>());
 
@@ -223,13 +230,18 @@ export default function ListsPage() {
       signal: controller.signal,
     })
       .then(async (response) => {
-        if (!response.ok || controller.signal.aborted) return;
+        if (controller.signal.aborted) return;
+        if (!response.ok) throw new Error("Sync failed");
         const result = await response.json();
         if (!controller.signal.aborted && result.status !== "PROCESSING")
           setRefreshTick((tick) => tick + 1);
       })
       .catch(() => {
-        /* Keep the normal status poll running; a failed sync cannot alter an order. */
+        if (!controller.signal.aborted)
+          toast.error(
+            "Order sync failed. Status checks will retry automatically.",
+            { id: "vault-sync" },
+          );
       });
     return () => controller.abort();
   }, [purchases]);
@@ -245,127 +257,188 @@ export default function ListsPage() {
   const showingTo =
     purchases.length === 0 ? 0 : orderPage * PAGE_SIZE + purchases.length;
 
-  const handleSelectPurchase = useCallback(async (purchase: Purchase) => {
+  const handleSelectPurchase = useCallback((purchase: Purchase) => {
     if (!isOrderDownloadable(purchase.status)) return;
+    detailRequest.current.cancel();
+    modalRequest.current.cancel();
+    setAgentLoading(false);
     setSelectedPurchase(purchase);
     setLeadSearch("");
     setLeadPage(0);
-    setLeadsLoading(true);
     setLeads([]);
-
-    try {
-      const res = await fetch(
-        `/api/purchases?purchaseId=${encodeURIComponent(purchase.id)}`,
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setLeads(
-          (data.leads || []).map((agent: Record<string, unknown>) => ({
-            id: agent.id as string,
-            fullName: agent.fullName as string,
-            firstName: agent.firstName as string | undefined,
-            lastName: agent.lastName as string | undefined,
-            leadTier:
-              data.purchase?.tier === "VERIFIED_EMAIL"
-                ? "VERIFIED_EMAIL"
-                : "PHONE_ONLY",
-            email:
-              data.purchase?.tier === "VERIFIED_EMAIL"
-                ? (agent.email as string | undefined)
-                : null,
-            phone: agent.phone as string | undefined,
-            officePhone: agent.officePhone as string | undefined,
-            brokerageName: agent.brokerageName as string | undefined,
-            city: agent.city as string | undefined,
-            state: agent.state as string | undefined,
-            zipCode: agent.zipCode as string | undefined,
-            county: agent.county as string | undefined,
-            category: agent.category as string | undefined,
-            rating: agent.rating as number | undefined,
-            reviewCount: agent.reviewCount as number | undefined,
-            timezone: agent.timezone as string | undefined,
-            googlePlaceId: agent.googlePlaceId as string | undefined,
-            googleMapsLink: agent.googleMapsLink as string | undefined,
-            scrapedAt: agent.scrapedAt as string | undefined,
-            verificationScore: agent.verificationScore as number | undefined,
-            dataSource: agent.dataSource as string | undefined,
-            photoUrl: agent.photoUrl as string | undefined,
-            websiteUrl: agent.websiteUrl as string | undefined,
-            brokerageAddress: agent.brokerageAddress as string | undefined,
-            licenseNumber: agent.licenseNumber as string | undefined,
-            licenseState: agent.licenseState as string | undefined,
-            licenseStatus: agent.licenseStatus as string | undefined,
-            licenseExpiry: agent.licenseExpiry as string | undefined,
-            nmlsId: agent.nmlsId as string | undefined,
-            marketArea: agent.marketArea as string | undefined,
-            propertyTypes: agent.propertyTypes as string[] | undefined,
-            transactionCount: agent.transactionCount as number | undefined,
-            totalVolume: agent.totalVolume as number | undefined,
-            averagePrice: agent.averagePrice as number | undefined,
-            yearsExperience: agent.yearsExperience as number | undefined,
-            specializations: agent.specializations as string[] | undefined,
-            bio: agent.bio as string | undefined,
-            socialProfiles: agent.socialProfiles as
-              Record<string, unknown> | undefined,
-            lastVerifiedAt: agent.lastVerifiedAt as string | undefined,
-            isVerified: agent.isVerified as boolean | undefined,
-            emailStatus: agent.emailStatus as string | undefined,
-            isDeliverable: agent.isDeliverable as boolean | undefined,
-            createdAt: agent.createdAt as string | undefined,
-            updatedAt: agent.updatedAt as string | undefined,
-          })),
-        );
-        setTotalLeads(data.leads?.length || 0);
-      }
-    } catch {
-      setLeads([]);
-    } finally {
-      setLeadsLoading(false);
-      setTimeout(() => leadSearchRef.current?.focus(), 100);
-    }
+    setTotalLeads(0);
+    setLeadsError(null);
+    setLeadsLoading(true);
+    setSelectedAgent(null);
+    setModalOpen(false);
   }, []);
 
+  useEffect(() => {
+    if (!selectedPurchase) return;
+    const controller = detailRequest.current.start();
+    setLeadsLoading(true);
+    setLeadsError(null);
+    setLeads([]);
+    const timer = setTimeout(
+      async () => {
+        try {
+          const params = new URLSearchParams({
+            purchaseId: selectedPurchase.id,
+            page: String(leadPage + 1),
+            limit: String(LEAD_PAGE_SIZE),
+            q: leadSearch.trim(),
+          });
+          const res = await fetch(`/api/purchases?${params}`, {
+            signal: controller.signal,
+          });
+          if (!res.ok) throw new Error("Failed to load leads. Please retry.");
+          const data = await res.json();
+          if (controller.signal.aborted) return;
+          setLeads(
+            (data.leads || []).map((agent: Record<string, unknown>) => ({
+              id: agent.id as string,
+              fullName: agent.fullName as string,
+              firstName: agent.firstName as string | undefined,
+              lastName: agent.lastName as string | undefined,
+              leadTier:
+                data.purchase?.tier === "VERIFIED_EMAIL"
+                  ? "VERIFIED_EMAIL"
+                  : "PHONE_ONLY",
+              email:
+                data.purchase?.tier === "VERIFIED_EMAIL"
+                  ? (agent.email as string | undefined)
+                  : null,
+              phone: agent.phone as string | undefined,
+              officePhone: agent.officePhone as string | undefined,
+              brokerageName: agent.brokerageName as string | undefined,
+              city: agent.city as string | undefined,
+              state: agent.state as string | undefined,
+              zipCode: agent.zipCode as string | undefined,
+              county: agent.county as string | undefined,
+              category: agent.category as string | undefined,
+              rating: agent.rating as number | undefined,
+              reviewCount: agent.reviewCount as number | undefined,
+              timezone: agent.timezone as string | undefined,
+              googlePlaceId: agent.googlePlaceId as string | undefined,
+              googleMapsLink: agent.googleMapsLink as string | undefined,
+              scrapedAt: agent.scrapedAt as string | undefined,
+              verificationScore: agent.verificationScore as number | undefined,
+              dataSource: agent.dataSource as string | undefined,
+              photoUrl: agent.photoUrl as string | undefined,
+              websiteUrl: agent.websiteUrl as string | undefined,
+              brokerageAddress: agent.brokerageAddress as string | undefined,
+              licenseNumber: agent.licenseNumber as string | undefined,
+              licenseState: agent.licenseState as string | undefined,
+              licenseStatus: agent.licenseStatus as string | undefined,
+              licenseExpiry: agent.licenseExpiry as string | undefined,
+              nmlsId: agent.nmlsId as string | undefined,
+              marketArea: agent.marketArea as string | undefined,
+              propertyTypes: agent.propertyTypes as string[] | undefined,
+              transactionCount: agent.transactionCount as number | undefined,
+              totalVolume: agent.totalVolume as number | undefined,
+              averagePrice: agent.averagePrice as number | undefined,
+              yearsExperience: agent.yearsExperience as number | undefined,
+              specializations: agent.specializations as string[] | undefined,
+              bio: agent.bio as string | undefined,
+              socialProfiles: agent.socialProfiles as
+                Record<string, unknown> | undefined,
+              lastVerifiedAt: agent.lastVerifiedAt as string | undefined,
+              isVerified: agent.isVerified as boolean | undefined,
+              emailStatus: agent.emailStatus as string | undefined,
+              isDeliverable: agent.isDeliverable as boolean | undefined,
+              createdAt: agent.createdAt as string | undefined,
+              updatedAt: agent.updatedAt as string | undefined,
+            })),
+          );
+          setTotalLeads(data.pagination?.total ?? 0);
+        } catch (error) {
+          if (!controller.signal.aborted) {
+            const message =
+              error instanceof Error ? error.message : "Failed to load leads";
+            setLeadsError(message);
+            toast.error(message);
+          }
+        } finally {
+          if (!controller.signal.aborted) setLeadsLoading(false);
+        }
+      },
+      leadSearch.trim() ? 250 : 0,
+    );
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [selectedPurchase, leadPage, leadSearch, leadRefresh]);
+  useEffect(
+    () => () => {
+      detailRequest.current.cancel();
+      modalRequest.current.cancel();
+    },
+    [],
+  );
+
   const handleBackToOrders = useCallback(() => {
+    detailRequest.current.cancel();
+    modalRequest.current.cancel();
+    setAgentLoading(false);
+    setModalOpen(false);
+    setSelectedAgent(null);
     setSelectedPurchase(null);
     setLeadSearch("");
     setLeadPage(0);
     setLeads([]);
   }, []);
 
-  const handleOpenAgent = useCallback((agent: AgentData) => {
-    setSelectedAgent(agent);
-    setModalOpen(true);
-  }, []);
+  const handleOpenAgent = useCallback(
+    async (agent: AgentData) => {
+      modalRequest.current.cancel();
+      const controller = modalRequest.current.start();
+      setAgentLoading(true);
+      try {
+        const res = await fetch(`/api/agents/${encodeURIComponent(agent.id)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok)
+          throw new Error("Failed to load lead details. Please retry.");
+        const data = await res.json();
+        if (controller.signal.aborted) return;
+        const tier = selectedPurchase?.tier ?? "PHONE_ONLY";
+        setSelectedAgent({
+          ...data,
+          leadTier: tier,
+          ...(tier === "PHONE_ONLY"
+            ? { email: null, socialProfiles: null }
+            : {}),
+        });
+        setModalOpen(true);
+      } catch (error) {
+        if (!controller.signal.aborted)
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Failed to load lead details",
+          );
+      } finally {
+        if (!controller.signal.aborted) setAgentLoading(false);
+      }
+    },
+    [selectedPurchase],
+  );
 
   const handleCloseModal = useCallback(() => {
+    modalRequest.current.cancel();
+    setAgentLoading(false);
     setModalOpen(false);
     setSelectedAgent(null);
   }, []);
 
-  const filteredLeads = useMemo(() => {
-    const q = leadSearch.toLowerCase().trim();
-    if (!q) return leads;
-    return leads.filter(
-      (a) =>
-        a.fullName.toLowerCase().includes(q) ||
-        (a.brokerageName || "").toLowerCase().includes(q) ||
-        (a.city || "").toLowerCase().includes(q) ||
-        (a.email || "").toLowerCase().includes(q),
-    );
-  }, [leads, leadSearch]);
-
-  const totalLeadPages = Math.ceil(filteredLeads.length / LEAD_PAGE_SIZE);
-  const paginatedLeads = useMemo(() => {
-    const start = leadPage * LEAD_PAGE_SIZE;
-    return filteredLeads.slice(start, start + LEAD_PAGE_SIZE);
-  }, [filteredLeads, leadPage]);
-
+  const filteredLeads = leads;
+  const totalLeadPages = Math.ceil(totalLeads / LEAD_PAGE_SIZE);
+  const paginatedLeads = leads;
   const leadShowingFrom =
-    filteredLeads.length === 0 ? 0 : leadPage * LEAD_PAGE_SIZE + 1;
-  const leadShowingTo = Math.min(
-    (leadPage + 1) * LEAD_PAGE_SIZE,
-    filteredLeads.length,
-  );
+    leads.length === 0 ? 0 : leadPage * LEAD_PAGE_SIZE + 1;
+  const leadShowingTo =
+    leads.length === 0 ? 0 : leadPage * LEAD_PAGE_SIZE + leads.length;
 
   if (loading) {
     return <BrandedLoader />;
@@ -450,7 +523,11 @@ export default function ListsPage() {
                     ref={leadSearchRef}
                     type="text"
                     value={leadSearch}
-                    onChange={(e) => setLeadSearch(e.target.value)}
+                    onChange={(e) => {
+                      detailRequest.current.cancel();
+                      setLeadPage(0);
+                      setLeadSearch(e.target.value);
+                    }}
                     placeholder="Search agents in this order by name..."
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs bg-white pl-10 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                   />
@@ -487,7 +564,11 @@ export default function ListsPage() {
                       ref={leadSearchRef}
                       type="text"
                       value={leadSearch}
-                      onChange={(e) => setLeadSearch(e.target.value)}
+                      onChange={(e) => {
+                        detailRequest.current.cancel();
+                        setLeadPage(0);
+                        setLeadSearch(e.target.value);
+                      }}
                       placeholder={
                         selectedPurchase.tier === "PHONE_ONLY"
                           ? "Search by name, brokerage, or city..."
@@ -501,7 +582,23 @@ export default function ListsPage() {
             </div>
 
             <div className="w-full flex-1 my-2">
-              {leadsLoading ? (
+              {agentLoading && (
+                <p role="status" className="p-3 text-sm text-blue-600">
+                  Loading lead details...
+                </p>
+              )}
+              {leadsError ? (
+                <div role="alert" className="p-6 text-red-600">
+                  {leadsError}
+                  <button
+                    type="button"
+                    className="ml-3 underline"
+                    onClick={() => setLeadRefresh((n) => n + 1)}
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : leadsLoading ? (
                 <>
                   <div className="md:hidden w-full">
                     <div className="p-4 space-y-3">
@@ -543,7 +640,21 @@ export default function ListsPage() {
                           <div
                             key={agent.id}
                             className="flex items-start gap-3 p-3.5 active:bg-slate-50 md:hover:bg-slate-50/60 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-                            onClick={() => handleOpenAgent(agent)}
+                            aria-disabled={agentLoading}
+                            role="button"
+                            tabIndex={agentLoading ? -1 : 0}
+                            onKeyDown={(e) => {
+                              if (
+                                !agentLoading &&
+                                (e.key === "Enter" || e.key === " ")
+                              ) {
+                                e.preventDefault();
+                                void handleOpenAgent(agent);
+                              }
+                            }}
+                            onClick={() => {
+                              if (!agentLoading) void handleOpenAgent(agent);
+                            }}
                           >
                             <span className="text-xs font-medium text-slate-400 w-5 text-right shrink-0 mt-0.5">
                               {leadPage * LEAD_PAGE_SIZE + index + 1}
@@ -586,7 +697,7 @@ export default function ListsPage() {
                           </span>{" "}
                           of{" "}
                           <span className="font-medium text-slate-900 tabular-nums">
-                            {filteredLeads.length}
+                            {totalLeads}
                           </span>{" "}
                           agents
                         </p>
@@ -647,7 +758,22 @@ export default function ListsPage() {
                               <tr
                                 key={agent.id}
                                 className="h-14 hover:bg-slate-50 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-                                onClick={() => handleOpenAgent(agent)}
+                                aria-disabled={agentLoading}
+                                role="button"
+                                tabIndex={agentLoading ? -1 : 0}
+                                onKeyDown={(e) => {
+                                  if (
+                                    !agentLoading &&
+                                    (e.key === "Enter" || e.key === " ")
+                                  ) {
+                                    e.preventDefault();
+                                    void handleOpenAgent(agent);
+                                  }
+                                }}
+                                onClick={() => {
+                                  if (!agentLoading)
+                                    void handleOpenAgent(agent);
+                                }}
                               >
                                 <td className="px-4 align-middle text-xs">
                                   <span className="font-normal text-slate-900">
@@ -732,7 +858,7 @@ export default function ListsPage() {
                 </span>{" "}
                 of{" "}
                 <span className="font-medium text-slate-900 tabular-nums">
-                  {filteredLeads.length}
+                  {totalLeads}
                 </span>{" "}
                 agents
               </p>

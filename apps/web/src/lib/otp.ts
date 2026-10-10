@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { db } from "@fine-leads/database";
+import { db, Prisma } from "@fine-leads/database";
 import { getAuthSecret } from "@fine-leads/auth/env";
 
 export const OTP_TTL_MS = 15 * 60 * 1000;
@@ -15,7 +15,8 @@ export const otpIdentifiers = {
   signup: (email: string) => `signup:${normalizeEmail(email)}`,
   passwordReset: (email: string) => `password-reset:${normalizeEmail(email)}`,
   emailChangeCurrent: (userId: string) => `email-change:current:${userId}`,
-  emailChangeNew: (userId: string, newEmail: string) => `email-change:new:${userId}:${newEmail}`,
+  emailChangeNew: (userId: string, newEmail: string) =>
+    `email-change:new:${userId}:${newEmail}`,
   deleteAccount: (userId: string) => `delete-account:${userId}`,
 };
 
@@ -29,53 +30,115 @@ export function generateOtp(): string {
 
 export function hashOtp(otp: string, identifier: string): string {
   // Keyed with the server secret so leaked hashes can't be brute-forced offline.
-  return crypto.createHmac("sha256", getAuthSecret()).update(`${identifier}:${otp}`).digest("hex");
+  return crypto
+    .createHmac("sha256", getAuthSecret())
+    .update(`${identifier}:${otp}`)
+    .digest("hex");
 }
 
-type Tx = Pick<typeof db, "verificationToken">;
-
-/** Replace any existing code for this identifier with a fresh one. */
-export async function storeOtp(identifier: string, otp: string, client: Tx = db) {
-  await client.verificationToken.deleteMany({ where: { identifier } });
-  await client.verificationToken.create({
-    data: { identifier, token: hashOtp(otp, identifier), expires: new Date(Date.now() + OTP_TTL_MS) },
-  });
+type Tx = Pick<Prisma.TransactionClient, "verificationToken" | "$queryRaw">;
+async function lockOtp(client: Tx, identifier: string) {
+  await client.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`otp:${identifier}`}, 0))`;
 }
-
-/** Delete all codes for this identifier (call after a successful, state-changing verification). */
-export async function consumeOtp(identifier: string, client: Tx = db) {
-  await client.verificationToken.deleteMany({ where: { identifier } });
+export async function storeOtp(identifier: string, otp: string, client?: Tx) {
+  const store = async (tx: Tx) => {
+    await lockOtp(tx, identifier);
+    await tx.verificationToken.deleteMany({ where: { identifier } });
+    await tx.verificationToken.create({
+      data: {
+        identifier,
+        token: hashOtp(otp, identifier),
+        expires: new Date(Date.now() + OTP_TTL_MS),
+      },
+    });
+  };
+  if (client) await store(client);
+  else
+    await db.$transaction(store, {
+      isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+    });
 }
-
 export type OtpCheck = "ok" | "invalid" | "expired" | "locked";
-
-/** Verify a code and count failed attempts (locks after MAX_OTP_ATTEMPTS). Does not consume the code. */
-export async function checkOtp(identifier: string, code: string): Promise<OtpCheck> {
-  const record = await db.verificationToken.findFirst({
+async function checkLocked(
+  tx: Tx,
+  identifier: string,
+  code: string,
+): Promise<OtpCheck> {
+  const record = await tx.verificationToken.findFirst({
     where: { identifier },
     orderBy: { createdAt: "desc" },
   });
   if (!record) return "invalid";
-  if (record.lockedUntil && record.lockedUntil > new Date()) return "locked";
-  if (record.expires <= new Date()) return "expired";
-
+  const now = new Date();
+  if (record.lockedUntil && record.lockedUntil > now) return "locked";
+  if (record.expires <= now) return "expired";
   const expected = Buffer.from(record.token, "hex");
   const actual = Buffer.from(hashOtp(String(code).trim(), identifier), "hex");
-  const matches = expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
-  if (matches) return "ok";
-
+  if (
+    expected.length === actual.length &&
+    crypto.timingSafeEqual(expected, actual)
+  )
+    return "ok";
   const failedAttempts = record.failedAttempts + 1;
-  await db.verificationToken.update({
+  await tx.verificationToken.update({
     where: { id: record.id },
     data: {
-      failedAttempts,
-      lockedUntil: failedAttempts >= MAX_OTP_ATTEMPTS ? new Date(Date.now() + LOCK_MS) : null,
+      failedAttempts: { increment: 1 },
+      lockedUntil:
+        failedAttempts >= MAX_OTP_ATTEMPTS
+          ? new Date(Date.now() + LOCK_MS)
+          : null,
     },
   });
   return failedAttempts >= MAX_OTP_ATTEMPTS ? "locked" : "invalid";
 }
+/** Non-consuming preview. Final mutations MUST use withVerifiedOtps, not this preview. */
+export async function checkOtp(
+  identifier: string,
+  code: string,
+): Promise<OtpCheck> {
+  return db.$transaction(
+    async (tx) => {
+      await lockOtp(tx, identifier);
+      return checkLocked(tx, identifier, code);
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+  );
+}
+/** Failed attempts commit; successful consumption and the protected action commit together.
+ * Sorted locks make two-code email changes safe against deadlocks and replay. */
+export async function withVerifiedOtps<T>(
+  codes: { identifier: string; code: string; label: string }[],
+  action: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<{ result: OtpCheck; label?: string; value?: T }> {
+  return db.$transaction(
+    async (tx) => {
+      for (const identifier of [
+        ...new Set(codes.map((c) => c.identifier)),
+      ].sort())
+        await lockOtp(tx, identifier);
+      for (const c of codes) {
+        const result = await checkLocked(tx, c.identifier, c.code);
+        if (result !== "ok") return { result, label: c.label };
+      }
+      const value = await action(tx);
+      for (const c of codes)
+        await tx.verificationToken.deleteMany({
+          where: {
+            identifier: c.identifier,
+            token: hashOtp(c.code.trim(), c.identifier),
+          },
+        });
+      return { result: "ok", value };
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+  );
+}
 
-export function otpErrorMessage(result: Exclude<OtpCheck, "ok">, label: string): string {
+export function otpErrorMessage(
+  result: Exclude<OtpCheck, "ok">,
+  label: string,
+): string {
   switch (result) {
     case "expired":
       return `The ${label} code has expired. Please request a new one.`;

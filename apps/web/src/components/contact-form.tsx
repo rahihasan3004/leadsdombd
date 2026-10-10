@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,11 +13,14 @@ export function ContactForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const submitLock = useRef(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (loading) return;
+    if (submitLock.current) return;
+    submitLock.current = true;
     setLoading(true);
     try {
       const res = await fetch("/api/contact", {
@@ -37,6 +40,7 @@ export function ContactForm() {
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
+      submitLock.current = false;
       setLoading(false);
     }
   }
@@ -99,8 +103,17 @@ export function ContactForm() {
         disabled={loading}
         className="inline-flex items-center justify-center gap-2 min-h-11 rounded-full px-6 py-2.5 bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 shadow-none border-0 disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-        {loading ? "Sending..." : "Send Message"}
+        {loading && (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        )}
+        {loading ? (
+          <>
+            <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+            Sending...
+          </>
+        ) : (
+          "Send Message"
+        )}
       </button>
     </form>
   );

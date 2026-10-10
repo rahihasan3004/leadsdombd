@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
+import { toast } from "sonner";
+import { LoginForm } from "./auth/login-form";
+import { GoogleButton } from "./auth/google-button";
 import { MapPin } from "lucide-react";
 
 const signupSchema = z.object({
@@ -77,7 +79,9 @@ function BrandShowcase() {
     <div className="flex min-h-dvh flex-col justify-center bg-slate-950 px-8 py-16 lg:px-14 lg:py-20">
       <div className="mx-auto w-full max-w-lg">
         <div className="mb-2 inline-flex items-center gap-2 text-xl font-semibold tracking-tight text-white">
-          <span className="text-2xl md:text-[28px] font-bold tracking-tight text-[#14A800]">leadsdom</span>
+          <span className="text-2xl md:text-[28px] font-bold tracking-tight text-[#14A800]">
+            leadsdom
+          </span>
           <span className="inline-block h-2 w-2 rounded-full bg-brand-500" />
         </div>
 
@@ -92,9 +96,9 @@ function BrandShowcase() {
         </h1>
 
         <p className="mb-10 text-[15px] leading-relaxed text-slate-400">
-          Directly reach verified Realtors, Principal Brokers, and Luxury Property
-          Managers across high-net-worth US territories with zero deliverability
-          friction.
+          Directly reach verified Realtors, Principal Brokers, and Luxury
+          Property Managers across high-net-worth US territories with zero
+          deliverability friction.
         </p>
 
         <div className="mb-10 space-y-2.5">
@@ -118,15 +122,17 @@ function BrandShowcase() {
           {guarantees.map((text) => (
             <div key={text} className="flex items-start gap-3">
               <CheckIcon />
-              <span className="text-sm leading-relaxed text-slate-300">{text}</span>
+              <span className="text-sm leading-relaxed text-slate-300">
+                {text}
+              </span>
             </div>
           ))}
         </div>
 
         <div className="rounded-lg border border-slate-800 bg-white/[0.02] px-4 py-3.5">
           <p className="text-[13px] italic leading-relaxed text-slate-400">
-            &ldquo;Generated 18 booked appointments in our first 10 days targeting
-            Miami luxury brokerages.&rdquo;
+            &ldquo;Generated 18 booked appointments in our first 10 days
+            targeting Miami luxury brokerages.&rdquo;
           </p>
           <p className="mt-1.5 text-xs font-medium uppercase tracking-wider text-slate-500">
             B2B Cold Outreach Agency
@@ -154,23 +160,34 @@ export function AuthPage({ mode }: AuthPageProps) {
     resolver: zodResolver(signupSchema),
   });
 
+  const submitLock = useRef(false);
   const onSubmit = async (data: SignupFormData) => {
-    setServerError(null);
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
+    if (submitLock.current) return;
+    submitLock.current = true;
+    try {
+      setServerError(null);
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
 
-    if (!res.ok) {
-      const err = await res
-        .json()
-        .catch(() => ({ error: "Something went wrong" }));
-      setServerError(err.error || "Something went wrong");
-      return;
+      if (!res.ok) {
+        const err = await res
+          .json()
+          .catch(() => ({ error: "Something went wrong" }));
+        setServerError(err.error || "Something went wrong");
+        toast.error(err.error || "Signup failed");
+        return;
+      }
+
+      router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
+    } catch {
+      setServerError("Network error. Please retry.");
+      toast.error("Signup failed. Please check your connection and retry.");
+    } finally {
+      submitLock.current = false;
     }
-
-    router.push("/login");
   };
 
   const isLogin = currentMode === "login";
@@ -186,7 +203,9 @@ export function AuthPage({ mode }: AuthPageProps) {
         <div className="w-full max-w-md px-0 py-12 sm:px-8">
           <div className="mb-8 lg:hidden">
             <div className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
-              <span className="text-2xl md:text-[28px] font-bold tracking-tight text-[#14A800]">leadsdom</span>
+              <span className="text-2xl md:text-[28px] font-bold tracking-tight text-[#14A800]">
+                leadsdom
+              </span>
               <span className="inline-block h-2 w-2 rounded-full bg-brand-500" />
             </div>
           </div>
@@ -202,14 +221,7 @@ export function AuthPage({ mode }: AuthPageProps) {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-            className="flex h-11 w-full items-center justify-center gap-2.5 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-transparent dark:text-slate-200 dark:hover:bg-slate-800/60"
-          >
-            <GoogleIcon />
-            Continue with Google
-          </button>
+          <GoogleButton variant="outline" />
 
           <div className="relative mb-5">
             <div className="absolute inset-0 flex items-center">
@@ -223,49 +235,7 @@ export function AuthPage({ mode }: AuthPageProps) {
           </div>
 
           {isLogin ? (
-            <form
-              onSubmit={async (e: React.FormEvent<HTMLFormElement>) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const email = formData.get("email") as string;
-                const password = formData.get("password") as string;
-                await signIn("credentials", { email, password, redirect: true });
-              }}
-              className="space-y-3.5"
-            >
-              <input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="name@company.com"
-                required
-                className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-              />
-              <div>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  placeholder="••••••••"
-                  required
-                  className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                />
-                <div className="mt-1.5 text-right">
-                  <Link
-                    href="/forgot-password"
-                    className="text-xs text-slate-500 transition-colors hover:text-slate-700 dark:hover:text-slate-300"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-              </div>
-              <button
-                type="submit"
-                className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-blue-600 text-white shadow-none transition-all duration-200 hover:bg-blue-700 active:bg-blue-800"
-              >
-                Sign In →
-              </button>
-            </form>
+            <LoginForm />
           ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-3.5">
               <div>

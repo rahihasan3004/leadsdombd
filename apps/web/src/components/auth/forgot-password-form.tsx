@@ -1,4 +1,5 @@
 "use client";
+import { Loader2 } from "lucide-react";
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -14,6 +15,7 @@ function normalizeEmail(email: string) {
 
 export function ForgotPasswordForm() {
   const router = useRouter();
+  const actionLock = useRef(false);
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -35,7 +37,10 @@ export function ForgotPasswordForm() {
     }
   }
 
-  function handleOtpKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
+  function handleOtpKeyDown(
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) {
     if (e.key === "Backspace" && !code[index] && index > 0) {
       otpRefs.current[index - 1]?.focus();
     }
@@ -43,7 +48,10 @@ export function ForgotPasswordForm() {
 
   function handleOtpPaste(e: React.ClipboardEvent) {
     e.preventDefault();
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    const pasted = e.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, 6);
     setCode(pasted);
     const focusIndex = Math.min(pasted.length, 5);
     otpRefs.current[focusIndex]?.focus();
@@ -53,6 +61,8 @@ export function ForgotPasswordForm() {
     e.preventDefault();
     setError("");
     setSuccess("");
+    if (actionLock.current) return;
+    actionLock.current = true;
     setLoading(true);
 
     try {
@@ -68,10 +78,13 @@ export function ForgotPasswordForm() {
       } else {
         const data = await res.json();
         setError(data.error ?? "Something went wrong. Please try again.");
+        toast.error(data.error ?? "Something went wrong. Please try again.");
       }
     } catch {
       setError("Network error. Please check your connection and try again.");
+      toast.error("Network error. Please check your connection and try again.");
     } finally {
+      actionLock.current = false;
       setLoading(false);
     }
   }
@@ -83,9 +96,12 @@ export function ForgotPasswordForm() {
 
     if (code.length !== 6) {
       setError("Please enter the complete 6-digit code.");
+      toast.error("Please enter the complete 6-digit code.");
       return;
     }
 
+    if (actionLock.current) return;
+    actionLock.current = true;
     setLoading(true);
 
     try {
@@ -103,10 +119,13 @@ export function ForgotPasswordForm() {
       } else {
         const data = await res.json();
         setError(data.error ?? "Invalid code. Please try again.");
+        toast.error(data.error ?? "Invalid code. Please try again.");
       }
     } catch {
       setError("Network error. Please check your connection and try again.");
+      toast.error("Network error. Please check your connection and try again.");
     } finally {
+      actionLock.current = false;
       setLoading(false);
     }
   }
@@ -118,14 +137,18 @@ export function ForgotPasswordForm() {
 
     if (newPassword !== confirmPassword) {
       setError("Passwords do not match.");
+      toast.error("Passwords do not match.");
       return;
     }
 
     if (newPassword.length < 8) {
       setError("Password must be at least 8 characters.");
+      toast.error("Password must be at least 8 characters.");
       return;
     }
 
+    if (actionLock.current) return;
+    actionLock.current = true;
     setLoading(true);
 
     try {
@@ -140,14 +163,19 @@ export function ForgotPasswordForm() {
       });
 
       if (res.ok) {
-        router.push("/login?" + new URLSearchParams({ reset: "success" }).toString());
+        router.push(
+          "/login?" + new URLSearchParams({ reset: "success" }).toString(),
+        );
       } else {
         const data = await res.json();
         setError(data.error ?? "Something went wrong. Please try again.");
+        toast.error(data.error ?? "Something went wrong. Please try again.");
       }
     } catch {
       setError("Network error. Please check your connection and try again.");
+      toast.error("Network error. Please check your connection and try again.");
     } finally {
+      actionLock.current = false;
       setLoading(false);
     }
   }
@@ -155,6 +183,8 @@ export function ForgotPasswordForm() {
   async function handleResendCode() {
     setError("");
     setSuccess("");
+    if (actionLock.current) return;
+    actionLock.current = true;
     setLoading(true);
 
     try {
@@ -169,10 +199,13 @@ export function ForgotPasswordForm() {
       } else {
         const data = await res.json();
         setError(data.error ?? "Failed to resend code.");
+        toast.error(data.error ?? "Failed to resend code.");
       }
     } catch {
       setError("Network error. Please try again.");
+      toast.error("Network error. Please try again.");
     } finally {
+      actionLock.current = false;
       setLoading(false);
     }
   }
@@ -199,7 +232,9 @@ export function ForgotPasswordForm() {
             <p className="mt-4 text-xs text-red-600 text-center">{error}</p>
           )}
           {success && (
-            <p className="mt-4 text-xs text-emerald-600 text-center">{success}</p>
+            <p className="mt-4 text-xs text-emerald-600 text-center">
+              {success}
+            </p>
           )}
 
           <form onSubmit={handleSendCode} className="w-full space-y-4">
@@ -221,8 +256,19 @@ export function ForgotPasswordForm() {
               />
             </div>
 
-            <button type="submit" disabled={loading} className={btnClass + " mt-2"}>
-              {loading ? "Sending..." : "Send Verification Code"}
+            <button
+              type="submit"
+              disabled={loading}
+              className={btnClass + " mt-2"}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Verification Code"
+              )}
             </button>
 
             <p className="text-xs text-surface-500 hover:text-surface-950 font-medium text-center mt-6">
@@ -238,7 +284,9 @@ export function ForgotPasswordForm() {
             Enter verification code
           </h1>
           <p className="text-sm text-surface-500 text-center mb-8">
-            We sent a 6-digit code to <span className="font-medium text-surface-900">{email}</span>. Enter it below to proceed.
+            We sent a 6-digit code to{" "}
+            <span className="font-medium text-surface-900">{email}</span>. Enter
+            it below to proceed.
           </p>
 
           {error && (
@@ -246,7 +294,10 @@ export function ForgotPasswordForm() {
           )}
 
           <form onSubmit={handleVerifyCode} className="w-full space-y-4">
-            <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full my-1" onPaste={handleOtpPaste}>
+            <div
+              className="flex items-center justify-between gap-1.5 sm:gap-2 w-full my-1"
+              onPaste={handleOtpPaste}
+            >
               {Array.from({ length: 6 }).map((_, i) => (
                 <input
                   key={i}
@@ -265,8 +316,19 @@ export function ForgotPasswordForm() {
               ))}
             </div>
 
-            <button type="submit" disabled={loading} className={btnClass + " mt-4"}>
-              {loading ? "Verifying..." : "Verify Code"}
+            <button
+              type="submit"
+              disabled={loading}
+              className={btnClass + " mt-4"}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                "Verify Code"
+              )}
             </button>
 
             <div className="flex items-center justify-between w-full mt-4 text-xs">
@@ -300,7 +362,8 @@ export function ForgotPasswordForm() {
             Set new password
           </h1>
           <p className="text-sm text-surface-500 text-center mb-8">
-            Code verified successfully. Enter a secure new password for your account.
+            Code verified successfully. Enter a secure new password for your
+            account.
           </p>
 
           {error && (
@@ -342,8 +405,19 @@ export function ForgotPasswordForm() {
               />
             </div>
 
-            <button type="submit" disabled={loading} className={btnClass + " mt-2"}>
-              {loading ? "Updating..." : "Update Password & Log In"}
+            <button
+              type="submit"
+              disabled={loading}
+              className={btnClass + " mt-2"}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update Password & Log In"
+              )}
             </button>
           </form>
         </>

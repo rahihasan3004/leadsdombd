@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useModalA11y } from "@/hooks/use-modal-a11y";
 import {
   Copy,
+  Loader2,
   Check,
   ExternalLink,
   Phone,
@@ -22,6 +23,7 @@ import {
   Hash,
   Server,
 } from "lucide-react";
+import { copyText } from "@/lib/copy-text";
 import { toast } from "sonner";
 import type { LeadTier } from "@fine-leads/utils";
 import {
@@ -123,15 +125,26 @@ function formatPhone(phone: string | null): string {
 
 function CopyButton({ value, label }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const copyLock = useRef(false);
 
   const handleCopy = useCallback(
-    (e: React.MouseEvent) => {
+    async (e: React.MouseEvent) => {
       e.stopPropagation();
-      navigator.clipboard.writeText(value).then(() => {
+      if (copyLock.current) return;
+      copyLock.current = true;
+      setCopying(true);
+      try {
+        await copyText(value);
         setCopied(true);
         toast.success(label ? `${label} copied` : "Copied to clipboard");
         setTimeout(() => setCopied(false), 1500);
-      });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Copy failed");
+      } finally {
+        copyLock.current = false;
+        setCopying(false);
+      }
     },
     [value, label],
   );
@@ -140,10 +153,15 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
     <button
       type="button"
       onClick={handleCopy}
+      disabled={copying}
+      aria-busy={copying}
       className="flex-shrink-0 p-2 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-      title="Copy to clipboard"
+      title={copying ? "Copying..." : "Copy to clipboard"}
+      aria-label={copying ? "Copying..." : "Copy to clipboard"}
     >
-      {copied ? (
+      {copying ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : copied ? (
         <Check className="w-3.5 h-3.5 text-emerald-600" />
       ) : (
         <Copy className="w-3.5 h-3.5" />
@@ -249,6 +267,8 @@ export function AgentDetailModal({
       ? null
       : agent?.websiteUrl;
 
+  const copyAllLock = useRef(false);
+  const [copyingAll, setCopyingAll] = useState(false);
   const handleCopyAllInfo = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -286,9 +306,18 @@ export function AgentDetailModal({
         .filter(Boolean)
         .join("\n");
 
-      navigator.clipboard.writeText(lines).then(() => {
-        toast.success("Business info copied");
-      });
+      if (copyAllLock.current) return;
+      copyAllLock.current = true;
+      setCopyingAll(true);
+      void copyText(lines)
+        .then(() => toast.success("Business info copied"))
+        .catch((error) =>
+          toast.error(error instanceof Error ? error.message : "Copy failed"),
+        )
+        .finally(() => {
+          copyAllLock.current = false;
+          setCopyingAll(false);
+        });
     },
     [agent, profiles, website],
   );
@@ -348,10 +377,15 @@ export function AgentDetailModal({
           <button
             type="button"
             onClick={handleCopyAllInfo}
+            disabled={copyingAll}
+            aria-busy={copyingAll}
             className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-none border-0 transition-colors cursor-pointer"
           >
             <Copy className="h-4 w-4" />
-            <span>Copy business info</span>
+            {copyingAll && <Loader2 className="h-4 w-4 animate-spin" />}
+            <span>
+              {copyingAll ? "Copying business info..." : "Copy business info"}
+            </span>
           </button>
         </div>
 

@@ -136,6 +136,7 @@ describe("Vault API", () => {
       leadCount: 1,
       unlockedLeads: [{ agent: lead }],
     });
+    dbMock.unlockedLead.findMany.mockResolvedValue([{ agent: lead }]);
     const response = await purchasesGET(
       request("/api/purchases?purchaseId=p1&tier=VERIFIED_EMAIL"),
     );
@@ -150,6 +151,7 @@ describe("Vault API", () => {
     expect(body.purchase.unlockedLeads).toBeUndefined();
   });
   it("returns the verified email and tier for a full pack", async () => {
+    dbMock.unlockedLead.findMany.mockResolvedValue([{ agent: lead }]);
     const body = await (
       await purchasesGET(request("/api/purchases?purchaseId=p1"))
     ).json();
@@ -489,5 +491,54 @@ describe("P0 explicit entitlement regression", () => {
       tokenVersion: 2,
     });
     expect((await (await detail()).json()).email).toBe(lead.email);
+  });
+});
+
+describe("bounded Vault lead pagination", () => {
+  it("loads only visible lead rows, with an independent count", async () => {
+    dbMock.unlockedLead.count.mockResolvedValue(50000);
+    dbMock.unlockedLead.findMany.mockResolvedValue([{ agent: lead }]);
+    const response = await purchasesGET(
+      request("/api/purchases?purchaseId=p1&page=3&limit=10&q=Realty"),
+    );
+    const body = await response.json();
+    expect(body.pagination).toMatchObject({
+      total: 50000,
+      pages: 5000,
+      currentPage: 3,
+      limit: 10,
+    });
+    expect(dbMock.unlockedLead.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 10,
+        skip: 20,
+        where: expect.objectContaining({
+          purchaseId: "p1",
+          userId: "user-1",
+          agent: expect.any(Object),
+        }),
+      }),
+    );
+    expect(
+      dbMock.leadPurchase.findFirst.mock.calls[0][0].include,
+    ).toBeUndefined();
+  });
+  it("rejects malformed page input before detail reads", async () => {
+    expect(
+      (await purchasesGET(request("/api/purchases?purchaseId=p1&page=-1")))
+        .status,
+    ).toBe(400);
+    expect(dbMock.unlockedLead.findMany).not.toHaveBeenCalled();
+  });
+  it("does not search email fields for PHONE_ONLY orders", async () => {
+    dbMock.leadPurchase.findFirst.mockResolvedValue({
+      id: "p1",
+      tier: "PHONE_ONLY",
+      leadCount: 1,
+    });
+    await purchasesGET(request("/api/purchases?purchaseId=p1&q=secret"));
+    expect(
+      JSON.stringify(dbMock.unlockedLead.count.mock.calls[0][0]),
+    ).not.toContain('"email"');
   });
 });

@@ -1,8 +1,10 @@
 "use client";
+import { toast } from "sonner";
+import { useSafeMutation } from "@/hooks/use-safe-mutation";
 
 import { useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -87,19 +89,28 @@ interface UserDetail {
   }>;
 }
 
-const ROLE_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "success" | "warning" | "outline"> = {
+const ROLE_BADGE_VARIANT: Record<
+  string,
+  "default" | "secondary" | "destructive" | "success" | "warning" | "outline"
+> = {
   USER: "secondary",
   ADMIN: "warning",
   SUPER_ADMIN: "destructive",
 };
 
-const TIER_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "success" | "warning" | "outline"> = {
+const TIER_BADGE_VARIANT: Record<
+  string,
+  "default" | "secondary" | "destructive" | "success" | "warning" | "outline"
+> = {
   FREE: "secondary",
   PRO: "success",
   ENTERPRISE: "warning",
 };
 
-const STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "success" | "warning" | "outline"> = {
+const STATUS_BADGE_VARIANT: Record<
+  string,
+  "default" | "secondary" | "destructive" | "success" | "warning" | "outline"
+> = {
   ACTIVE: "success",
   PAST_DUE: "destructive",
   CANCELED: "secondary",
@@ -129,7 +140,9 @@ export default function AdminUserDetailPage() {
   const userId = params.id as string;
 
   const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
-  const [selectedUnlockStates, setSelectedUnlockStates] = useState<string[]>([]);
+  const [selectedUnlockStates, setSelectedUnlockStates] = useState<string[]>(
+    [],
+  );
   const [revokeState, setRevokeState] = useState<string | null>(null);
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
   const [subscriptionTier, setSubscriptionTier] = useState("");
@@ -151,7 +164,7 @@ export default function AdminUserDetailPage() {
     },
   });
 
-  const unlockMutation = useMutation({
+  const unlockMutation = useSafeMutation({
     mutationFn: async (states: string[]) => {
       const res = await fetch(`/api/admin/users/${userId}/unlock-states`, {
         method: "POST",
@@ -165,13 +178,16 @@ export default function AdminUserDetailPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-user-detail", userId] });
+      toast.success("Changes saved successfully");
+      queryClient.invalidateQueries({
+        queryKey: ["admin-user-detail", userId],
+      });
       setUnlockDialogOpen(false);
       setSelectedUnlockStates([]);
     },
   });
 
-  const revokeMutation = useMutation({
+  const revokeMutation = useSafeMutation({
     mutationFn: async (states: string[]) => {
       const res = await fetch(`/api/admin/users/${userId}/revoke-states`, {
         method: "POST",
@@ -185,13 +201,16 @@ export default function AdminUserDetailPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-user-detail", userId] });
+      toast.success("Changes saved successfully");
+      queryClient.invalidateQueries({
+        queryKey: ["admin-user-detail", userId],
+      });
       setRevokeDialogOpen(false);
       setRevokeState(null);
     },
   });
 
-  const subscriptionMutation = useMutation({
+  const subscriptionMutation = useSafeMutation({
     mutationFn: async ({ tier, status }: { tier: string; status: string }) => {
       const res = await fetch(`/api/admin/users/${userId}/subscription`, {
         method: "PATCH",
@@ -205,11 +224,14 @@ export default function AdminUserDetailPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-user-detail", userId] });
+      toast.success("Changes saved successfully");
+      queryClient.invalidateQueries({
+        queryKey: ["admin-user-detail", userId],
+      });
     },
   });
 
-  const balanceMutation = useMutation({
+  const balanceMutation = useSafeMutation({
     mutationFn: async ({
       walletBalanceAdjustment,
       balanceReason: reason,
@@ -220,7 +242,10 @@ export default function AdminUserDetailPage() {
       const res = await fetch(`/api/admin/users/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletBalanceAdjustment, balanceReason: reason }),
+        body: JSON.stringify({
+          walletBalanceAdjustment,
+          balanceReason: reason,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -229,7 +254,10 @@ export default function AdminUserDetailPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-user-detail", userId] });
+      toast.success("Changes saved successfully");
+      queryClient.invalidateQueries({
+        queryKey: ["admin-user-detail", userId],
+      });
       setBalanceOpen(false);
       setBalanceAmount("");
       setBalanceReason("");
@@ -264,7 +292,9 @@ export default function AdminUserDetailPage() {
   if (isError || !data) {
     return (
       <div className="rounded-md bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-6">
-        <h3 className="text-lg font-semibold text-red-800 dark:text-red-200">Error Loading User</h3>
+        <h3 className="text-lg font-semibold text-red-800 dark:text-red-200">
+          Error Loading User
+        </h3>
         <p className="text-sm text-red-600 dark:text-red-400 mt-1">
           {(error as Error)?.message ?? "User not found"}
         </p>
@@ -281,12 +311,18 @@ export default function AdminUserDetailPage() {
   }
 
   const availableStates = LEAD_STATES.map((s) => s.code);
-  const lockedStates = availableStates.filter((s) => !data.unlockedStates.includes(s));
+  const lockedStates = availableStates.filter(
+    (s) => !data.unlockedStates.includes(s),
+  );
 
   return (
     <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/admin/users")}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => router.push("/admin/users")}
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
@@ -295,7 +331,10 @@ export default function AdminUserDetailPage() {
           </h1>
           <p className="text-sm text-surface-500">{data.email}</p>
         </div>
-        <Badge variant={ROLE_BADGE_VARIANT[data.role] ?? "secondary"} className="text-xs">
+        <Badge
+          variant={ROLE_BADGE_VARIANT[data.role] ?? "secondary"}
+          className="text-xs"
+        >
           {data.role.replace("_", " ")}
         </Badge>
       </div>
@@ -327,7 +366,8 @@ export default function AdminUserDetailPage() {
                 <div>
                   <CardTitle>State Access</CardTitle>
                   <CardDescription>
-                    {data.unlockedStates.length} of {availableStates.length} states unlocked
+                    {data.unlockedStates.length} of {availableStates.length}{" "}
+                    states unlocked
                   </CardDescription>
                 </div>
                 <Button
@@ -345,7 +385,8 @@ export default function AdminUserDetailPage() {
             <CardContent>
               {data.unlockedStates.length === 0 ? (
                 <p className="text-sm text-surface-400 py-4 text-center">
-                  No states unlocked yet. Use the &quot;Unlock State Pack&quot; button to grant access.
+                  No states unlocked yet. Use the &quot;Unlock State Pack&quot;
+                  button to grant access.
                 </p>
               ) : (
                 <div className="flex flex-wrap gap-2">
@@ -392,18 +433,28 @@ export default function AdminUserDetailPage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                     <div>
-                      <p className="text-sm font-medium text-surface-500">Current Tier</p>
+                      <p className="text-sm font-medium text-surface-500">
+                        Current Tier
+                      </p>
                       <Badge
-                        variant={TIER_BADGE_VARIANT[data.subscription.tier] ?? "outline"}
+                        variant={
+                          TIER_BADGE_VARIANT[data.subscription.tier] ??
+                          "outline"
+                        }
                         className="mt-1"
                       >
                         {data.subscription.tier}
                       </Badge>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-surface-500">Status</p>
+                      <p className="text-sm font-medium text-surface-500">
+                        Status
+                      </p>
                       <Badge
-                        variant={STATUS_BADGE_VARIANT[data.subscription.status] ?? "outline"}
+                        variant={
+                          STATUS_BADGE_VARIANT[data.subscription.status] ??
+                          "outline"
+                        }
                         className="mt-1"
                       >
                         {data.subscription.status.replace("_", " ")}
@@ -411,7 +462,9 @@ export default function AdminUserDetailPage() {
                     </div>
                     {data.subscription.currentPeriodEnd && (
                       <div>
-                        <p className="text-sm font-medium text-surface-500">Current Period Ends</p>
+                        <p className="text-sm font-medium text-surface-500">
+                          Current Period Ends
+                        </p>
                         <p className="text-sm text-surface-700 dark:text-surface-300 mt-1">
                           {formatDate(data.subscription.currentPeriodEnd)}
                         </p>
@@ -419,7 +472,9 @@ export default function AdminUserDetailPage() {
                     )}
                     {data.subscription.stripeSubscriptionId && (
                       <div>
-                        <p className="text-sm font-medium text-surface-500">Stripe Subscription</p>
+                        <p className="text-sm font-medium text-surface-500">
+                          Stripe Subscription
+                        </p>
                         <p className="text-sm font-mono text-surface-700 dark:text-surface-300 mt-1">
                           {data.subscription.stripeSubscriptionId}
                         </p>
@@ -428,7 +483,9 @@ export default function AdminUserDetailPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-surface-400">No active subscription</p>
+                <p className="text-sm text-surface-400">
+                  No active subscription
+                </p>
               )}
 
               <Separator className="my-4" />
@@ -472,7 +529,9 @@ export default function AdminUserDetailPage() {
                         <SelectItem value="PAST_DUE">Past Due</SelectItem>
                         <SelectItem value="CANCELED">Canceled</SelectItem>
                         <SelectItem value="INCOMPLETE">Incomplete</SelectItem>
-                        <SelectItem value="INCOMPLETE_EXPIRED">Incomplete Expired</SelectItem>
+                        <SelectItem value="INCOMPLETE_EXPIRED">
+                          Incomplete Expired
+                        </SelectItem>
                         <SelectItem value="TRIALING">Trialing</SelectItem>
                         <SelectItem value="UNPAID">Unpaid</SelectItem>
                         <SelectItem value="PAUSED">Paused</SelectItem>
@@ -481,6 +540,7 @@ export default function AdminUserDetailPage() {
                   </div>
                 </div>
                 <Button
+                  aria-busy={subscriptionMutation.isPending}
                   onClick={() => {
                     if (subscriptionTier && subscriptionStatus) {
                       subscriptionMutation.mutate({
@@ -518,7 +578,9 @@ export default function AdminUserDetailPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Wallet Balance</CardTitle>
-                  <CardDescription>Current balance and adjustment controls</CardDescription>
+                  <CardDescription>
+                    Current balance and adjustment controls
+                  </CardDescription>
                 </div>
                 <Button
                   variant="outline"
@@ -548,7 +610,9 @@ export default function AdminUserDetailPage() {
             </CardHeader>
             <CardContent>
               {data.recentTransactions.length === 0 ? (
-                <p className="text-sm text-surface-400 text-center py-4">No transactions</p>
+                <p className="text-sm text-surface-400 text-center py-4">
+                  No transactions
+                </p>
               ) : (
                 <div className="w-full overflow-x-auto no-scrollbar">
                   <div className="rounded-md border border-surface-200 dark:border-surface-800">
@@ -564,49 +628,53 @@ export default function AdminUserDetailPage() {
                           <TableHead>Date</TableHead>
                         </TableRow>
                       </TableHeader>
-                    <TableBody>
-                      {data.recentTransactions.map((txn) => (
-                        <TableRow key={txn.id}>
-                          <TableCell className="font-mono text-xs text-surface-500">
-                            {txn.referenceId}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {TXN_TYPE_LABELS[txn.type] ?? txn.type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">
-                            {formatCurrency(txn.amount)}
-                          </TableCell>
-                          <TableCell className="font-mono text-sm text-surface-500">
-                            {txn.balanceAfter !== null ? formatCurrency(txn.balanceAfter) : "—"}
-                          </TableCell>
-                          <TableCell className="text-sm text-surface-600 dark:text-surface-300 max-w-[200px] truncate">
-                            {txn.description}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={STATUS_BADGE_VARIANT[txn.status] ?? "outline"}
-                              className="text-xs"
-                            >
-                              {txn.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-surface-400">
-                            {formatDate(txn.createdAt)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      <TableBody>
+                        {data.recentTransactions.map((txn) => (
+                          <TableRow key={txn.id}>
+                            <TableCell className="font-mono text-xs text-surface-500">
+                              {txn.referenceId}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {TXN_TYPE_LABELS[txn.type] ?? txn.type}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">
+                              {formatCurrency(txn.amount)}
+                            </TableCell>
+                            <TableCell className="font-mono text-sm text-surface-500">
+                              {txn.balanceAfter !== null
+                                ? formatCurrency(txn.balanceAfter)
+                                : "—"}
+                            </TableCell>
+                            <TableCell className="text-sm text-surface-600 dark:text-surface-300 max-w-[200px] truncate">
+                              {txn.description}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  STATUS_BADGE_VARIANT[txn.status] ?? "outline"
+                                }
+                                className="text-xs"
+                              >
+                                {txn.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-surface-400">
+                              {formatDate(txn.createdAt)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <TabsContent value="purchases" className="mt-4 space-y-4">
+        <TabsContent value="purchases" className="mt-4 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Lead Purchases</CardTitle>
@@ -614,7 +682,9 @@ export default function AdminUserDetailPage() {
             </CardHeader>
             <CardContent>
               {data.recentPurchases.length === 0 ? (
-                <p className="text-sm text-surface-400 text-center py-4">No purchases</p>
+                <p className="text-sm text-surface-400 text-center py-4">
+                  No purchases
+                </p>
               ) : (
                 <div className="w-full overflow-x-auto no-scrollbar">
                   <div className="rounded-md border border-surface-200 dark:border-surface-800">
@@ -628,50 +698,53 @@ export default function AdminUserDetailPage() {
                           <TableHead>Date</TableHead>
                         </TableRow>
                       </TableHeader>
-                    <TableBody>
-                      {data.recentPurchases.map((purchase) => (
-                        <TableRow key={purchase.id}>
-                          <TableCell className="font-mono text-xs text-surface-500">
-                            {purchase.referenceId}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {purchase.unlockedStates.map((code) => (
-                                <Badge
-                                  key={code}
-                                  variant="secondary"
-                                  className="text-xs"
-                                >
-                                  {code}
-                                </Badge>
-                              ))}
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">
-                            {formatCurrency(purchase.amountPaid)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={STATUS_BADGE_VARIANT[purchase.status] ?? "outline"}
-                              className="text-xs"
-                            >
-                              {purchase.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-surface-400">
-                            {formatDate(purchase.createdAt)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      <TableBody>
+                        {data.recentPurchases.map((purchase) => (
+                          <TableRow key={purchase.id}>
+                            <TableCell className="font-mono text-xs text-surface-500">
+                              {purchase.referenceId}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1">
+                                {purchase.unlockedStates.map((code) => (
+                                  <Badge
+                                    key={code}
+                                    variant="secondary"
+                                    className="text-xs"
+                                  >
+                                    {code}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">
+                              {formatCurrency(purchase.amountPaid)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  STATUS_BADGE_VARIANT[purchase.status] ??
+                                  "outline"
+                                }
+                                className="text-xs"
+                              >
+                                {purchase.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-surface-400">
+                              {formatDate(purchase.createdAt)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={unlockDialogOpen} onOpenChange={setUnlockDialogOpen}>
         <DialogContent className="max-w-lg max-h-[80dvh] overflow-y-auto">
@@ -718,12 +791,15 @@ export default function AdminUserDetailPage() {
               Cancel
             </Button>
             <Button
+              aria-busy={unlockMutation.isPending}
               onClick={() => {
                 if (selectedUnlockStates.length > 0) {
                   unlockMutation.mutate(selectedUnlockStates);
                 }
               }}
-              disabled={unlockMutation.isPending || selectedUnlockStates.length === 0}
+              disabled={
+                unlockMutation.isPending || selectedUnlockStates.length === 0
+              }
             >
               {unlockMutation.isPending ? (
                 <>
@@ -733,7 +809,8 @@ export default function AdminUserDetailPage() {
               ) : (
                 <>
                   <Check className="mr-2 h-4 w-4" />
-                  Grant {selectedUnlockStates.length} State{selectedUnlockStates.length !== 1 ? "s" : ""}
+                  Grant {selectedUnlockStates.length} State
+                  {selectedUnlockStates.length !== 1 ? "s" : ""}
                 </>
               )}
             </Button>
@@ -750,8 +827,8 @@ export default function AdminUserDetailPage() {
               <Badge variant="destructive" className="mx-1">
                 {revokeState}
               </Badge>{" "}
-              from {data.name ?? data.email}? This will remove the state from all active
-              LeadPurchase records.
+              from {data.name ?? data.email}? This will remove the state from
+              all active LeadPurchase records.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -763,6 +840,7 @@ export default function AdminUserDetailPage() {
               Cancel
             </Button>
             <Button
+              aria-busy={revokeMutation.isPending}
               variant="destructive"
               onClick={() => {
                 if (revokeState) {
@@ -789,8 +867,8 @@ export default function AdminUserDetailPage() {
           <DialogHeader>
             <DialogTitle>Adjust Wallet Balance</DialogTitle>
             <DialogDescription>
-              Add or deduct funds for {data.name ?? data.email}. Current balance:{" "}
-              {formatCurrency(data.walletBalance)}
+              Add or deduct funds for {data.name ?? data.email}. Current
+              balance: {formatCurrency(data.walletBalance)}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-3">
@@ -828,6 +906,7 @@ export default function AdminUserDetailPage() {
               Cancel
             </Button>
             <Button
+              aria-busy={balanceMutation.isPending}
               onClick={() => {
                 const amount = Number.parseFloat(balanceAmount);
                 if (!Number.isNaN(amount) && amount !== 0) {

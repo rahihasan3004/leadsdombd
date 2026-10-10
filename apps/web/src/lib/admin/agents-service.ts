@@ -44,7 +44,15 @@ export interface ImportResult {
 }
 
 export async function getAdminAgents(query: AdminAgentsQuery) {
-  const { q, state, city, isDeliverable, dataSource, page = 1, limit = 25 } = query;
+  const {
+    q,
+    state,
+    city,
+    isDeliverable,
+    dataSource,
+    page = 1,
+    limit = 25,
+  } = query;
   const skip = (page - 1) * limit;
   const take = Math.min(limit, 100);
 
@@ -123,6 +131,13 @@ export async function getAdminAgentDetail(agentId: string) {
   return agent;
 }
 
+const unverifiedEmail = {
+  isVerified: false,
+  isDeliverable: false,
+  emailStatus: null,
+  lastVerifiedAt: null,
+  verificationScore: 0,
+};
 export async function updateAdminAgent(agentId: string, data: AgentUpdateData) {
   const agent = await db.agent.findUnique({ where: { id: agentId } });
   if (!agent) {
@@ -131,7 +146,14 @@ export async function updateAdminAgent(agentId: string, data: AgentUpdateData) {
 
   return db.agent.update({
     where: { id: agentId },
-    data,
+    data: {
+      ...data,
+      ...(data.email !== undefined &&
+      data.email.trim().toLowerCase() !==
+        (agent.email ?? "").trim().toLowerCase()
+        ? unverifiedEmail
+        : {}),
+    },
   });
 }
 
@@ -145,7 +167,9 @@ export async function deleteAdminAgent(agentId: string) {
   return { deleted: true, agentId };
 }
 
-export async function importAgents(rows: CsvImportRow[]): Promise<ImportResult> {
+export async function importAgents(
+  rows: CsvImportRow[],
+): Promise<ImportResult> {
   const errors: { row: number; message: string }[] = [];
   let importedCount = 0;
   let updatedCount = 0;
@@ -155,33 +179,39 @@ export async function importAgents(rows: CsvImportRow[]): Promise<ImportResult> 
     const row = rows[i];
     const rowNum = i + 1;
 
-if (!row.fullName?.trim()) {
-        errors.push({ row: rowNum, message: "Missing fullName" });
-        failedCount++;
-        continue;
+    if (
+      !row ||
+      Object.values(row).some(
+        (v) => v !== undefined && typeof v !== "string",
+      ) ||
+      !row.fullName?.trim()
+    ) {
+      errors.push({ row: rowNum, message: "Missing fullName" });
+      failedCount++;
+      continue;
+    }
+
+    const hasEmail = !!row.email?.trim();
+    const hasGooglePlaceId = !!row.googlePlaceId?.trim();
+
+    if (!hasEmail && !hasGooglePlaceId) {
+      errors.push({ row: rowNum, message: "Missing email and googlePlaceId" });
+      failedCount++;
+      continue;
+    }
+
+    try {
+      const orConditions: Prisma.AgentWhereInput[] = [];
+      if (hasEmail) {
+        orConditions.push({ email: row.email!.trim() });
+      }
+      if (hasGooglePlaceId) {
+        orConditions.push({ googlePlaceId: row.googlePlaceId!.trim() });
       }
 
-      const hasEmail = !!row.email?.trim();
-      const hasGooglePlaceId = !!row.googlePlaceId?.trim();
-
-      if (!hasEmail && !hasGooglePlaceId) {
-        errors.push({ row: rowNum, message: "Missing email and googlePlaceId" });
-        failedCount++;
-        continue;
-      }
-
-      try {
-        const orConditions: Prisma.AgentWhereInput[] = [];
-        if (hasEmail) {
-          orConditions.push({ email: row.email!.trim() });
-        }
-        if (hasGooglePlaceId) {
-          orConditions.push({ googlePlaceId: row.googlePlaceId!.trim() });
-        }
-
-        const existing = await db.agent.findFirst({
-          where: { OR: orConditions },
-        });
+      const existing = await db.agent.findFirst({
+        where: { OR: orConditions },
+      });
 
       const agentData = {
         fullName: row.fullName.trim(),
@@ -193,19 +223,23 @@ if (!row.fullName?.trim()) {
         googlePlaceId: row.googlePlaceId?.trim() || null,
         zipCode: row.zipCode?.trim() || null,
         dataSource: "BULK_IMPORT",
-        isVerified: true,
-        isDeliverable: true,
       };
 
       if (existing) {
         await db.agent.update({
           where: { id: existing.id },
-          data: agentData,
+          data: {
+            ...agentData,
+            ...((existing.email ?? "").trim().toLowerCase() !==
+            (agentData.email ?? "").trim().toLowerCase()
+              ? unverifiedEmail
+              : {}),
+          },
         });
         updatedCount++;
       } else {
         await db.agent.create({
-          data: agentData,
+          data: { ...agentData, ...unverifiedEmail },
         });
         importedCount++;
       }

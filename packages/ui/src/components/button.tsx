@@ -10,7 +10,8 @@ const buttonVariants = cva(
       variant: {
         default: "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800",
         destructive: "bg-red-600 text-white hover:bg-red-700",
-        outline: "border border-surface-300 bg-white hover:bg-surface-100 text-surface-700",
+        outline:
+          "border border-surface-300 bg-white hover:bg-surface-100 text-surface-700",
         secondary: "bg-surface-100 text-surface-900 hover:bg-surface-200",
         ghost: "hover:bg-surface-100 text-surface-700 hover:text-surface-900",
         link: "text-brand-600 underline-offset-4 hover:underline",
@@ -30,15 +31,62 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
 }
 
+function hasBusyIcon(children: React.ReactNode): boolean {
+  return React.Children.toArray(children).some((child) => {
+    if (
+      !React.isValidElement<{ className?: string; children?: React.ReactNode }>(
+        child,
+      )
+    )
+      return false;
+    return (
+      /animate-spin/.test(child.props.className ?? "") ||
+      hasBusyIcon(child.props.children)
+    );
+  });
+}
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
-    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
+    return (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        {...props}
+        disabled={props.disabled || props["aria-busy"] === true}
+      >
+        {props["aria-busy"] === true && !asChild && !hasBusyIcon(children) ? (
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            className="animate-spin motion-reduce:animate-none"
+          >
+            <circle
+              cx="12"
+              cy="12"
+              r="9"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              opacity=".25"
+            />
+            <path
+              d="M12 3a9 9 0 0 1 9 9"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+            />
+          </svg>
+        ) : null}
+        {children}
+      </Comp>
+    );
   },
 );
 Button.displayName = "Button";

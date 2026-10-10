@@ -4,7 +4,7 @@ const { authMock, dbMock, cacheMock } = vi.hoisted(() => ({
   authMock: vi.fn(),
   dbMock: {
     leadPurchase: { findMany: vi.fn(), count: vi.fn(), findFirst: vi.fn() },
-    unlockedLead: { findMany: vi.fn() },
+    unlockedLead: { findMany: vi.fn(), count: vi.fn() },
     agent: { groupBy: vi.fn() },
     $queryRaw: vi.fn(),
   },
@@ -29,6 +29,10 @@ beforeEach(() => {
   dbMock.leadPurchase.findMany.mockResolvedValue([]);
   dbMock.leadPurchase.count.mockResolvedValue(0);
   dbMock.agent.groupBy.mockResolvedValue([]);
+  dbMock.unlockedLead.count.mockResolvedValue(1);
+  dbMock.unlockedLead.findMany.mockResolvedValue([
+    { agent: { id: "agent-1", fullName: "Agent" } },
+  ]);
   cacheMock.mockImplementation((_key, _ttl, load) => load());
   dbMock.$queryRaw.mockResolvedValue([]);
 });

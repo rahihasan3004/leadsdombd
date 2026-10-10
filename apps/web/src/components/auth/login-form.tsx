@@ -14,6 +14,7 @@ export function LoginForm() {
   const router = useRouter();
   const errorParam = searchParams.get("error");
   const [error, setError] = useState("");
+  const submitLock = useRef(false);
   const verifiedFired = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -28,15 +29,16 @@ export function LoginForm() {
     }
   }, [searchParams]);
 
-  const displayError = errorParam === "CredentialsSignin"
-    ? "Invalid email or password, or your email has not been verified. Please check your inbox for a verification code."
-    : errorParam === "AccessDenied"
-    ? "Authentication failed. Please try again or contact support if the issue persists."
-    : errorParam
-    ? "Authentication failed. Please try again or contact support if the issue persists."
-    : error
-    ? error
-    : "";
+  const displayError =
+    errorParam === "CredentialsSignin"
+      ? "Invalid email or password, or your email has not been verified. Please check your inbox for a verification code."
+      : errorParam === "AccessDenied"
+        ? "Authentication failed. Please try again or contact support if the issue persists."
+        : errorParam
+          ? "Authentication failed. Please try again or contact support if the issue persists."
+          : error
+            ? error
+            : "";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -47,27 +49,40 @@ export function LoginForm() {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    if (submitLock.current) return;
+    submitLock.current = true;
+    try {
+      const res = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
 
-    if (res?.code === "email_not_verified") {
-      toast.info("Please verify your email to continue.");
-      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+      if (res?.code === "email_not_verified") {
+        toast.info("Please verify your email to continue.");
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+
+        return;
+      }
+
+      if (res?.error) {
+        setError(
+          "Invalid email or password, or your email has not been verified. Please check your inbox for a verification code.",
+        );
+        toast.error(
+          "Sign-in failed. Check your email, password and verification status.",
+        );
+      } else if (res?.ok) {
+        router.push("/dashboard");
+        router.refresh();
+      }
+    } catch {
+      setError("Sign-in failed. Please retry.");
+      toast.error("Sign-in failed. Please check your connection and retry.");
+    } finally {
+      submitLock.current = false;
       setIsLoading(false);
-      return;
     }
-
-    if (res?.error) {
-      setError("Invalid email or password, or your email has not been verified. Please check your inbox for a verification code.");
-    } else if (res?.ok) {
-      router.push("/dashboard");
-      router.refresh();
-    }
-
-    setIsLoading(false);
   }
 
   return (
@@ -112,15 +127,15 @@ export function LoginForm() {
             Forgot password?
           </Link>
         </div>
-        <PasswordInput
-          name="password"
-          autoComplete="current-password"
-        />
+        <PasswordInput name="password" autoComplete="current-password" />
       </div>
 
       <div className="flex items-center gap-2">
         <Checkbox id="keepSignedIn" name="keepSignedIn" />
-        <label htmlFor="keepSignedIn" className="text-xs text-surface-600 select-none cursor-pointer">
+        <label
+          htmlFor="keepSignedIn"
+          className="text-xs text-surface-600 select-none cursor-pointer"
+        >
           Remember me
         </label>
       </div>
@@ -139,7 +154,6 @@ export function LoginForm() {
           "Log In"
         )}
       </button>
-
     </form>
   );
 }

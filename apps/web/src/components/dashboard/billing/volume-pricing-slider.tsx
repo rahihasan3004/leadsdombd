@@ -1,7 +1,12 @@
 "use client";
+import { Loader2 } from "lucide-react";
 
 import { useState, useEffect, useCallback } from "react";
-import { VOLUME_PRICING_TIERS, type PricingTier, getDefaultTier } from "@fine-leads/utils";
+import {
+  VOLUME_PRICING_TIERS,
+  type PricingTier,
+  getDefaultTier,
+} from "@fine-leads/utils";
 
 interface VolumePricingSliderProps {
   selectedTier: PricingTier | null;
@@ -19,12 +24,20 @@ export default function VolumePricingSlider({
   disabled = false,
 }: VolumePricingSliderProps) {
   const initialTier = selectedTier ?? getDefaultTier();
-  const initialIndex = Math.max(0, VOLUME_PRICING_TIERS.findIndex((t) => t.credits === initialTier.credits));
+  const initialIndex = Math.max(
+    0,
+    VOLUME_PRICING_TIERS.findIndex((t) => t.credits === initialTier.credits),
+  );
   const [sliderValue, setSliderValue] = useState(initialIndex);
 
   useEffect(() => {
     if (selectedTier) {
-      const idx = Math.max(0, VOLUME_PRICING_TIERS.findIndex((t) => t.credits === selectedTier.credits));
+      const idx = Math.max(
+        0,
+        VOLUME_PRICING_TIERS.findIndex(
+          (t) => t.credits === selectedTier.credits,
+        ),
+      );
       setSliderValue(idx);
     }
   }, [selectedTier]);
@@ -37,7 +50,7 @@ export default function VolumePricingSlider({
       setSliderValue(idx);
       onTierChange(VOLUME_PRICING_TIERS[idx]);
     },
-    [onTierChange]
+    [onTierChange],
   );
 
   const handleStepClick = useCallback(
@@ -45,7 +58,7 @@ export default function VolumePricingSlider({
       setSliderValue(idx);
       onTierChange(tier);
     },
-    [onTierChange]
+    [onTierChange],
   );
 
   const progressPercentage =
@@ -61,7 +74,8 @@ export default function VolumePricingSlider({
           <span className="text-sm font-medium text-slate-400">once</span>
         </div>
         <p className="text-sm text-slate-500">
-          {currentTier.credits.toLocaleString()} credits • ${currentTier.unitPrice.toFixed(5)} per credit
+          {currentTier.credits.toLocaleString()} credits • $
+          {currentTier.unitPrice.toFixed(5)} per credit
         </p>
       </div>
 
@@ -181,12 +195,18 @@ export default function VolumePricingSlider({
       <button
         type="button"
         onClick={() => onConfirm(currentTier)}
+        aria-busy={loading}
         disabled={loading || disabled}
         className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-none border-0 transition-all duration-200 block text-center disabled:opacity-50"
       >
-        {loading
-          ? "Processing..."
-          : `Buy ${currentTier.credits.toLocaleString()} Credits for $${currentTier.price} →`}
+        {loading ? (
+          <>
+            <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          `Buy ${currentTier.credits.toLocaleString()} Credits for $${currentTier.price} →`
+        )}
       </button>
     </div>
   );

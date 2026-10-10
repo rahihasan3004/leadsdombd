@@ -1,9 +1,19 @@
 "use client";
+import { Loader2 } from "lucide-react";
 
-import { useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { User, Mail, Key, Trash2, Eye, EyeOff, AlertTriangle, CheckCircle2 } from "lucide-react";
+import {
+  User,
+  Mail,
+  Key,
+  Trash2,
+  Eye,
+  EyeOff,
+  AlertTriangle,
+  CheckCircle2,
+} from "lucide-react";
 import { Button, Input } from "@fine-leads/ui";
 import { toast } from "sonner";
 import {
@@ -25,7 +35,10 @@ export default function SettingsPage() {
   const router = useRouter();
   const user = session?.user;
 
+  const actionLock = useRef(false);
   const [securityInfo, setSecurityInfo] = useState<SecurityInfo | null>(null);
+  const [securityError, setSecurityError] = useState<string | null>(null);
+  const [securityRetry, setSecurityRetry] = useState(0);
   const [securityLoading, setSecurityLoading] = useState(true);
 
   const [name, setName] = useState(user?.name ?? "");
@@ -61,24 +74,37 @@ export default function SettingsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
-    async function fetchSecurityInfo() {
+    const controller = new AbortController();
+    setSecurityLoading(true);
+    setSecurityError(null);
+    void (async () => {
       try {
-        const res = await fetch("/api/user/security");
-        if (res.ok) {
-          const data = await res.json();
-          setSecurityInfo(data);
+        const res = await fetch("/api/user/security", {
+          signal: controller.signal,
+        });
+        if (!res.ok)
+          throw new Error("Unable to load security settings. Please retry.");
+        const data = await res.json();
+        if (!controller.signal.aborted) setSecurityInfo(data);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Unable to load security settings";
+          setSecurityError(message);
+          setSecurityInfo(null);
+          toast.error(message);
         }
-      } catch {
-        // silently fail
       } finally {
-        setSecurityLoading(false);
+        if (!controller.signal.aborted) setSecurityLoading(false);
       }
-    }
-    fetchSecurityInfo();
-  }, []);
+    })();
+    return () => controller.abort();
+  }, [securityRetry]);
 
   const isOAuthUser = securityInfo && !securityInfo.hasPassword;
-  const provider = securityInfo?.provider ?? "credentials";
+  const provider = securityInfo?.provider ?? "unknown";
   const isGoogleUser = securityInfo?.isGoogleUser ?? false;
 
   async function handleSaveName() {
@@ -86,6 +112,8 @@ export default function SettingsPage() {
       toast.error("Name cannot be empty");
       return;
     }
+    if (actionLock.current) return;
+    actionLock.current = true;
     setNameLoading(true);
     try {
       const res = await fetch("/api/user/profile", {
@@ -93,7 +121,9 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim() }),
       });
-      const data = await res.json().catch(() => ({ error: "Something went wrong" }));
+      const data = await res
+        .json()
+        .catch(() => ({ error: "Something went wrong" }));
       if (!res.ok) {
         toast.error(data.error ?? "Something went wrong");
         return;
@@ -104,6 +134,7 @@ export default function SettingsPage() {
     } catch {
       toast.error("Network error");
     } finally {
+      actionLock.current = false;
       setNameLoading(false);
     }
   }
@@ -113,6 +144,8 @@ export default function SettingsPage() {
       toast.error("Enter a valid email address");
       return;
     }
+    if (actionLock.current) return;
+    actionLock.current = true;
     setEmailLoading(true);
     try {
       const res = await fetch("/api/user/email/request-change", {
@@ -120,7 +153,9 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ newEmail: newEmail.trim() }),
       });
-      const data = await res.json().catch(() => ({ error: "Something went wrong" }));
+      const data = await res
+        .json()
+        .catch(() => ({ error: "Something went wrong" }));
       if (!res.ok) {
         toast.error(data.error ?? "Something went wrong");
         return;
@@ -132,6 +167,7 @@ export default function SettingsPage() {
     } catch {
       toast.error("Network error");
     } finally {
+      actionLock.current = false;
       setEmailLoading(false);
     }
   }
@@ -140,12 +176,16 @@ export default function SettingsPage() {
     setOtpError(null);
     if (!currentEmailCode || currentEmailCode.length !== 6) {
       setOtpError("Enter the 6-digit code sent to your current email");
+      toast.error("Enter the 6-digit code sent to your current email");
       return;
     }
     if (!newEmailCode || newEmailCode.length !== 6) {
       setOtpError("Enter the 6-digit code sent to your new email");
+      toast.error("Enter the 6-digit code sent to your new email");
       return;
     }
+    if (actionLock.current) return;
+    actionLock.current = true;
     setOtpLoading(true);
     try {
       const res = await fetch("/api/user/email/verify-change", {
@@ -157,9 +197,12 @@ export default function SettingsPage() {
           newEmailCode,
         }),
       });
-      const data = await res.json().catch(() => ({ error: "Something went wrong" }));
+      const data = await res
+        .json()
+        .catch(() => ({ error: "Something went wrong" }));
       if (!res.ok) {
         setOtpError(data.error ?? "Verification failed");
+        toast.error(data.error ?? "Verification failed");
         return;
       }
       setShowEmailOTPModal(false);
@@ -169,12 +212,16 @@ export default function SettingsPage() {
       router.refresh();
     } catch {
       setOtpError("Network error");
+      toast.error("Network error");
     } finally {
+      actionLock.current = false;
       setOtpLoading(false);
     }
   }
 
   async function handleUpdatePassword() {
+    if (actionLock.current) return;
+    actionLock.current = true;
     setPasswordLoading(true);
     try {
       const res = await fetch("/api/user/change-password", {
@@ -182,7 +229,9 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
       });
-      const data = await res.json().catch(() => ({ error: "Something went wrong" }));
+      const data = await res
+        .json()
+        .catch(() => ({ error: "Something went wrong" }));
       if (!res.ok) {
         toast.error(data.error ?? "Something went wrong");
         return;
@@ -196,12 +245,15 @@ export default function SettingsPage() {
     } catch {
       toast.error("Network error");
     } finally {
+      actionLock.current = false;
       setPasswordLoading(false);
     }
   }
 
   async function handleSendDeleteOtp() {
     setDeleteError(null);
+    if (actionLock.current) return;
+    actionLock.current = true;
     setDeleteOtpLoading(true);
     try {
       const res = await fetch("/api/user/delete-account/request-otp", {
@@ -209,16 +261,21 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ confirmText: dangerConfirm }),
       });
-      const data = await res.json().catch(() => ({ error: "Something went wrong" }));
+      const data = await res
+        .json()
+        .catch(() => ({ error: "Something went wrong" }));
       if (!res.ok) {
         setDeleteError(data.error ?? "Something went wrong");
+        toast.error(data.error ?? "Something went wrong");
         return;
       }
       setDeleteOtpSent(true);
       toast.success("Deletion code sent to your email");
     } catch {
       setDeleteError("Network error");
+      toast.error("Network error");
     } finally {
+      actionLock.current = false;
       setDeleteOtpLoading(false);
     }
   }
@@ -227,8 +284,11 @@ export default function SettingsPage() {
     setDeleteError(null);
     if (dangerConfirm !== "DELETE" || deleteOtp.length !== 6) {
       setDeleteError("You must type DELETE and enter a valid 6-digit OTP");
+      toast.error("You must type DELETE and enter a valid 6-digit OTP");
       return;
     }
+    if (actionLock.current) return;
+    actionLock.current = true;
     setDeleteLoading(true);
     try {
       const res = await fetch("/api/user/delete-account", {
@@ -236,14 +296,20 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ otp: deleteOtp, confirmText: dangerConfirm }),
       });
-      const data = await res.json().catch(() => ({ error: "Something went wrong" }));
+      const data = await res
+        .json()
+        .catch(() => ({ error: "Something went wrong" }));
       if (!res.ok) {
         setDeleteError(data.error ?? "Deletion failed");
+        toast.error(data.error ?? "Deletion failed");
         return;
       }
-      signOut({ callbackUrl: "/login" });
+      await signOut({ callbackUrl: "/login" });
     } catch {
       setDeleteError("Network error");
+      toast.error("Network error");
+    } finally {
+      actionLock.current = false;
       setDeleteLoading(false);
     }
   }
@@ -256,6 +322,13 @@ export default function SettingsPage() {
     setDeleteError(null);
   }
 
+  const anyPending =
+    nameLoading ||
+    emailLoading ||
+    otpLoading ||
+    passwordLoading ||
+    deleteOtpLoading ||
+    deleteLoading;
   const canDelete = dangerConfirm === "DELETE" && deleteOtp.length === 6;
 
   return (
@@ -269,6 +342,22 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      {securityError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700"
+        >
+          {securityError}
+          <button
+            type="button"
+            className="ml-3 underline"
+            disabled={securityLoading}
+            onClick={() => setSecurityRetry((n) => n + 1)}
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left / Main Column */}
         <div className="lg:col-span-2 space-y-6">
@@ -287,22 +376,30 @@ export default function SettingsPage() {
                 <label className="mb-1.5 block text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Full Name
                 </label>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-2">
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Your full name"
-                  className="w-full bg-white border border-slate-200 text-slate-900 px-4 py-2.5 rounded-xl outline-none focus:border-blue-500"
-                />
-                <Button
-                  onClick={handleSaveName}
-                  disabled={nameLoading}
-                  className="shrink-0 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-0 shadow-none"
-                >
-                  {nameLoading ? "Saving..." : "Save Name"}
-                </Button>
-              </div>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-2">
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your full name"
+                    className="w-full bg-white border border-slate-200 text-slate-900 px-4 py-2.5 rounded-xl outline-none focus:border-blue-500"
+                  />
+                  <Button
+                    aria-busy={nameLoading}
+                    onClick={handleSaveName}
+                    disabled={anyPending || nameLoading}
+                    className="shrink-0 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-0 shadow-none"
+                  >
+                    {nameLoading ? (
+                      <>
+                        <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Name"
+                    )}
+                  </Button>
+                </div>
               </div>
 
               {/* Email Address */}
@@ -312,44 +409,65 @@ export default function SettingsPage() {
                 </label>
                 <div className="flex items-center gap-3 mb-3">
                   <span className="text-sm text-slate-700">{user?.email}</span>
-                  <CheckCircle2
-                    className="h-4.5 w-4.5 text-[#465FFF]"
-                  />
+                  <CheckCircle2 className="h-4.5 w-4.5 text-[#465FFF]" />
                 </div>
                 {!securityLoading && securityInfo?.isGoogleUser && (
                   <p className="text-xs text-slate-500 font-medium">
                     Email is managed securely by your Google Account.
                   </p>
                 )}
-                {!securityLoading && securityInfo && !securityInfo.isGoogleUser && (
-                  <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 mt-2">
-                    <Input
-                      type="email"
-                      value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
-                      placeholder="Enter new email address"
-                      className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-white dark:border-slate-200 dark:text-slate-900 md:flex-1"
-                    />
-                    <Button
-                      onClick={handleRequestEmailChange}
-                      disabled={emailLoading}
-                      className="w-full md:w-auto shrink-0 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-0 shadow-none"
-                    >
-                      {emailLoading ? "Sending..." : "Request Email Change"}
-                    </Button>
-                  </div>
-                )}
-                {!securityLoading && securityInfo && !securityInfo.isGoogleUser && (
-                  <p className="text-xs text-slate-400 mt-2 font-normal">
-                    You will receive a 6-digit verification code at both your current and new email addresses.
-                  </p>
-                )}
+                {!securityLoading &&
+                  securityInfo &&
+                  !securityInfo.isGoogleUser && (
+                    <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 mt-2">
+                      <Input
+                        type="email"
+                        value={newEmail}
+                        onChange={(e) => setNewEmail(e.target.value)}
+                        placeholder="Enter new email address"
+                        className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-white dark:border-slate-200 dark:text-slate-900 md:flex-1"
+                      />
+                      <Button
+                        aria-busy={emailLoading}
+                        onClick={handleRequestEmailChange}
+                        disabled={
+                          anyPending ||
+                          securityLoading ||
+                          !securityInfo ||
+                          emailLoading
+                        }
+                        className="w-full md:w-auto shrink-0 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-0 shadow-none"
+                      >
+                        {emailLoading ? (
+                          <>
+                            <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          "Request Email Change"
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                {!securityLoading &&
+                  securityInfo &&
+                  !securityInfo.isGoogleUser && (
+                    <p className="text-xs text-slate-400 mt-2 font-normal">
+                      You will receive a 6-digit verification code at both your
+                      current and new email addresses.
+                    </p>
+                  )}
               </div>
             </div>
           </div>
 
           {/* Card 2: Security & Password */}
-          {(securityLoading || !securityInfo) ? (
+          {securityError ? (
+            <p className="text-sm text-red-600">
+              Security controls are unavailable until settings load
+              successfully.
+            </p>
+          ) : securityLoading || !securityInfo ? (
             <div className="bg-white shadow-none border-0 rounded-2xl p-6">
               <div className="h-7 w-32 bg-slate-200 rounded-md animate-pulse mb-2" />
               <div className="h-4 w-48 bg-slate-200 rounded-md animate-pulse mb-6" />
@@ -366,15 +484,31 @@ export default function SettingsPage() {
 
               <div className="mt-4 flex items-center gap-3.5">
                 <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                  />
                 </svg>
                 <div>
-                  <h4 className="text-sm font-semibold text-slate-900">Authenticated via Google</h4>
+                  <h4 className="text-sm font-semibold text-slate-900">
+                    Authenticated via Google
+                  </h4>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                    Your account is secured with Google OAuth. Passwords, two-factor authentication, and security settings are managed directly in your Google Security Center.
+                    Your account is secured with Google OAuth. Passwords,
+                    two-factor authentication, and security settings are managed
+                    directly in your Google Security Center.
                   </p>
                 </div>
               </div>
@@ -403,10 +537,16 @@ export default function SettingsPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      onClick={() =>
+                        setShowCurrentPassword(!showCurrentPassword)
+                      }
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
-                      {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showCurrentPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -428,7 +568,11 @@ export default function SettingsPage() {
                       onClick={() => setShowNewPassword(!showNewPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
-                      {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showNewPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -447,20 +591,40 @@ export default function SettingsPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
-                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                 </div>
 
                 <Button
+                  aria-busy={passwordLoading}
                   onClick={handleUpdatePassword}
-                  disabled={passwordLoading || !currentPassword || !newPassword || !confirmPassword}
+                  disabled={
+                    anyPending ||
+                    passwordLoading ||
+                    !currentPassword ||
+                    !newPassword ||
+                    !confirmPassword
+                  }
                   className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border border-slate-200/80 shadow-sm"
                 >
-                  {passwordLoading ? "Updating..." : "Update Password"}
+                  {passwordLoading ? (
+                    <>
+                      <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Password"
+                  )}
                 </Button>
               </div>
             </div>
@@ -475,7 +639,9 @@ export default function SettingsPage() {
               Danger Zone
             </h2>
             <p className="text-xs text-slate-500 mb-5">
-              Permanently delete your account, wallet balance, and unlocked lead data. Requires typing DELETE and verifying an email OTP to proceed. This action is irreversible.
+              Permanently delete your account, wallet balance, and unlocked lead
+              data. Requires typing DELETE and verifying an email OTP to
+              proceed. This action is irreversible.
             </p>
             <Button
               variant="destructive"
@@ -490,12 +656,18 @@ export default function SettingsPage() {
       </div>
 
       {/* Email OTP Verification Modal */}
-      <Dialog open={showEmailOTPModal} onOpenChange={setShowEmailOTPModal}>
+      <Dialog
+        open={showEmailOTPModal}
+        onOpenChange={(open) => {
+          if (!otpLoading) setShowEmailOTPModal(open);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Verify Email Change</DialogTitle>
             <DialogDescription>
-              Enter the 6-digit codes sent to both your current and new email addresses.
+              Enter the 6-digit codes sent to both your current and new email
+              addresses.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-3">
@@ -509,7 +681,9 @@ export default function SettingsPage() {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 value={currentEmailCode}
-                onChange={(e) => setCurrentEmailCode(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) =>
+                  setCurrentEmailCode(e.target.value.replace(/\D/g, ""))
+                }
                 placeholder="6-digit code"
                 className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-white dark:border-slate-200 dark:text-slate-900"
               />
@@ -524,7 +698,9 @@ export default function SettingsPage() {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 value={newEmailCode}
-                onChange={(e) => setNewEmailCode(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) =>
+                  setNewEmailCode(e.target.value.replace(/\D/g, ""))
+                }
                 placeholder="6-digit code"
                 className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-white dark:border-slate-200 dark:text-slate-900"
               />
@@ -533,18 +709,31 @@ export default function SettingsPage() {
               <p className="text-xs font-medium text-red-600">{otpError}</p>
             )}
             <Button
+              aria-busy={otpLoading}
               onClick={handleVerifyEmailChange}
-              disabled={otpLoading}
+              disabled={anyPending || otpLoading}
               className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border border-slate-200/80 shadow-sm"
             >
-              {otpLoading ? "Verifying..." : "Verify & Update Email"}
+              {otpLoading ? (
+                <>
+                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                "Verify & Update Email"
+              )}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Delete Account Modal */}
-      <Dialog open={showDeleteModal} onOpenChange={(open) => { if (!open) closeDeleteModal(); }}>
+      <Dialog
+        open={showDeleteModal}
+        onOpenChange={(open) => {
+          if (!open && !deleteLoading && !deleteOtpLoading) closeDeleteModal();
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-red-600 flex items-center gap-2">
@@ -553,7 +742,8 @@ export default function SettingsPage() {
             </DialogTitle>
             <DialogDescription className="text-left mt-3">
               <span className="block mb-1 font-semibold text-red-600">
-                To confirm deletion, please complete the two verification steps below:
+                To confirm deletion, please complete the two verification steps
+                below:
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -577,12 +767,22 @@ export default function SettingsPage() {
                 Step 2: Email OTP Verification
               </p>
               <Button
+                aria-busy={deleteOtpLoading}
                 type="button"
                 onClick={handleSendDeleteOtp}
-                disabled={dangerConfirm !== "DELETE" || deleteOtpLoading || deleteOtpSent}
+                disabled={
+                  anyPending ||
+                  dangerConfirm !== "DELETE" ||
+                  deleteOtpLoading ||
+                  deleteOtpSent
+                }
                 className="mb-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border border-slate-200/80 shadow-sm"
               >
-                {deleteOtpSent ? "Code Sent" : deleteOtpLoading ? "Sending..." : "Send Deletion Code"}
+                {deleteOtpSent
+                  ? "Code Sent"
+                  : deleteOtpLoading
+                    ? "Sending..."
+                    : "Send Deletion Code"}
               </Button>
               <Input
                 type="text"
@@ -590,7 +790,9 @@ export default function SettingsPage() {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 value={deleteOtp}
-                onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) =>
+                  setDeleteOtp(e.target.value.replace(/\D/g, ""))
+                }
                 placeholder="6-digit OTP code"
                 className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-white dark:border-slate-200 dark:text-slate-900"
               />
@@ -601,12 +803,20 @@ export default function SettingsPage() {
             )}
 
             <Button
+              aria-busy={deleteLoading}
               variant="destructive"
               onClick={handleDeleteAccount}
-              disabled={!canDelete || deleteLoading}
+              disabled={anyPending || !canDelete || deleteLoading}
               className="w-full"
             >
-              {deleteLoading ? "Deleting..." : "Permanently Delete Account"}
+              {deleteLoading ? (
+                <>
+                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Permanently Delete Account"
+              )}
             </Button>
           </div>
         </DialogContent>

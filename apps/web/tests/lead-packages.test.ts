@@ -28,6 +28,7 @@ vi.mock("react", async (importOriginal) => {
       const idx = controls.hookIndex++;
       return [idx < values.length ? values[idx] : initial, vi.fn()];
     },
+    useRef: (initial: unknown) => ({ current: initial }),
     useMemo: (fn: () => unknown) => fn(),
     useCallback: (fn: unknown) => fn,
   };

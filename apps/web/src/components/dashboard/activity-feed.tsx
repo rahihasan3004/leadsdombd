@@ -43,9 +43,18 @@ interface ActivityFeedProps {
   loading?: boolean;
 }
 
-export function ActivityFeed({ events = [], trendData = [], loading = false }: ActivityFeedProps) {
+export function ActivityFeed({
+  events = [],
+  trendData = [],
+  loading = false,
+}: ActivityFeedProps) {
   const [period, setPeriod] = useState<string>("30D");
 
+  const bars = useMemo(
+    () => trendData.slice(-Number.parseInt(period, 10)),
+    [trendData, period],
+  );
+  const maxCount = Math.max(1, ...bars);
   if (loading) {
     return (
       <div className="rounded-xl border-0 bg-slate-50 p-6 dark:bg-slate-900 shadow-none">
@@ -67,12 +76,6 @@ export function ActivityFeed({ events = [], trendData = [], loading = false }: A
       </div>
     );
   }
-
-  const bars = useMemo(() => {
-    return trendData.length > 0
-      ? trendData
-      : Array.from({ length: 30 }, () => Math.floor(Math.random() * 60) + 20);
-  }, [trendData]);
 
   return (
     <div className="rounded-xl border-0 bg-slate-50 p-6 dark:bg-slate-900 shadow-none">
@@ -100,18 +103,22 @@ export function ActivityFeed({ events = [], trendData = [], loading = false }: A
 
       <div className="mb-4">
         <div className="flex items-end gap-1 h-28">
+          {bars.length === 0 && (
+            <p className="m-auto text-sm text-slate-400">
+              No discovery data for this period.
+            </p>
+          )}
           {bars.map((height, i) => (
             <div
               key={i}
               className="flex-1 rounded-sm bg-[#14A800]/20 hover:bg-[#14A800]/40 transition-colors"
-              style={{ height: `${height}%` }}
+              style={{ height: `${(Math.max(0, height) / maxCount) * 100}%` }}
             />
           ))}
         </div>
         <div className="mt-2 flex justify-between text-xs text-slate-400">
-          <span>Sep 1</span>
-          <span>Sep 15</span>
-          <span>Sep 30</span>
+          <span>{bars.length} daily samples</span>
+          <span>Most recent available day</span>
         </div>
       </div>
 
@@ -130,7 +137,9 @@ export function ActivityFeed({ events = [], trendData = [], loading = false }: A
               key={event.id}
               className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
             >
-              <div className={`flex h-7 w-7 items-center justify-center rounded-md ${typeConfig[event.type]?.bg || "bg-slate-100"}`}>
+              <div
+                className={`flex h-7 w-7 items-center justify-center rounded-md ${typeConfig[event.type]?.bg || "bg-slate-100"}`}
+              >
                 <EventIcon type={event.type} />
               </div>
               <div className="flex-1 min-w-0">
@@ -138,7 +147,9 @@ export function ActivityFeed({ events = [], trendData = [], loading = false }: A
                   {event.description}
                 </p>
               </div>
-              <span className="text-xs text-slate-400 shrink-0">{event.time}</span>
+              <span className="text-xs text-slate-400 shrink-0">
+                {event.time}
+              </span>
             </div>
           ))
         )}

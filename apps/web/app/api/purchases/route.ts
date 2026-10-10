@@ -92,90 +92,99 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const purchaseId = searchParams.get("purchaseId") || undefined;
     if (purchaseId) {
+      const page = Number(searchParams.get("page") ?? 1);
+      const rawLimit = Number(searchParams.get("limit") ?? 10);
+      if (
+        !Number.isSafeInteger(page) ||
+        page < 1 ||
+        !Number.isSafeInteger(rawLimit) ||
+        rawLimit < 1 ||
+        !Number.isSafeInteger((page - 1) * Math.min(100, rawLimit))
+      )
+        return NextResponse.json(
+          { error: "Invalid pagination" },
+          { status: 400 },
+        );
+      const limit = Math.min(100, rawLimit);
       const purchase = await db.leadPurchase.findFirst({
         where: { id: purchaseId, userId: session.user.id, status: "COMPLETED" },
-        include: {
-          unlockedLeads: {
-            include: {
-              agent: {
-                select: {
-                  id: true,
-                  fullName: true,
-                  firstName: true,
-                  lastName: true,
-                  email: true,
-                  phone: true,
-                  officePhone: true,
-                  brokerageName: true,
-                  city: true,
-                  state: true,
-                  zipCode: true,
-                  county: true,
-                  category: true,
-                  rating: true,
-                  reviewCount: true,
-                  timezone: true,
-                  googlePlaceId: true,
-                  googleMapsLink: true,
-                  scrapedAt: true,
-                  verificationScore: true,
-                  dataSource: true,
-                  photoUrl: true,
-                  websiteUrl: true,
-                  brokerageAddress: true,
-                  licenseNumber: true,
-                  licenseState: true,
-                  licenseStatus: true,
-                  licenseExpiry: true,
-                  nmlsId: true,
-                  marketArea: true,
-                  propertyTypes: true,
-                  transactionCount: true,
-                  totalVolume: true,
-                  averagePrice: true,
-                  yearsExperience: true,
-                  specializations: true,
-                  bio: true,
-                  socialProfiles: true,
-                  lastVerifiedAt: true,
-                  isVerified: true,
-                  emailStatus: true,
-                  isDeliverable: true,
-                  createdAt: true,
-                  updatedAt: true,
-                },
-              },
-            },
-          },
+        select: {
+          id: true,
+          referenceId: true,
+          tier: true,
+          status: true,
+          leadCount: true,
+          unlockedStates: true,
         },
       });
-
-      if (!purchase) {
+      if (!purchase)
         return NextResponse.json(
           { error: "Purchase not found" },
           { status: 404 },
         );
-      }
-
-      // Avoid serializing the same full agent records twice.
-      const { unlockedLeads, ...purchaseSummary } = purchase;
-      const purchaseWithQuantity = {
-        ...purchaseSummary,
-        quantity: purchase.leadCount ?? unlockedLeads.length,
+      const q = (searchParams.get("q") ?? "").trim().slice(0, 100);
+      const fields = [
+        "fullName",
+        "brokerageName",
+        "city",
+        ...(purchase.tier === "VERIFIED_EMAIL" ? ["email"] : []),
+      ];
+      const where: Prisma.UnlockedLeadWhereInput = {
+        purchaseId,
+        userId: session.user.id,
+        ...(q
+          ? {
+              agent: {
+                OR: fields.map((field) => ({
+                  [field]: { contains: q, mode: "insensitive" },
+                })),
+              },
+            }
+          : {}),
       };
-
-      const leads = (purchase.unlockedLeads || [])
-        .map((ul) => redactLeadForTier(ul.agent, purchase.tier))
-        .filter(Boolean);
-
+      const [total, rows] = await Promise.all([
+        db.unlockedLead.count({ where }),
+        db.unlockedLead.findMany({
+          where,
+          orderBy: { id: "asc" },
+          skip: (page - 1) * limit,
+          take: limit,
+          select: {
+            agent: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true,
+                officePhone: true,
+                email: true,
+                emailStatus: true,
+                isDeliverable: true,
+                brokerageName: true,
+                city: true,
+                state: true,
+                category: true,
+                timezone: true,
+                photoUrl: true,
+              },
+            },
+          },
+        }),
+      ]);
       return NextResponse.json({
-        purchase: purchaseWithQuantity,
-        leads,
+        purchase: {
+          id: purchase.id,
+          referenceId: purchase.referenceId,
+          tier: purchase.tier,
+          status: purchase.status,
+          unlockedStates: purchase.unlockedStates,
+          quantity: purchase.leadCount ?? total,
+        },
+        leads: rows.map((row) => redactLeadForTier(row.agent, purchase.tier)),
         pagination: {
-          total: 1,
-          pages: 1,
-          currentPage: 1,
-          limit: leads.length,
+          total,
+          pages: Math.ceil(total / limit),
+          currentPage: page,
+          limit,
         },
       });
     }

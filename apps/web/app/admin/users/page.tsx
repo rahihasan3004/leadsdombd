@@ -1,8 +1,10 @@
 "use client";
+import { toast } from "sonner";
+import { useSafeMutation } from "@/hooks/use-safe-mutation";
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -61,13 +63,19 @@ interface Pagination {
   totalPages: number;
 }
 
-const ROLE_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "success" | "warning" | "outline"> = {
+const ROLE_BADGE_VARIANT: Record<
+  string,
+  "default" | "secondary" | "destructive" | "success" | "warning" | "outline"
+> = {
   USER: "secondary",
   ADMIN: "warning",
   SUPER_ADMIN: "destructive",
 };
 
-const TIER_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "success" | "warning" | "outline"> = {
+const TIER_BADGE_VARIANT: Record<
+  string,
+  "default" | "secondary" | "destructive" | "success" | "warning" | "outline"
+> = {
   FREE: "secondary",
   PRO: "success",
   ENTERPRISE: "warning",
@@ -104,11 +112,14 @@ export default function AdminUsersPage() {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
         throw new Error(err.error ?? "Failed to fetch users");
       }
-      return res.json() as Promise<{ users: AdminUser[]; pagination: Pagination }>;
+      return res.json() as Promise<{
+        users: AdminUser[];
+        pagination: Pagination;
+      }>;
     },
   });
 
-  const roleMutation = useMutation({
+  const roleMutation = useSafeMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
       const res = await fetch(`/api/admin/users/${userId}`, {
         method: "PATCH",
@@ -122,13 +133,14 @@ export default function AdminUsersPage() {
       return res.json();
     },
     onSuccess: () => {
+      toast.success("Changes saved successfully");
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       setEditRoleOpen(false);
       setEditingUser(null);
     },
   });
 
-  const balanceMutation = useMutation({
+  const balanceMutation = useSafeMutation({
     mutationFn: async ({
       userId,
       walletBalanceAdjustment,
@@ -150,6 +162,7 @@ export default function AdminUsersPage() {
       return res.json();
     },
     onSuccess: () => {
+      toast.success("Changes saved successfully");
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       setBalanceOpen(false);
       setBalanceUser(null);
@@ -158,7 +171,7 @@ export default function AdminUsersPage() {
     },
   });
 
-  const deleteMutation = useMutation({
+  const deleteMutation = useSafeMutation({
     mutationFn: async (userId: string) => {
       const res = await fetch(`/api/admin/users/${userId}`, {
         method: "DELETE",
@@ -170,6 +183,7 @@ export default function AdminUsersPage() {
       return res.json();
     },
     onSuccess: () => {
+      toast.success("Changes saved successfully");
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       setDeleteOpen(false);
       setDeleteUser(null);
@@ -182,7 +196,9 @@ export default function AdminUsersPage() {
   }, []);
 
   const isPending =
-    roleMutation.isPending || balanceMutation.isPending || deleteMutation.isPending;
+    roleMutation.isPending ||
+    balanceMutation.isPending ||
+    deleteMutation.isPending;
 
   return (
     <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-4">
@@ -196,7 +212,13 @@ export default function AdminUsersPage() {
             className="pl-9"
           />
         </div>
-        <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setPage(1); }}>
+        <Select
+          value={roleFilter}
+          onValueChange={(v) => {
+            setRoleFilter(v);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-full sm:w-[160px]">
             <SelectValue placeholder="Filter by role" />
           </SelectTrigger>
@@ -218,140 +240,177 @@ export default function AdminUsersPage() {
       <div className="w-full overflow-x-auto no-scrollbar">
         <div className="rounded-md border border-surface-200 dark:border-surface-800">
           <Table className="min-w-[600px]">
-          <TableHeader>
-            <TableRow>
-              <TableHead>User</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Org</TableHead>
-              <TableHead>Tier</TableHead>
-              <TableHead>Wallet</TableHead>
-              <TableHead>Purchases</TableHead>
-              <TableHead>Joined</TableHead>
-              <TableHead className="w-[50px]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 8 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-[180px]" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-[60px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-[50px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[70px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[30px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[90px]" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-8" /></TableCell>
-                </TableRow>
-              ))
-            ) : data?.users.length === 0 ? (
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-surface-400 py-10">
-                  No users found
-                </TableCell>
+                <TableHead>User</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Org</TableHead>
+                <TableHead>Tier</TableHead>
+                <TableHead>Wallet</TableHead>
+                <TableHead>Purchases</TableHead>
+                <TableHead>Joined</TableHead>
+                <TableHead className="w-[50px]" />
               </TableRow>
-            ) : (
-              data?.users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <Link
-                        href={`/admin/users/${user.id}`}
-                        className="font-medium text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 hover:underline"
-                      >
-                        {user.name ?? "—"}
-                      </Link>
-                      <span className="text-xs text-surface-400">{user.email}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={ROLE_BADGE_VARIANT[user.role] ?? "secondary"} className="text-xs">
-                      {user.role.replace("_", " ")}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-surface-600 dark:text-surface-300">
-                    {user.organization?.name ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    {user.subscriptionTier ? (
-                      <Badge variant={TIER_BADGE_VARIANT[user.subscriptionTier] ?? "outline"} className="text-xs">
-                        {user.subscriptionTier}
-                      </Badge>
-                    ) : (
-                      <span className="text-xs text-surface-400">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm font-mono text-surface-700 dark:text-surface-200">
-                    {formatCurrency(user.walletBalance)}
-                  </TableCell>
-                  <TableCell className="text-sm text-surface-600 dark:text-surface-300 text-center">
-                    {user.leadPurchasesCount}
-                  </TableCell>
-                  <TableCell className="text-sm text-surface-400">
-                    {formatDate(user.createdAt)}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" disabled={isPending}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/admin/users/${user.id}`}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setEditingUser(user);
-                            setNewRole(user.role);
-                            setEditRoleOpen(true);
-                          }}
-                        >
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Edit Role
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setBalanceUser(user);
-                            setBalanceAmount("");
-                            setBalanceReason("");
-                            setBalanceOpen(true);
-                          }}
-                        >
-                          <Wallet className="mr-2 h-4 w-4" />
-                          Adjust Balance
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-600 dark:text-red-400"
-                          onClick={() => {
-                            setDeleteUser(user);
-                            setDeleteOpen(true);
-                          }}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete User
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <Skeleton className="h-4 w-[180px]" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-[60px]" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-[100px]" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-[50px]" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-[70px]" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-[30px]" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-[90px]" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-8 w-8" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : data?.users.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={8}
+                    className="text-center text-surface-400 py-10"
+                  >
+                    No users found
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ) : (
+                data?.users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <Link
+                          href={`/admin/users/${user.id}`}
+                          className="font-medium text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 hover:underline"
+                        >
+                          {user.name ?? "—"}
+                        </Link>
+                        <span className="text-xs text-surface-400">
+                          {user.email}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={ROLE_BADGE_VARIANT[user.role] ?? "secondary"}
+                        className="text-xs"
+                      >
+                        {user.role.replace("_", " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-surface-600 dark:text-surface-300">
+                      {user.organization?.name ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      {user.subscriptionTier ? (
+                        <Badge
+                          variant={
+                            TIER_BADGE_VARIANT[user.subscriptionTier] ??
+                            "outline"
+                          }
+                          className="text-xs"
+                        >
+                          {user.subscriptionTier}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-surface-400">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm font-mono text-surface-700 dark:text-surface-200">
+                      {formatCurrency(user.walletBalance)}
+                    </TableCell>
+                    <TableCell className="text-sm text-surface-600 dark:text-surface-300 text-center">
+                      {user.leadPurchasesCount}
+                    </TableCell>
+                    <TableCell className="text-sm text-surface-400">
+                      {formatDate(user.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={isPending}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/admin/users/${user.id}`}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Details
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditingUser(user);
+                              setNewRole(user.role);
+                              setEditRoleOpen(true);
+                            }}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit Role
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setBalanceUser(user);
+                              setBalanceAmount("");
+                              setBalanceReason("");
+                              setBalanceOpen(true);
+                            }}
+                          >
+                            <Wallet className="mr-2 h-4 w-4" />
+                            Adjust Balance
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-red-600 dark:text-red-400"
+                            onClick={() => {
+                              setDeleteUser(user);
+                              setDeleteOpen(true);
+                            }}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete User
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {data && data.pagination.totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-surface-400">
-            Showing {((data.pagination.page - 1) * data.pagination.limit) + 1}–
-            {Math.min(data.pagination.page * data.pagination.limit, data.pagination.total)} of{" "}
-            {data.pagination.total} users
+            Showing {(data.pagination.page - 1) * data.pagination.limit + 1}–
+            {Math.min(
+              data.pagination.page * data.pagination.limit,
+              data.pagination.total,
+            )}{" "}
+            of {data.pagination.total} users
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -397,13 +456,21 @@ export default function AdminUsersPage() {
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditRoleOpen(false)} disabled={roleMutation.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => setEditRoleOpen(false)}
+              disabled={roleMutation.isPending}
+            >
               Cancel
             </Button>
             <Button
+              aria-busy={roleMutation.isPending}
               onClick={() => {
                 if (editingUser) {
-                  roleMutation.mutate({ userId: editingUser.id, role: newRole });
+                  roleMutation.mutate({
+                    userId: editingUser.id,
+                    role: newRole,
+                  });
                 }
               }}
               disabled={roleMutation.isPending || newRole === editingUser?.role}
@@ -419,8 +486,11 @@ export default function AdminUsersPage() {
           <DialogHeader>
             <DialogTitle>Adjust Wallet Balance</DialogTitle>
             <DialogDescription>
-              Add or deduct funds for {balanceUser?.name ?? balanceUser?.email}. Current balance:{" "}
-              {balanceUser ? formatCurrency(balanceUser.walletBalance) : "$0.00"}
+              Add or deduct funds for {balanceUser?.name ?? balanceUser?.email}.
+              Current balance:{" "}
+              {balanceUser
+                ? formatCurrency(balanceUser.walletBalance)
+                : "$0.00"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-3">
@@ -450,10 +520,15 @@ export default function AdminUsersPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setBalanceOpen(false)} disabled={balanceMutation.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => setBalanceOpen(false)}
+              disabled={balanceMutation.isPending}
+            >
               Cancel
             </Button>
             <Button
+              aria-busy={balanceMutation.isPending}
               onClick={() => {
                 const amount = Number.parseFloat(balanceAmount);
                 if (balanceUser && !Number.isNaN(amount) && amount !== 0) {
@@ -464,7 +539,12 @@ export default function AdminUsersPage() {
                   });
                 }
               }}
-              disabled={balanceMutation.isPending || !balanceAmount || Number.isNaN(Number.parseFloat(balanceAmount)) || Number.parseFloat(balanceAmount) === 0}
+              disabled={
+                balanceMutation.isPending ||
+                !balanceAmount ||
+                Number.isNaN(Number.parseFloat(balanceAmount)) ||
+                Number.parseFloat(balanceAmount) === 0
+              }
             >
               {balanceMutation.isPending ? "Processing..." : "Confirm"}
             </Button>
@@ -477,15 +557,21 @@ export default function AdminUsersPage() {
           <DialogHeader>
             <DialogTitle>Delete User</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete {deleteUser?.name ?? deleteUser?.email}? This action
-              cannot be undone.
+              Are you sure you want to delete{" "}
+              {deleteUser?.name ?? deleteUser?.email}? This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleteMutation.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteOpen(false)}
+              disabled={deleteMutation.isPending}
+            >
               Cancel
             </Button>
             <Button
+              aria-busy={deleteMutation.isPending}
               variant="destructive"
               onClick={() => {
                 if (deleteUser) {
