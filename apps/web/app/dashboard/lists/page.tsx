@@ -24,7 +24,7 @@ import {
   OrderStatusBadge,
   isOrderDownloadable,
 } from "@/components/dashboard/order-status-badge";
-import { OrderDeliveryEstimate } from "@/components/dashboard/order-delivery-estimate";
+import { OrderProcessingNotice } from "@/components/dashboard/order-processing-notice";
 import { VaultExportControl } from "@/components/dashboard/vault-export-control";
 import { Skeleton } from "@fine-leads/ui";
 import { BrandedLoader } from "@/components/ui/branded-loader";
@@ -112,6 +112,8 @@ export default function ListsPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [totalOrders, setTotalOrders] = useState(0);
   const [ordersReady, setOrdersReady] = useState(false);
+  const [processingNoticeDismissed, setProcessingNoticeDismissed] =
+    useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(
@@ -881,6 +883,16 @@ export default function ListsPage() {
           </div>
         </div>
 
+        {!processingNoticeDismissed &&
+          purchases.some((purchase) =>
+            ["PROCESSING", "PENDING"].includes(purchase.status),
+          ) && (
+            <OrderProcessingNotice
+              status="PROCESSING"
+              onDismiss={() => setProcessingNoticeDismissed(true)}
+            />
+          )}
+
         {ordersError && (
           <p role="alert" className="text-sm text-red-600">
             {ordersError}
@@ -900,10 +912,13 @@ export default function ListsPage() {
                   return (
                     <div key={purchase.id} className="p-3.5">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="min-w-0 truncate text-sm font-semibold text-slate-900 tabular-nums">
+                        <span className="min-w-0 truncate font-sans text-xs font-medium text-blue-600 hover:text-blue-700 tabular-nums">
                           {purchase.referenceId}
                         </span>
-                        <OrderStatusBadge status={purchase.status} />
+                        <OrderStatusBadge
+                          status={purchase.status}
+                          quantity={purchase.quantity}
+                        />
                       </div>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
                         <span className="inline-flex items-center text-xs font-medium text-slate-700 bg-white border border-slate-200 px-2 py-0.5 rounded-md">
@@ -916,10 +931,6 @@ export default function ListsPage() {
                           {formatDate(purchase.createdAt)}
                         </span>
                       </div>
-                      <OrderDeliveryEstimate
-                        status={purchase.status}
-                        quantity={purchase.quantity}
-                      />
                       <div className="flex items-center gap-2 mt-3">
                         <button
                           type="button"
@@ -964,19 +975,25 @@ export default function ListsPage() {
           </div>
           <div className="hidden md:block h-full overflow-y-auto no-scrollbar">
             <div className="w-full overflow-x-auto no-scrollbar">
-              <table className="w-full text-left text-sm min-w-[600px]">
+              <table className="w-full text-left text-sm min-w-[900px]">
                 <thead className="border-b border-slate-100 text-xs font-normal text-slate-400 uppercase tracking-wider">
                   <tr className="h-14">
-                    <th className="px-4 align-middle text-left">
+                    <th className="px-4 py-2 align-middle text-left">
                       Order ID & Date
                     </th>
-                    <th className="px-4 align-middle text-left">
+                    <th className="px-4 py-2 align-middle text-left">
                       Target States
                     </th>
-                    <th className="px-4 align-middle text-left">Category</th>
-                    <th className="px-4 align-middle text-right">Quantity</th>
-                    <th className="px-4 align-middle text-left">Status</th>
-                    <th className="px-4 align-middle text-right">Actions</th>
+                    <th className="px-4 py-2 align-middle text-left">
+                      Category
+                    </th>
+                    <th className="px-4 py-2 align-middle text-right">
+                      Quantity
+                    </th>
+                    <th className="px-4 py-2 align-middle text-left">Status</th>
+                    <th className="px-4 py-2 align-middle text-right">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -996,9 +1013,9 @@ export default function ListsPage() {
                         className="h-14 hover:bg-slate-50 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                         onClick={() => handleSelectPurchase(purchase)}
                       >
-                        <td className="px-4 align-middle text-xs">
+                        <td className="px-4 py-2 align-middle text-xs">
                           <div>
-                            <span className="font-normal text-slate-900 tabular-nums">
+                            <span className="font-sans text-xs font-medium text-blue-600 hover:text-blue-700 tabular-nums">
                               {purchase.referenceId}
                             </span>
                             <p className="text-xs text-slate-400 font-normal tabular-nums mt-0.5">
@@ -1006,7 +1023,7 @@ export default function ListsPage() {
                             </p>
                           </div>
                         </td>
-                        <td className="px-4 align-middle text-xs">
+                        <td className="px-4 py-2 align-middle text-xs">
                           {(() => {
                             const stateBadge = formatStateBadge(
                               purchase.unlockedStates,
@@ -1018,24 +1035,23 @@ export default function ListsPage() {
                             );
                           })()}
                         </td>
-                        <td className="px-4 align-middle text-xs">
+                        <td className="px-4 py-2 align-middle text-xs">
                           <span className="font-normal text-slate-600 text-xs">
                             Real Estate Agents
                           </span>
                         </td>
-                        <td className="px-4 align-middle text-xs text-right">
+                        <td className="px-4 py-2 align-middle text-xs text-right">
                           <span className="font-normal text-slate-800 text-xs tabular-nums">
                             {formatQuantity(purchase.quantity)}
                           </span>
                         </td>
-                        <td className="px-4 align-middle text-xs">
-                          <OrderStatusBadge status={purchase.status} />
-                          <OrderDeliveryEstimate
+                        <td className="px-4 py-2 align-middle text-xs">
+                          <OrderStatusBadge
                             status={purchase.status}
                             quantity={purchase.quantity}
                           />
                         </td>
-                        <td className="px-4 align-middle text-xs text-right">
+                        <td className="px-4 py-2 align-middle text-xs text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"

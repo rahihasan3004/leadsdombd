@@ -39,7 +39,7 @@ function TxRef({ tx }: { tx: LedgerTx }) {
       <Link
         href={`/dashboard/lists?order=${encodeURIComponent(tx.orderRef)}`}
         title="View this order in Leads Vault"
-        className={`${base} text-blue-600 hover:text-blue-700 hover:underline`}
+        className="block max-w-full truncate whitespace-nowrap font-sans text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline tabular-nums"
       >
         {ref}
       </Link>

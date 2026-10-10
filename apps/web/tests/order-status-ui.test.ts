@@ -12,7 +12,9 @@ describe("pending Vault order presentation", () => {
     const html = renderToStaticMarkup(
       React.createElement(OrderStatusBadge, { status: "PROCESSING" }),
     );
-    expect(html).toContain("Processing / Collecting Leads");
+    expect(html).toContain("Processing");
+    expect(html).not.toContain("Collecting Leads");
+    expect(html).toContain("whitespace-nowrap");
     expect(html).toContain("motion-safe:animate-spin");
     expect(html).toContain('role="status"');
   });

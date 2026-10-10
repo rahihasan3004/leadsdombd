@@ -8,7 +8,7 @@ import { buildApifySearchStrings } from "../src/lib/scraper/apify-client";
 import { orderDeliveryEta } from "../src/lib/order-delivery-eta";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
-import { OrderDeliveryEstimate } from "../src/components/dashboard/order-delivery-estimate";
+import { OrderProcessingNotice } from "../src/components/dashboard/order-processing-notice";
 afterEach(() => vi.unstubAllEnvs());
 describe("native Apify email selection", () => {
   it("selects the first domain-valid array entry", () => {
@@ -83,20 +83,19 @@ it.each([
 });
 it("renders helper text only for processing orders", () => {
   const html = renderToStaticMarkup(
-    createElement(OrderDeliveryEstimate, {
+    createElement(OrderProcessingNotice, {
       status: "PROCESSING",
-      quantity: 100,
+      onDismiss: () => {},
     }),
   );
-  expect(html).toContain("Est. 3–5 mins");
+  expect(html).toContain("Dismiss processing notice");
   expect(html).toContain(
     "You will receive an email confirmation once completed.",
   );
   expect(
     renderToStaticMarkup(
-      createElement(OrderDeliveryEstimate, {
+      createElement(OrderProcessingNotice, {
         status: "COMPLETED",
-        quantity: 100,
       }),
     ),
   ).toBe("");
