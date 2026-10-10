@@ -216,7 +216,8 @@ export class CompassApifyClient {
       const credential = this.pool.select();
       try {
         const response = await this.request(
-          `/acts/compass~crawler-google-places/runs?maxTotalChargeUsd=${budget}`,
+          // Memory is a run option, not a Compass input field.
+          `/acts/compass~crawler-google-places/runs?maxTotalChargeUsd=${budget}&memory=2048`,
           credential.id,
           "POST",
           {
@@ -232,6 +233,13 @@ export class CompassApifyClient {
             // Website/social contact extraction is chargeable and strictly opt-in by purchased tier.
             // PHONE_ONLY (and untyped admin smoke tests) always stay Maps-only.
             scrapeContacts: parsed.leadTier === "VERIFIED_EMAIL",
+            // Current Compass schema uses website=withWebsite; the legacy
+            // scrapePlacesWithWebsite/only_with_website pair is not supported.
+            website:
+              parsed.leadTier === "VERIFIED_EMAIL"
+                ? "withWebsite"
+                : "allPlaces",
+            // Keep totalScore/reviewsCount from place metadata; do not scrape review text.
             maxReviews: 0,
             maxImages: 0,
           },

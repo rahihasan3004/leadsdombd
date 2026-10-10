@@ -337,3 +337,32 @@ it("keeps contact extraction enabled when the purchased email tier explicitly re
     maxCrawledPlacesPerSearch: 20,
   });
 });
+
+describe("tier-specific Compass cost controls", () => {
+  it.each(["PHONE_ONLY", "VERIFIED_EMAIL", undefined] as const)(
+    "dispatches %s with 2048 MB as a run option, not actor input",
+    async (leadTier) => {
+      const fetcher = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(json({ data: run }));
+      await new CompassApifyClient({
+        pool: new ApifyTokenPool(["token"]),
+        fetcher,
+      }).dispatchApifyScrape({ ...input, leadTier });
+      const [url, init] = fetcher.mock.calls[0]!;
+      const options = new URL(String(url)).searchParams;
+      const body = JSON.parse(String(init?.body));
+      expect(options.get("memory")).toBe("2048");
+      expect(options.has("maxTotalChargeUsd")).toBe(true);
+      expect(body).not.toHaveProperty("memory");
+      expect(body).not.toHaveProperty("scrapePlacesWithWebsite");
+      expect(body).toMatchObject({
+        scrapeContacts: leadTier === "VERIFIED_EMAIL",
+        website: leadTier === "VERIFIED_EMAIL" ? "withWebsite" : "allPlaces",
+        scrapePlaceDetailPage: true,
+        maxReviews: 0,
+        maxImages: 0,
+      });
+    },
+  );
+});

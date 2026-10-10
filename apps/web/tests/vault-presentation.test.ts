@@ -145,7 +145,7 @@ describe("paginated cached Vault details", () => {
     expect(text).toContain("setModalOpen(true)");
     expect(text).not.toMatch(/fetch|await|Loading/);
     expect(source).not.toContain("Loading lead details...");
-    // Only one order-level indicator, never a repeated row badge.
-    expect(source.match(/<ColdCallingTierBadge\s*\/>/g)).toHaveLength(1);
+    // No redundant tier pill in the order header or individual rows.
+    expect(source).not.toContain("ColdCallingTierBadge");
   });
 });

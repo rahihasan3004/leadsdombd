@@ -25,7 +25,6 @@ import {
   isOrderDownloadable,
 } from "@/components/dashboard/order-status-badge";
 import { VaultExportControl } from "@/components/dashboard/vault-export-control";
-import { ColdCallingTierBadge } from "@/components/dashboard/lead-tier-badge";
 import { Skeleton } from "@fine-leads/ui";
 import { BrandedLoader } from "@/components/ui/branded-loader";
 import { DashboardPagination } from "@/components/ui/dashboard-pagination";
@@ -460,16 +459,13 @@ export default function ListsPage() {
   }
 
   if (selectedPurchase) {
+    const showEmail = selectedPurchase.tier === "VERIFIED_EMAIL";
+    const leadTableColSpan = 6 + Number(showEmail) + Number(showTimezone);
     return (
       <>
         <div className="-mx-4 min-h-dvh bg-white px-4 pt-4 pb-20 md:mx-0 md:mt-0 md:min-h-0 md:bg-transparent md:p-0 flex flex-col">
           <div className="bg-transparent rounded-none md:bg-white md:rounded-2xl p-0 md:p-6 lg:p-8 flex flex-col md:h-[calc(100dvh-7rem)] lg:h-[calc(100dvh-3.5rem)] justify-between">
             <div className="shrink-0">
-              {selectedPurchase.tier === "PHONE_ONLY" && (
-                <div className="mb-3">
-                  <ColdCallingTierBadge />
-                </div>
-              )}
               <div className="md:hidden space-y-3">
                 <button
                   type="button"
@@ -687,9 +683,11 @@ export default function ListsPage() {
                             <th className="px-4 align-middle text-left">
                               Direct Phone
                             </th>
-                            <th className="px-4 align-middle text-left">
-                              Verified Email
-                            </th>
+                            {showEmail && (
+                              <th className="px-4 align-middle text-left">
+                                Verified Email
+                              </th>
+                            )}
                             <th className="px-4 align-middle text-left">
                               Location
                             </th>
@@ -710,7 +708,7 @@ export default function ListsPage() {
                           {paginatedLeads.length === 0 ? (
                             <tr>
                               <td
-                                colSpan={showTimezone ? 8 : 7}
+                                colSpan={leadTableColSpan}
                                 className="px-4 py-12 text-center text-sm text-slate-400"
                               >
                                 {leadSearch
@@ -753,15 +751,13 @@ export default function ListsPage() {
                                 <td className="px-4 align-middle text-xs font-sans text-sm font-normal text-slate-800">
                                   {agent.phone || null}
                                 </td>
-                                <td className="px-4 align-middle text-xs">
-                                  {agent.leadTier === "PHONE_ONLY" ? (
-                                    <span className="text-slate-400">-</span>
-                                  ) : (
+                                {showEmail && (
+                                  <td className="px-4 align-middle text-xs">
                                     <span className="text-xs text-slate-800 select-all">
-                                      {agent.email || "--"}
+                                      {agent.email || null}
                                     </span>
-                                  )}
-                                </td>
+                                  </td>
+                                )}
                                 <td className="px-4 align-middle text-xs">
                                   <span className="font-normal text-slate-700">
                                     {[agent.city, agent.state]
