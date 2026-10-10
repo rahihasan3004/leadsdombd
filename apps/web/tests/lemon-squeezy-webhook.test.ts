@@ -353,3 +353,176 @@ describe("order_refunded", () => {
     );
   });
 });
+
+describe("resilient order_created transactions", () => {
+  it("uses the signed user ID first without looking up a different email", async () => {
+    await POST(signedRequest(payload()));
+    expect(db.user.findUnique).toHaveBeenCalledTimes(1);
+    expect(db.user.findUnique).toHaveBeenCalledWith({
+      where: { id: "user_1" },
+      select: { id: true },
+    });
+  });
+
+  it("resolves a missing signed checkout user by the provider order email", async () => {
+    db.user.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "replacement_user" });
+    const res = await POST(
+      signedRequest(payload({ attrs: { user_email: "  U@TEST.DEV  " } })),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ status: "processed" });
+    expect(db.user.findUnique).toHaveBeenNthCalledWith(2, {
+      where: { email: "u@test.dev" },
+      select: { id: true },
+    });
+    expect(db.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "replacement_user" },
+        data: { credits: { increment: 500 } },
+      }),
+    );
+    expect(db.walletTransaction.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: "replacement_user",
+          referenceId: "ls_order_1001",
+        }),
+      }),
+    );
+  });
+
+  it("does not send a malformed but signed user ID to Prisma", async () => {
+    db.user.findUnique.mockResolvedValue({ id: "user_1" });
+    const res = await POST(
+      signedRequest(
+        payload({ custom: buildCheckoutCustomData("bad user id", topup) }),
+      ),
+    );
+    expect(res.status).toBe(200);
+    expect(db.user.findUnique).toHaveBeenCalledTimes(1);
+    expect(db.user.findUnique).toHaveBeenCalledWith({
+      where: { email: "u@test.dev" },
+      select: { id: true },
+    });
+  });
+
+  it.each([
+    {},
+    { ...buildCheckoutCustomData("user_1", topup), user_id: "" },
+    { ...buildCheckoutCustomData("user_1", topup), sig: "bad-signature" },
+  ])(
+    "never grants an unsigned or malformed checkout using email alone",
+    async (custom) => {
+      const res = await POST(signedRequest(payload({ custom })));
+      expect(await res.json()).toMatchObject({ status: "rejected" });
+      expect(db.user.findUnique).not.toHaveBeenCalled();
+      expect(db.user.update).not.toHaveBeenCalled();
+      expect(db.walletTransaction.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it("returns a clean retryable response when neither identity can be resolved", async () => {
+    db.user.findUnique.mockResolvedValue(null);
+    const res = await POST(
+      signedRequest(payload({ attrs: { user_email: "invalid-email" } })),
+    );
+    expect(res.status).toBe(422);
+    expect(db.user.findUnique).toHaveBeenCalledTimes(1);
+    expect(db.user.update).not.toHaveBeenCalled();
+    expect(db.walletTransaction.create).not.toHaveBeenCalled();
+  });
+
+  it("uses a scalar advisory-lock query instead of deserializing PostgreSQL void", async () => {
+    await POST(signedRequest(payload()));
+    const [sql, orderKey] = db.$queryRaw.mock.calls[0];
+    expect(sql.join("?")).toContain(
+      "SELECT 1 AS locked FROM pg_advisory_xact_lock",
+    );
+    expect(orderKey).toBe("lemonsqueezy:order:1001");
+  });
+
+  it("skips a committed wallet reference even if the webhook event was not recorded", async () => {
+    db.walletTransaction.findFirst.mockResolvedValue({ id: "existing_ledger" });
+    const res = await POST(signedRequest(payload()));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ status: "processed" });
+    expect(db.user.update).not.toHaveBeenCalled();
+    expect(db.walletTransaction.create).not.toHaveBeenCalled();
+  });
+
+  it.each(["P2003", "P2025"])(
+    "returns a clean retryable response and logs %s details",
+    async (code) => {
+      db.walletTransaction.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Relation unavailable", {
+          code,
+          clientVersion: "test",
+          meta: {
+            target: ["userId"],
+            field_name: "WalletTransaction_userId_fkey",
+            modelName: "WalletTransaction",
+          },
+        }),
+      );
+      const res = await POST(signedRequest(payload()));
+      expect(res.status).toBe(422);
+      expect(await res.json()).toEqual({ error: "Webhook processing failed" });
+      expect(console.error).toHaveBeenCalledWith(
+        "[LS_WEBHOOK_FAILED] ls:order_created:1001:",
+        expect.objectContaining({
+          code,
+          target: ["userId"],
+          fieldName: "WalletTransaction_userId_fkey",
+        }),
+      );
+    },
+  );
+
+  it("logs raw query Prisma and PostgreSQL error codes", async () => {
+    db.$queryRaw.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Raw query failed", {
+        code: "P2010",
+        clientVersion: "test",
+        meta: { code: "42703", message: "column unavailable" },
+      }),
+    );
+    const res = await POST(signedRequest(payload()));
+    expect(res.status).toBe(500);
+    expect(console.error).toHaveBeenCalledWith(
+      "[LS_WEBHOOK_FAILED] ls:order_created:1001:",
+      expect.objectContaining({
+        code: "P2010",
+        databaseCode: "42703",
+        target: null,
+      }),
+    );
+  });
+
+  it("does not leak an error if duplicate verification and failure recording also fail", async () => {
+    db.walletTransaction.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: { target: ["id"] },
+      }),
+    );
+    db.webhookEvent.findUnique
+      .mockResolvedValueOnce(null)
+      .mockRejectedValueOnce(new Error("Database unavailable"));
+    db.webhookEvent.upsert.mockRejectedValue(
+      new Error("Recording unavailable"),
+    );
+    const res = await POST(signedRequest(payload()));
+    expect(res.status).toBe(500);
+    expect(console.error).toHaveBeenCalledWith(
+      "[LS_WEBHOOK_DUPLICATE_LOOKUP_FAILED] ls:order_created:1001:",
+      expect.any(Object),
+    );
+    expect(console.error).toHaveBeenCalledWith(
+      "[LS_WEBHOOK_EVENT_RECORD_FAILED] ls:order_created:1001:",
+      expect.any(Object),
+    );
+  });
+});

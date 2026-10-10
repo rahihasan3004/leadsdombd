@@ -52,6 +52,7 @@ vi.mock("@/lib/email/order-emails", async (original) => ({
   ...(await original<typeof import("@/lib/email/order-emails")>()),
   sendOrderProcessingEmail: vi.fn(),
 }));
+import { Prisma } from "@fine-leads/database";
 import { POST } from "../app/api/lemon-squeezy/webhook/route";
 import { buildCheckoutCustomData, priceOrder } from "@/lib/payments";
 function payload(
@@ -417,5 +418,104 @@ describe("P0 webhook financial invariants (transaction/lock model)", () => {
     expect(state.unlocks).toHaveLength(0);
     expect(state.purchases[0].status).toBe("REFUNDED");
     expect(db.leadFulfillmentJob.updateMany).toHaveBeenCalled();
+  });
+});
+
+describe("webhook top-up rollback and bounded retries", () => {
+  it("credits simultaneous duplicate top-ups only once", async () => {
+    const responses = await Promise.all([
+      deliver(payload()),
+      deliver(payload()),
+    ]);
+    expect(responses.every((response) => response.status === 200)).toBe(true);
+    expect(state.credits).toBe(1000);
+    expect(
+      state.ledger.filter((entry) => entry.type === "RECHARGE"),
+    ).toHaveLength(1);
+  });
+
+  it.each([
+    ["P2002", 500],
+    ["P2003", 422],
+  ] as const)(
+    "rolls back the balance when ledger creation fails with %s",
+    async (code, status) => {
+      db.walletTransaction.create.mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError("Ledger failed", {
+          code,
+          clientVersion: "test",
+          meta: { target: ["id"] },
+        }),
+      );
+      const response = await deliver(payload());
+      expect(response.status).toBe(status);
+      expect(state.credits).toBe(0);
+      expect(state.ledger).toHaveLength(0);
+      expect(state.events.get("ls:order_created:42").status).toBe("failed");
+    },
+  );
+
+  it("rolls back cleanly if the user disappears before the increment", async () => {
+    db.user.update.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("User disappeared", {
+        code: "P2025",
+        clientVersion: "test",
+        meta: { modelName: "User" },
+      }),
+    );
+    expect((await deliver(payload())).status).toBe(422);
+    expect(state.credits).toBe(0);
+    expect(state.ledger).toHaveLength(0);
+  });
+
+  it("retries a serialization rollback once without a double top-up", async () => {
+    db.$transaction.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("Deadlock", {
+        code: "P2034",
+        clientVersion: "test",
+      }),
+    );
+    expect((await deliver(payload())).status).toBe(200);
+    expect(db.$transaction).toHaveBeenCalledTimes(2);
+    expect(state.credits).toBe(1000);
+    expect(state.ledger).toHaveLength(1);
+  });
+
+  it("rechecks a committed deterministic reference after a P2002 rollback", async () => {
+    state.credits = 1000;
+    state.ledger.push({
+      id: "legacy",
+      referenceId: "ls_order_42",
+      userId: "user",
+      type: "RECHARGE",
+      amount: 1000,
+      status: "COMPLETED",
+    });
+    db.$transaction.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("Concurrent payment reference", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: { target: ["referenceId"] },
+      }),
+    );
+    expect((await deliver(payload())).status).toBe(200);
+    expect(db.$transaction).toHaveBeenCalledTimes(2);
+    expect(state.credits).toBe(1000);
+    expect(state.ledger).toHaveLength(1);
+    expect(db.user.update).not.toHaveBeenCalled();
+    expect(state.events.get("ls:order_created:42").status).toBe("processed");
+  });
+
+  it("never retries a failing transaction indefinitely", async () => {
+    db.$transaction.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Deadlock", {
+        code: "P2034",
+        clientVersion: "test",
+      }),
+    );
+    expect((await deliver(payload())).status).toBe(500);
+    expect(db.$transaction).toHaveBeenCalledTimes(2);
+    expect(state.credits).toBe(0);
+    expect(state.ledger).toHaveLength(0);
   });
 });

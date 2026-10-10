@@ -58,6 +58,41 @@ type Outcome = {
 
 class RetryableWebhookError extends Error {}
 
+function prismaFailureDetails(error: unknown) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return {
+      code: error.code,
+      target: error.meta?.target ?? null,
+      modelName: error.meta?.modelName ?? null,
+      fieldName: error.meta?.field_name ?? null,
+      databaseCode: error.meta?.code ?? null,
+      message: error.message,
+    };
+  }
+  return {
+    code: null,
+    target: null,
+    message: error instanceof Error ? error.message : String(error),
+  };
+}
+
+function canRetryTransaction(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  if (error.code === "P2034") return true; // Serialization/deadlock rollback.
+  if (error.code !== "P2002") return false;
+  const target = error.meta?.target;
+  const fields = Array.isArray(target) ? target : [target];
+  // Retry the whole rolled-back transaction, never just the credit increment.
+  // The next attempt must find a committed deterministic payment/event reference.
+  return fields.some(
+    (field) =>
+      typeof field === "string" &&
+      /^(referenceId|eventId)$|(?:WalletTransaction_referenceId|LeadPurchase_referenceId|WebhookEvent_eventId)_key$/.test(
+        field,
+      ),
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
@@ -131,11 +166,37 @@ async function handleOrderCreated(
     };
   }
 
-  const user = await tx.user.findUnique({
-    where: { id: userId },
-    select: { id: true },
-  });
-  if (!user) throw new RetryableWebhookError(`user ${userId} not found`);
+  // The checkout HMAC and payment amount were verified before resolving identity.
+  // Invalid/missing unsigned custom data must never be upgraded by an email match.
+  const validUserId = z
+    .string()
+    .max(191)
+    .regex(/^[a-zA-Z0-9_-]+$/)
+    .safeParse(userId);
+  let user = validUserId.success
+    ? await tx.user.findUnique({ where: { id: userId }, select: { id: true } })
+    : null;
+  if (!user) {
+    const email = z
+      .string()
+      .trim()
+      .email()
+      .max(254)
+      .toLowerCase()
+      .safeParse(attrs.user_email);
+    if (email.success) {
+      user = await tx.user.findUnique({
+        where: { email: email.data },
+        select: { id: true },
+      });
+      if (user)
+        console.warn("[LS_WEBHOOK_USER_RESOLVED_BY_EMAIL]", { orderId });
+    }
+  }
+  if (!user)
+    throw new RetryableWebhookError(
+      "Checkout user unavailable; no matching order email",
+    );
 
   const queuedPurchaseId = await fulfillOrder(
     tx,
@@ -464,80 +525,95 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const outcome = await db.$transaction(
-      async (tx): Promise<Outcome> => {
-        // Shared lock exists even before an order/top-up row exists. ReadCommitted reads
-        // AFTER this lock see every prior committed cumulative refund and its ledger delta.
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`lemonsqueezy:order:${orderId}`}, 0))`;
-        const existing = await tx.webhookEvent.findUnique({
-          where: { eventId },
-          select: { status: true },
-        });
-        const refunds =
-          eventName === "order_created"
-            ? await pendingRefunds(tx, orderId)
-            : [];
-        if (existing && ["processed", "rejected"].includes(existing.status)) {
-          if (existing.status === "processed" && eventName === "order_created")
-            await reconcileRefunds(tx, orderId, refunds);
-          return { status: "ignored", detail: "duplicate" };
-        }
-        let result: Outcome;
-        if (eventName === "order_created" && attrs) {
-          // A legacy pre-existing deterministic payment reference is also idempotent.
-          const verified = verifyCheckoutCustomData(meta.custom_data);
-          const known =
-            !verified || attrs.status !== "paid"
-              ? null
-              : verified.order.type === "LEAD_PURCHASE"
-                ? await tx.leadPurchase.findUnique({
-                    where: { referenceId: leadPurchaseRef(orderId) },
-                    select: { id: true },
-                  })
-                : await tx.walletTransaction.findFirst({
-                    where: { referenceId: topupRef(orderId) },
-                    select: { id: true },
-                  });
-          result = known
-            ? { status: "processed", detail: "existing payment reconciled" }
-            : await handleOrderCreated(
-                tx,
-                orderId,
-                attrs,
-                meta.custom_data,
-                refunds.some((row) => {
-                  const a = refundAttributes(row.payload, orderId);
-                  return !!a && isFullRefund(a);
-                }),
-              );
-          if (result.status === "processed")
-            await reconcileRefunds(tx, orderId, refunds);
-        } else if (eventName === "order_refunded" && attrs) {
-          result = await handleOrderRefunded(tx, orderId, attrs);
-        } else {
-          result = {
-            status: "ignored",
-            detail: `unhandled event ${eventName}`,
-          };
-        }
-        await tx.webhookEvent.upsert({
-          where: { eventId },
-          create: {
-            eventId,
-            provider: "lemonsqueezy",
-            status: result.status,
-            payload,
-          },
-          update: { status: result.status, payload, processedAt: new Date() },
-        });
-        return result;
-      },
-      {
-        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
-        maxWait: 10000,
-        timeout: 30000,
-      },
-    );
+    const processEvent = () =>
+      db.$transaction(
+        async (tx): Promise<Outcome> => {
+          // Shared lock exists even before an order/top-up row exists. ReadCommitted reads
+          // AFTER this lock see every prior committed cumulative refund and its ledger delta.
+          await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`lemonsqueezy:order:${orderId}`}, 0))`;
+          const existing = await tx.webhookEvent.findUnique({
+            where: { eventId },
+            select: { status: true },
+          });
+          const refunds =
+            eventName === "order_created"
+              ? await pendingRefunds(tx, orderId)
+              : [];
+          if (existing && ["processed", "rejected"].includes(existing.status)) {
+            if (
+              existing.status === "processed" &&
+              eventName === "order_created"
+            )
+              await reconcileRefunds(tx, orderId, refunds);
+            return { status: "ignored", detail: "duplicate" };
+          }
+          let result: Outcome;
+          if (eventName === "order_created" && attrs) {
+            // A legacy pre-existing deterministic payment reference is also idempotent.
+            const verified = verifyCheckoutCustomData(meta.custom_data);
+            const known =
+              !verified || attrs.status !== "paid"
+                ? null
+                : verified.order.type === "LEAD_PURCHASE"
+                  ? await tx.leadPurchase.findUnique({
+                      where: { referenceId: leadPurchaseRef(orderId) },
+                      select: { id: true },
+                    })
+                  : await tx.walletTransaction.findFirst({
+                      where: { referenceId: topupRef(orderId) },
+                      select: { id: true },
+                    });
+            result = known
+              ? { status: "processed", detail: "existing payment reconciled" }
+              : await handleOrderCreated(
+                  tx,
+                  orderId,
+                  attrs,
+                  meta.custom_data,
+                  refunds.some((row) => {
+                    const a = refundAttributes(row.payload, orderId);
+                    return !!a && isFullRefund(a);
+                  }),
+                );
+            if (result.status === "processed")
+              await reconcileRefunds(tx, orderId, refunds);
+          } else if (eventName === "order_refunded" && attrs) {
+            result = await handleOrderRefunded(tx, orderId, attrs);
+          } else {
+            result = {
+              status: "ignored",
+              detail: `unhandled event ${eventName}`,
+            };
+          }
+          await tx.webhookEvent.upsert({
+            where: { eventId },
+            create: {
+              eventId,
+              provider: "lemonsqueezy",
+              status: result.status,
+              payload,
+            },
+            update: { status: result.status, payload, processedAt: new Date() },
+          });
+          return result;
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+          maxWait: 10000,
+          timeout: 30000,
+        },
+      );
+    let outcome: Outcome;
+    try {
+      outcome = await processEvent();
+    } catch (error) {
+      if (!canRetryTransaction(error)) throw error;
+      console.error(
+        `[LS_WEBHOOK_TRANSACTION_RETRY] ${eventId}:`,
+        prismaFailureDetails(error),
+      );
+      outcome = await processEvent(); // One bounded retry, with the same order lock.
+    }
     if (outcome.queuedPurchaseId) {
       const purchaseId = outcome.queuedPurchaseId;
       try {
@@ -580,21 +656,48 @@ export async function POST(req: NextRequest) {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      const committed = await db.webhookEvent.findUnique({
-        where: { eventId },
-        select: { status: true },
-      });
-      if (committed?.status === "processed")
-        return NextResponse.json(
-          { received: true, duplicate: true },
-          { status: 200 },
+      try {
+        const committed = await db.webhookEvent.findUnique({
+          where: { eventId },
+          select: { status: true },
+        });
+        if (committed?.status === "processed") {
+          console.error(
+            `[LS_WEBHOOK_DUPLICATE_CONFLICT] ${eventId}:`,
+            prismaFailureDetails(error),
+          );
+          return NextResponse.json(
+            { received: true, duplicate: true },
+            { status: 200 },
+          );
+        }
+      } catch (lookupError) {
+        console.error(
+          `[LS_WEBHOOK_DUPLICATE_LOOKUP_FAILED] ${eventId}:`,
+          prismaFailureDetails(lookupError),
         );
+      }
     }
 
-    console.error(`[LS_WEBHOOK_FAILED] ${eventId}:`, error);
-    await recordEvent(eventId, "failed", payload).catch(() => undefined);
-    // Non-2xx so Lemon Squeezy retries and the failure is visible in its dashboard.
-    const status = error instanceof RetryableWebhookError ? 422 : 500;
+    console.error(
+      `[LS_WEBHOOK_FAILED] ${eventId}:`,
+      prismaFailureDetails(error),
+    );
+    await recordEvent(eventId, "failed", payload).catch(
+      (recordError: unknown) => {
+        console.error(
+          `[LS_WEBHOOK_EVENT_RECORD_FAILED] ${eventId}:`,
+          prismaFailureDetails(recordError),
+        );
+      },
+    );
+    // Missing/deleted users and FK races receive a clean, retryable response.
+    // Do not acknowledge success: failed atomic mutations must be redelivered.
+    const missingRelation =
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      ["P2003", "P2025"].includes(error.code);
+    const status =
+      error instanceof RetryableWebhookError || missingRelation ? 422 : 500;
     return NextResponse.json(
       { error: "Webhook processing failed" },
       { status },
