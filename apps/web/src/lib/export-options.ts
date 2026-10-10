@@ -1,5 +1,5 @@
 import { US_STATES } from "@fine-leads/utils";
-export type LeadExportFormat = "csv" | "json";
+export type LeadExportFormat = "csv" | "xlsx" | "json" | "tsv";
 export type LeadExportGrouping = "combined" | "split";
 export class LeadExportError extends Error {
   constructor(
@@ -43,10 +43,12 @@ export function parseExportOptions(params: URLSearchParams) {
   const territory = normalizeExportStates(values);
   const format = (params.get("format") ?? "csv").toLowerCase();
   const grouping = (params.get("grouping") ?? "combined").toLowerCase();
-  if (format !== "csv" && format !== "json")
-    throw new LeadExportError("Format must be CSV or JSON");
+  if (!["csv", "xlsx", "json", "tsv"].includes(format))
+    throw new LeadExportError("Format must be CSV, Excel, JSON or TSV");
   if (grouping !== "combined" && grouping !== "split")
     throw new LeadExportError("Grouping must be combined or split");
+  if (format === "tsv" && grouping !== "combined")
+    throw new LeadExportError("Clipboard TSV must use combined grouping");
   return {
     ...territory,
     purchaseId,

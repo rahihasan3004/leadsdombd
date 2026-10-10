@@ -4,7 +4,7 @@ Authenticated endpoint: `GET /api/exports/stream`.
 
 - `purchaseId`: export only this user's COMPLETED order. Without it, completed per-lead unlocks are still scoped to the signed-in user.
 - `state=TX`, `states=TX,GA`, repeated `state` parameters, or `state=ALL` / `All States` / `all_states` are supported. An owned `purchaseId` without a state selector exports that entire order. ALL removes only the state filter, never the user, order, or completed-status filters.
-- `format=csv|json` (default CSV).
+- `format=csv|xlsx|json` (default CSV). `format=tsv` is the internal combined-only clipboard format.
 - `grouping=combined|split` (default combined). Split produces one ZIP with files such as `Texas.csv`, `Georgia.csv`, or their JSON equivalents. Unknown/null states are preserved in `Unknown-State` rather than silently dropped. ZIP is the container; the existing export record's format is CSV/JSON, with ZIP/grouping recorded in searchQuery. No schema migration is needed.
 
 ## Failure-safe preparation and streaming
@@ -23,6 +23,14 @@ Every row uses its associated purchase tier, never a query-supplied tier. PHONE_
 
 ## Vault experience
 
-Single-state orders download CSV directly, with a compact JSON format dropdown. Multi-state/All States orders open a keyboard-accessible, focus-trapped dialog with CSV/JSON and combined/split choices. Both desktop and mobile views use the same control. Pending/refunded orders remain disabled. One request downloads one attachment, including ZIP; error responses and partial blobs are not saved as stream.txt. Compressed HTTP downloads are handled without comparing compressed wire length to decoded blob size. Preparing states, cancellation, and clear retry errors are shown in the UI.
+Every completed order has one Export button opening the same keyboard-accessible, focus-trapped dialog with CSV, Excel (.xlsx), and JSON. Single-state orders hide split grouping and force combined; multi-state/All States orders offer combined/split ZIP choices for all three formats. Both desktop and mobile views use the same control. Pending/refunded orders remain disabled. One request downloads one attachment, including ZIP; error responses and partial blobs are not saved as stream.txt. Compressed HTTP downloads are handled without comparing compressed wire length to decoded blob size. Preparing states, cancellation, and clear retry errors are shown in the UI.
 
 Regression tests validate real CSV, JSON arrays and ZIP central-directory contents, phone-only redaction inside both ZIP formats, bounded paging, pre-header query failures, audit failures, option parsing, permission checks, one-request downloads and client error handling. They do not export production customer data.
+
+## Excel and Google Sheets
+
+Excel files are built server-side with ExcelJS streaming WorkbookWriter from staged, per-row-redacted NDJSON, then served only after completion. State-split ZIPs contain real .xlsx workbooks. Worksheets have styled headers, frozen top rows, filters, text phone/ZIP cells, and typed review counts, ratings, and timestamps. Data is literal cell values, never executable formula objects. The existing Prisma EXCEL enum records Excel exports; no migration is needed. ExcelJS is imported only by the server exporter.
+
+Copy for Google Sheets requests one authenticated, order-scoped combined TSV and writes it to the clipboard; no Google account connection or upload occurs. Tabs/newlines inside fields are normalized so rows have stable widths. Formula-looking strings and leading-zero numeric text are apostrophe-prefixed to preserve safe pasting. It copies the entire order, not the visible Vault page. Clipboard limits are 10,000 leads / 8 MiB, with clear Excel-download guidance rather than truncation. HTTPS/clipboard permissions are required. Promise-backed ClipboardItem preserves click activation where supported; writeText is the fallback. Both paths reject interrupted transfers, handle cancellation, and display success only after the clipboard write resolves.
+
+PHONE_ONLY email/social redaction is identical across CSV, JSON, XLSX, TSV and every ZIP member. VERIFIED_EMAIL includes only SMTP-validated/deliverable email and normalized allowlisted social URLs. Regression tests load generated XLSX files, inspect typed cells, freeze panes, ZIP members and tier restrictions; UI tests cover options and clipboard failures. Tests use synthetic data, not customer exports.

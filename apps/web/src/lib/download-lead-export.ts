@@ -33,12 +33,18 @@ export async function downloadLeadExport(
       ? "application/zip"
       : options.format === "csv"
         ? "text/csv"
-        : "application/json";
+        : options.format === "xlsx"
+          ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          : options.format === "tsv"
+            ? "text/tab-separated-values"
+            : "application/json";
   if (!response.headers.get("Content-Type")?.toLowerCase().startsWith(expected))
     throw new Error("Unexpected export response. Please retry.");
   const filename = response.headers
     .get("Content-Disposition")
-    ?.match(/filename="(leadsdom-export-[a-z0-9-]+\.(?:csv|json|zip))"/i)?.[1];
+    ?.match(
+      /filename="(leadsdom-export-[a-z0-9-]+\.(?:csv|xlsx|json|zip|tsv))"/i,
+    )?.[1];
   if (!filename) throw new Error("Export filename is missing. Please retry.");
   let blob: Blob;
   try {

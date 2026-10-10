@@ -8,6 +8,7 @@ declare module "next-auth" {
       name: string | null;
       role: string;
       walletBalance: number;
+      credits?: number;
       tokenVersion: number;
       organizationId?: string | null;
     };
@@ -21,6 +22,7 @@ declare module "@auth/core/jwt" {
     name: string | null;
     role: string;
     walletBalance: number;
+    credits?: number;
     tokenVersion: number;
     organizationId?: string | null;
   }

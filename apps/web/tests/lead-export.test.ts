@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { inflateRawSync } from "node:zlib";
+import ExcelJS from "exceljs";
 const m = vi.hoisted(() => ({
   auth: vi.fn(),
   purchase: vi.fn(),
@@ -55,8 +56,8 @@ const lead = (
 });
 const req = (query: string) =>
   new Request(`https://app.test/api/exports/stream?${query}`);
-function unzip(bytes: Buffer) {
-  const entries = new Map<string, string>();
+function unzipRaw(bytes: Buffer) {
+  const entries = new Map<string, Buffer>();
   let end = bytes.length - 22;
   while (end >= 0 && bytes.readUInt32LE(end) !== 0x06054b50) end--;
   expect(end).toBeGreaterThanOrEqual(0);
@@ -80,10 +81,15 @@ function unzip(bytes: Buffer) {
       bytes.readUInt16LE(local + 26) +
       bytes.readUInt16LE(local + 28);
     const raw = bytes.subarray(offset, offset + size);
-    entries.set(name, (method === 8 ? inflateRawSync(raw) : raw).toString());
+    entries.set(name, method === 8 ? inflateRawSync(raw) : raw);
     position += 46 + nameLength + extra + comment;
   }
   return entries;
+}
+function unzip(bytes: Buffer) {
+  return new Map(
+    [...unzipRaw(bytes)].map(([name, bytes]) => [name, bytes.toString()]),
+  );
 }
 beforeEach(() => {
   vi.resetAllMocks();
@@ -394,4 +400,137 @@ describe("multi-state safe lead exports", () => {
         expect(JSON.parse(text)[0]).not.toHaveProperty("socialProfiles");
     },
   );
+  it.each(["PHONE_ONLY", "VERIFIED_EMAIL"] as const)(
+    "enforces %s access in Excel, split Excel ZIP and Google Sheets TSV",
+    async (tier) => {
+      const record = lead("excel", "TX", tier);
+      const profiles = {
+        linkedin: "https://linkedin.com/in/bonus",
+        facebook: "https://facebook.com/bonus",
+      };
+      m.purchase.mockResolvedValue({ id: "p1", tier });
+      m.count.mockResolvedValue(1);
+      m.batch.mockResolvedValue([
+        { ...record, agent: { ...record.agent, socialProfiles: profiles } },
+      ]);
+      for (const grouping of ["combined", "split"] as const) {
+        const response = await GET(
+          req(`purchaseId=p1&format=xlsx&grouping=${grouping}`),
+        );
+        expect(response.status).toBe(200);
+        expect(response.headers.get("Content-Type")).toBe(
+          grouping === "split"
+            ? "application/zip"
+            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        );
+        let bytes: Buffer = Buffer.from(await response.arrayBuffer());
+        if (grouping === "split") bytes = unzipRaw(bytes).get("Texas.xlsx")!;
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(
+          bytes as unknown as Parameters<typeof workbook.xlsx.load>[0],
+        );
+        const sheet = workbook.worksheets[0]!;
+        expect(sheet.name).toBe("Leads");
+        expect(sheet.rowCount).toBe(2);
+        expect(sheet.getCell("G2").value).toBe("02108");
+        expect(sheet.getCell("B2").type).toBe(ExcelJS.ValueType.String);
+        expect(sheet.getCell("N2").value).toBe(3);
+        expect(sheet.getCell("O2").value).toBe(4.5);
+        expect(sheet.getCell("P2").value).toBeInstanceOf(Date);
+        expect(sheet.views[0]?.state).toBe("frozen");
+        const values = JSON.stringify(sheet.getSheetValues());
+        if (tier === "PHONE_ONLY") {
+          expect(values).not.toContain("secret-excel@example.com");
+          expect(values).not.toContain("linkedin.com");
+          expect(sheet.columnCount).toBe(17);
+        } else {
+          expect(values).toContain("secret-excel@example.com");
+          expect(values).toContain(profiles.linkedin);
+          expect(sheet.columnCount).toBe(28);
+        }
+      }
+      const response = await GET(req("purchaseId=p1&format=tsv"));
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Content-Type")).toBe(
+        "text/tab-separated-values; charset=utf-8",
+      );
+      const table = await response.text();
+      const rows = table
+        .replace(/\r\n$/, "")
+        .split("\r\n")
+        .map((line) => line.split("\t"));
+      expect(rows[1]![6]).toBe("'02108");
+      expect(rows[0]!.length).toBe(rows[1]!.length);
+      if (tier === "PHONE_ONLY") {
+        expect(table).not.toContain("secret-excel@example.com");
+        expect(table).not.toContain("linkedin.com");
+      } else {
+        expect(table).toContain("secret-excel@example.com");
+        expect(table).toContain(profiles.linkedin);
+      }
+    },
+  );
+  it("stores Excel as EXCEL and builds distinct state workbooks in one ZIP", async () => {
+    const response = await GET(req("state=ALL&format=xlsx&grouping=split"));
+    const files = unzipRaw(Buffer.from(await response.arrayBuffer()));
+    expect([...files.keys()].sort()).toEqual(["Georgia.xlsx", "Texas.xlsx"]);
+    expect(m.create.mock.calls[0]![0].data.format).toBe("EXCEL");
+    for (const bytes of files.values()) {
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(
+        bytes as unknown as Parameters<typeof wb.xlsx.load>[0],
+      );
+      expect(wb.worksheets[0]!.rowCount).toBe(2);
+    }
+  });
+  it("keeps Excel formula-looking text literal and TSV rows/columns safe", async () => {
+    const record = lead("literal", "TX");
+    record.agent.brokerageName = '=HYPERLINK("bad")';
+    record.agent.brokerageAddress = "Line one\tInjected\nRow two";
+    m.count.mockResolvedValue(1);
+    m.batch.mockResolvedValue([record]);
+    const response = await GET(req("purchaseId=p1&format=xlsx"));
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(
+      Buffer.from(await response.arrayBuffer()) as unknown as Parameters<
+        typeof wb.xlsx.load
+      >[0],
+    );
+    expect(wb.worksheets[0]!.getCell("A2").type).toBe(ExcelJS.ValueType.String);
+    expect(wb.worksheets[0]!.getCell("A2").value).toBe(
+      record.agent.brokerageName,
+    );
+    const tsv = await (await GET(req("purchaseId=p1&format=tsv"))).text();
+    const rows = tsv.replace(/\r\n$/, "").split("\r\n");
+    expect(rows).toHaveLength(2);
+    expect(rows[1]!.split("\t")[0]).toBe("'" + record.agent.brokerageName);
+    expect(rows[1]!.split("\t")[3]).toBe("Line one Injected Row two");
+  });
+  it("bounds clipboard copies and refuses split TSV before DB work", async () => {
+    m.count.mockResolvedValue(10001);
+    expect((await GET(req("purchaseId=p1&format=tsv"))).status).toBe(413);
+    expect(m.batch).not.toHaveBeenCalled();
+    m.count.mockClear();
+    expect(
+      (await GET(req("purchaseId=p1&format=tsv&grouping=split"))).status,
+    ).toBe(400);
+    expect(m.count).not.toHaveBeenCalled();
+  });
+  it("returns a safe pre-header error when Excel staging queries fail", async () => {
+    m.batch.mockRejectedValue(new Error("database secret"));
+    const response = await GET(req("purchaseId=p1&format=xlsx"));
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Content-Disposition")).toBeNull();
+    expect(await response.text()).not.toContain("database secret");
+  });
+  it("fails oversized Excel cells safely before attachment headers", async () => {
+    const record = lead("oversized", "TX");
+    record.agent.brokerageName = "x".repeat(32768);
+    m.count.mockResolvedValue(1);
+    m.batch.mockResolvedValue([record]);
+    const response = await GET(req("purchaseId=p1&format=xlsx"));
+    expect(response.status).toBe(413);
+    expect(response.headers.get("Content-Disposition")).toBeNull();
+    expect((await response.json()).error).toContain("cell size limit");
+  });
 });

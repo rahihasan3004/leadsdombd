@@ -39,14 +39,22 @@ export default function DashboardLayout({
   }
 
   const user = {
+    id: session.user.id,
     name: session.user.name,
     email: session.user.email,
-    walletBalance: (session.user as { walletBalance?: number }).walletBalance ?? 25.0,
+    credits: session.user.credits,
   };
 
   return (
-    <div data-dashboard-shell className="h-dvh max-h-dvh min-h-0 w-full flex overflow-hidden bg-slate-50 dark:bg-slate-950">
-      <Sidebar user={user} mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
+    <div
+      data-dashboard-shell
+      className="h-dvh max-h-dvh min-h-0 w-full flex overflow-hidden bg-slate-50 dark:bg-slate-950"
+    >
+      <Sidebar
+        user={user}
+        mobileOpen={mobileOpen}
+        onMobileOpenChange={setMobileOpen}
+      />
       <div className="flex-1 flex flex-col h-full min-h-0 min-w-0 overflow-hidden">
         {/* Mobile header: fixed to the viewport, outside the scroll container, so nothing can scroll it away. */}
         <header className="fixed top-0 left-0 right-0 w-full h-14 z-[80] bg-white/95 backdrop-blur-md border-b border-slate-200/80 flex items-center px-4 lg:hidden">
@@ -58,7 +66,9 @@ export default function DashboardLayout({
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="ml-3 font-semibold text-sm text-neutral-900">Dashboard</span>
+          <span className="ml-3 font-semibold text-sm text-neutral-900">
+            Dashboard
+          </span>
         </header>
         <main
           data-dashboard-scroll
@@ -68,7 +78,9 @@ export default function DashboardLayout({
             whiteOnMobile ? "bg-white md:bg-slate-50" : "bg-slate-50"
           }`}
         >
-          <div className="min-h-full px-4 pt-4 pb-12 md:px-8 md:pt-6">{children}</div>
+          <div className="min-h-full px-4 pt-4 pb-12 md:px-8 md:pt-6">
+            {children}
+          </div>
         </main>
       </div>
     </div>

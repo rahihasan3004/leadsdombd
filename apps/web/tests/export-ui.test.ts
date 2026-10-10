@@ -51,7 +51,7 @@ function attachment(
   });
 }
 describe("Vault export selection and downloads", () => {
-  it("shows CSV as the single-state default with an optional JSON dropdown", () => {
+  it("shows a single Export button with dialog semantics for single-state orders", () => {
     const html = renderToStaticMarkup(
       React.createElement(VaultExportControl, {
         purchase: {
@@ -62,9 +62,10 @@ describe("Vault export selection and downloads", () => {
         },
       }),
     );
-    expect(html).toContain(">CSV<");
-    expect(html).toContain('aria-label="Export format"');
-    expect(html).toContain('value="json"');
+    expect(html).toContain(">Export<");
+    expect(html).toContain('aria-haspopup="dialog"');
+    expect(html).not.toContain('aria-label="Export format"');
+    expect(html).not.toContain("<select");
     expect(html).not.toContain('role="dialog"');
   });
   it.each([["TX", "GA"], ["ALL"], ["All States"]])(
@@ -181,5 +182,23 @@ describe("Vault export selection and downloads", () => {
     await expect(downloadLeadExport(options)).rejects.toThrow("interrupted");
     expect(click).not.toHaveBeenCalled();
     expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+  it("accepts an Excel attachment with its XLSX MIME type and server filename", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          attachment(
+            "xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "xlsx",
+          ),
+        ),
+    );
+    await downloadLeadExport({ ...options, format: "xlsx" });
+    expect(anchor.download).toBe("leadsdom-export-all-123.xlsx");
+    expect(click).toHaveBeenCalledOnce();
+    expect(vi.mocked(fetch).mock.calls[0]![0]).toContain("format=xlsx");
   });
 });

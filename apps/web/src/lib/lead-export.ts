@@ -1,9 +1,11 @@
 import { mkdtemp, open, rm, stat, type FileHandle } from "node:fs/promises";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, createReadStream } from "node:fs";
+import { createInterface } from "node:readline";
+import ExcelJS from "exceljs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
+import { pipeline, finished } from "node:stream/promises";
 import archiver from "archiver";
 import { db, type Prisma } from "@fine-leads/database";
 import { redactLeadForTier } from "./lead-access";
@@ -118,9 +120,147 @@ export function exportLead(unlock: Unlock) {
     ]),
   ) as typeof result;
 }
+export function tabularHeaders(includeBonus: boolean) {
+  return [
+    ...headers,
+    ...(includeBonus ? SOCIAL_PROFILE_FIELDS.map((field) => field.label) : []),
+  ];
+}
+function tabularValues(
+  lead: ReturnType<typeof exportLead>,
+  includeBonus: boolean,
+) {
+  const values: Array<string | number | null | undefined> = [
+    lead.companyName,
+    lead.phone,
+    lead.category,
+    lead.address,
+    lead.city,
+    lead.state,
+    lead.zipCode,
+    lead.timezone,
+    lead.website,
+    lead.email,
+    lead.googlePlaceId,
+    lead.dataSource,
+    lead.brokerageName,
+    lead.reviewCount,
+    lead.rating,
+    lead.scrapedAt,
+    lead.googleMapsLink,
+  ];
+  if (includeBonus)
+    values.push(
+      ...SOCIAL_PROFILE_FIELDS.map((field) =>
+        "socialProfiles" in lead ? lead.socialProfiles?.[field.key] : null,
+      ),
+    );
+  return values;
+}
+export function tsvCell(value: unknown): string {
+  let text = value == null ? "" : String(value);
+  // TSV has no portable quoted-cell convention when pasted; never let a field add a row/column.
+  text = text.replace(/[\t\r\n]+/g, " ");
+  if (/^\s*[=+@-]/.test(text) || /^0\d+$/.test(text)) text = "'" + text;
+  return text;
+}
+async function writeExcelFile(
+  source: string,
+  path: string,
+  includeBonus: boolean,
+  check: () => void,
+) {
+  const output = createWriteStream(path, { mode: 0o600 });
+  let outputError: Error | undefined;
+  const failed = new Promise<never>((_, reject) =>
+    output.once("error", (error) => {
+      outputError = error;
+      reject(error);
+    }),
+  );
+  void failed.catch(() => undefined);
+  const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+    stream: output,
+    useStyles: true,
+    useSharedStrings: false,
+  });
+  workbook.creator = "LeadsDom";
+  const sheet = workbook.addWorksheet("Leads", {
+    views: [{ state: "frozen", ySplit: 1 }],
+  });
+  sheet.columns = tabularHeaders(includeBonus).map((header, index) => ({
+    header,
+    width: index === 3 ? 40 : index === 0 ? 32 : 24,
+  }));
+  const header = sheet.getRow(1);
+  header.font = { bold: true, color: { argb: "FFFFFFFF" } };
+  header.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF2563EB" },
+  };
+  header.alignment = { vertical: "middle", wrapText: true };
+  header.height = 34;
+  header.commit();
+  const input = createReadStream(source);
+  const lines = createInterface({ input, crlfDelay: Infinity });
+  input.once("error", (error) => {
+    outputError = error;
+    lines.close();
+  });
+  let rows = 1;
+  try {
+    for await (const line of lines) {
+      check();
+      if (outputError) throw outputError;
+      if (!line) continue;
+      const lead = JSON.parse(line) as ReturnType<typeof exportLead>;
+      const values = tabularValues(lead, includeBonus);
+      if (
+        values.some(
+          (value) => typeof value === "string" && value.length > 32767,
+        )
+      )
+        throw new LeadExportError(
+          "A lead field exceeds Excel's cell size limit. Use JSON for this export.",
+          413,
+        );
+      const row = sheet.addRow(values.map((value) => value ?? null));
+      // Literal string values (never formula objects) preserve phones and leading-zero ZIPs.
+      row.getCell(2).numFmt = "@";
+      row.getCell(7).numFmt = "@";
+      row.getCell(14).numFmt = "0";
+      row.getCell(15).numFmt = "0.0";
+      if (lead.scrapedAt) {
+        row.getCell(16).value = new Date(lead.scrapedAt);
+        row.getCell(16).numFmt = "yyyy-mm-dd hh:mm:ss";
+      }
+      row.commit();
+      rows++;
+    }
+    if (outputError) throw outputError;
+    sheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: rows, column: tabularHeaders(includeBonus).length },
+    };
+    sheet.commit();
+    await Promise.race([workbook.commit(), failed]);
+    check();
+  } catch (error) {
+    output.destroy();
+    await finished(output).catch(() => undefined);
+    throw error;
+  } finally {
+    lines.close();
+    input.destroy();
+    await finished(input).catch(() => undefined);
+  }
+}
 function row(unlock: Unlock, format: LeadExportFormat, includeBonus: boolean) {
   const lead = exportLead(unlock);
-  if (format === "json") return JSON.stringify(lead);
+  if (format === "json" || format === "xlsx") return JSON.stringify(lead);
+  if (format === "tsv")
+    return tabularValues(lead, includeBonus).map(tsvCell).join("\t");
   const fields = [
     csvCell(lead.companyName),
     phoneCell(lead.phone),
@@ -196,6 +336,12 @@ export async function prepareLeadExport(
       "Export exceeds 100,000 leads. Please export individual orders.",
       413,
     );
+  if (format === "tsv" && expectedCount > 10_000)
+    throw new LeadExportError(
+      "Clipboard copy supports up to 10,000 leads. Download Excel for larger orders.",
+      413,
+    );
+  const byteLimit = format === "tsv" ? 8 * 1024 * 1024 : MAX_BYTES;
   const dir = await mkdtemp(join(tmpdir(), "leadsdom-export-"));
   const cleanup = () => rm(dir, { recursive: true, force: true });
   const files = new Map<
@@ -216,7 +362,7 @@ export async function prepareLeadExport(
   };
   async function write(file: { handle: FileHandle }, text: string) {
     bytes += Buffer.byteLength(text);
-    if (bytes > MAX_BYTES)
+    if (bytes > byteLimit)
       throw new LeadExportError(
         "Export exceeds the temporary file size limit. Please export a smaller order.",
         413,
@@ -243,8 +389,8 @@ export async function prepareLeadExport(
         check();
         const name =
           grouping === "combined"
-            ? `combined.${format}`
-            : `${stateExportName(unlock.agent.state)}.${format}`;
+            ? `combined.${format === "xlsx" ? "ndjson" : format}`
+            : `${stateExportName(unlock.agent.state)}.${format === "xlsx" ? "ndjson" : format}`;
         let file = files.get(name);
         if (!file) {
           file = {
@@ -256,21 +402,20 @@ export async function prepareLeadExport(
           await write(
             file,
             format === "csv"
-              ? [
-                  ...headers,
-                  ...(includeBonus
-                    ? SOCIAL_PROFILE_FIELDS.map((field) => field.label)
-                    : []),
-                ]
-                  .map(csvCell)
-                  .join(",") + "\r\n"
-              : "[\n",
+              ? tabularHeaders(includeBonus).map(csvCell).join(",") + "\r\n"
+              : format === "tsv"
+                ? tabularHeaders(includeBonus).map(tsvCell).join("\t") + "\r\n"
+                : format === "json"
+                  ? "[\n"
+                  : "",
           );
         }
         const chunk =
           (format === "json" && file.rows ? ",\n" : "") +
           row(unlock, format, includeBonus) +
-          (format === "csv" ? "\r\n" : "");
+          (format === "csv" || format === "tsv" || format === "xlsx"
+            ? "\r\n"
+            : "");
         const parts = chunks.get(name) ?? [];
         parts.push(chunk);
         chunks.set(name, parts);
@@ -300,6 +445,21 @@ export async function prepareLeadExport(
     for (const file of files.values()) {
       if (format === "json") await write(file, "\n]\n");
       await file.handle.close();
+    }
+    if (format === "xlsx") {
+      let excelBytes = 0;
+      for (const file of files.values()) {
+        check();
+        const excelPath = file.path.replace(/\.ndjson$/, ".xlsx");
+        await writeExcelFile(file.path, excelPath, includeBonus, check);
+        excelBytes += (await stat(excelPath)).size;
+        if (excelBytes > MAX_BYTES)
+          throw new LeadExportError(
+            "Excel files exceed the export size limit. Export a smaller order.",
+            413,
+          );
+        file.path = excelPath;
+      }
     }
     check();
     let path = files.values().next().value!.path;

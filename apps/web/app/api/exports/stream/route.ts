@@ -62,7 +62,12 @@ export async function GET(req: Request) {
     const record = await db.leadExport.create({
       data: {
         userId: session.user.id,
-        format: options.format === "json" ? "JSON" : "CSV",
+        format:
+          options.format === "xlsx"
+            ? "EXCEL"
+            : options.format === "json"
+              ? "JSON"
+              : "CSV",
         agentCount,
         status: "PROCESSING",
         searchQuery: {
@@ -104,7 +109,11 @@ export async function GET(req: Request) {
             ? "application/zip"
             : ext === "json"
               ? "application/json; charset=utf-8"
-              : "text/csv; charset=utf-8",
+              : ext === "xlsx"
+                ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                : ext === "tsv"
+                  ? "text/tab-separated-values; charset=utf-8"
+                  : "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="${filename}"`,
         "Content-Length": String(size),
         "Cache-Control": "private, no-store",
