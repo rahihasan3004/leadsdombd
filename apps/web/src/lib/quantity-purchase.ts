@@ -18,6 +18,7 @@ import {
   FULFILLMENT_TTL_MS,
 } from "./scraper/fulfillment-policy";
 import { enqueueOrderEmail } from "./email/order-emails";
+import { apifyProviderSelected } from "./scraper/scraper-provider";
 export class OrderError extends Error {
   constructor(
     readonly status: number,
@@ -66,7 +67,12 @@ export async function createQuantityLeadPurchase(
     });
   }
   let parallelPlan: ReturnType<typeof createParallelPlan> | null = null;
-  if (processing && quantity >= 500 && parallelFulfillmentEnabled()) {
+  if (
+    processing &&
+    quantity >= 500 &&
+    parallelFulfillmentEnabled() &&
+    !apifyProviderSelected()
+  ) {
     try {
       parallelPlan = createParallelPlan(
         states,

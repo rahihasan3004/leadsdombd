@@ -199,7 +199,7 @@ export function mapLobstrLead(
   };
 }
 
-async function insertUnlessDuplicate(
+export async function insertUnlessDuplicate(
   lead: MappedLead,
 ): Promise<{ id: string; created: boolean }> {
   for (let attempt = 0; attempt < 3; attempt++) {

@@ -6,13 +6,11 @@ import {
   sendOrderCompletedEmail,
   sendOrderFailedEmail,
 } from "../email/order-emails";
-import {
-  LobstrClient,
-  LobstrError,
-  LobstrDispatchError,
-} from "./lobstr-client";
+import { LobstrError, LobstrDispatchError } from "./lobstr-client";
 import { advanceParallelJob } from "./parallel-dispatcher";
 import { ingestLobstrLead } from "./lead-mapper";
+import { ingestApifyLead } from "./apify-mapper";
+import { getFulfillmentClient } from "./scraper-provider";
 import {
   freshInventoryWhere,
   isSmtpDeliverable,
@@ -343,7 +341,7 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
       orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
     });
     if (run?.status === "QUEUED") {
-      const client = new LobstrClient();
+      const client = getFulfillmentClient();
       await persistRun(job, token, run.id, { status: "DISPATCHING" });
       try {
         const dispatched = await client.triggerScrapeRun({
@@ -398,7 +396,9 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
         outcome = "NEEDS_REVIEW";
       }
     } else if (run?.status === "POLLING" && run.runId) {
-      const status = await new LobstrClient().getRunStatus(run.runId);
+      const status = await getFulfillmentClient(run.runId).getRunStatus(
+        run.runId,
+      );
       if (["ERROR", "ABORTED"].includes(status.status)) {
         await persistRun(job, token, run.id, { status: "FAILED" });
         await refundFulfillment(job, token, "LOBSTR_RUN_FAILED");
@@ -416,7 +416,7 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
         outcome = "POLLING";
       }
     } else if (run?.status === "INGESTING" && run.runId) {
-      const client = new LobstrClient();
+      const client = getFulfillmentClient(run.runId);
       const status = await client.getRunStatus(run.runId);
       if (status.status !== "DONE" || status.export_done !== true)
         throw new LobstrError("Run export is not ready");
@@ -438,7 +438,9 @@ export async function processNextFulfillment(options: FulfillmentOptions = {}) {
         processed < run.targetQuantity &&
         Date.now() + 25_000 < deadline
       ) {
-        const mapped = await ingestLobstrLead(page.data[offset]!, {
+        const mapped = await (
+          run.runId.startsWith("apify:") ? ingestApifyLead : ingestLobstrLead
+        )(page.data[offset]!, {
           state: run.state,
           category: job.category,
         });

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => {
   const methods = () => ({
     findFirst: vi.fn(),
@@ -34,6 +34,10 @@ const mocks = vi.hoisted(() => {
     status: vi.fn(),
     page: vi.fn(),
     ingest: vi.fn(),
+    apifyDispatch: vi.fn(),
+    apifyStatus: vi.fn(),
+    apifyPage: vi.fn(),
+    apifyIngest: vi.fn(),
   };
 });
 vi.mock("@fine-leads/database", async (importOriginal) => ({
@@ -72,6 +76,18 @@ import {
   LobstrError,
   LobstrDispatchError,
 } from "../src/lib/scraper/lobstr-client";
+vi.mock("../src/lib/scraper/apify-client", async (original) => ({
+  ...(await original<typeof import("../src/lib/scraper/apify-client")>()),
+  CompassApifyClient: class {
+    dispatchApifyScrape = mocks.apifyDispatch;
+    getRun = mocks.apifyStatus;
+    getDatasetPage = mocks.apifyPage;
+  },
+}));
+vi.mock("../src/lib/scraper/apify-mapper", () => ({
+  ingestApifyLead: mocks.apifyIngest,
+}));
+import { ApifyError } from "../src/lib/scraper/apify-token-pool";
 import type { Prisma } from "@fine-leads/database";
 const now = new Date();
 const job = {
@@ -120,6 +136,13 @@ const run = {
   processedCount: 0,
 };
 beforeEach(() => {
+  for (const fn of [
+    mocks.apifyDispatch,
+    mocks.apifyStatus,
+    mocks.apifyPage,
+    mocks.apifyIngest,
+  ])
+    fn.mockReset();
   for (const table of Object.values(mocks.db)) {
     if (typeof table === "function") table.mockReset();
     else for (const method of Object.values(table)) method.mockReset();
@@ -648,5 +671,90 @@ describe("known dispatch rejection versus uncertain delivery", () => {
       where: { jobId: "job-1", status: { notIn: ["DONE", "FAILED"] } },
       data: { status: "FAILED" },
     });
+  });
+});
+
+describe("Apify durable fulfillment lifecycle", () => {
+  const reference = `apify:${"a".repeat(24)}:run_1`;
+  afterEach(() => vi.unstubAllEnvs());
+  it("checkpoints the owning run reference before polling an Apify-primary order", async () => {
+    vi.stubEnv("SCRAPER_PROVIDER", "apify");
+    vi.stubEnv("APIFY_FULFILLMENT_ENABLED", "true");
+    vi.stubEnv("APIFY_TOKEN", "test-token");
+    mocks.apifyDispatch.mockResolvedValue({
+      runReference: reference,
+      run: { id: "run_1", status: "RUNNING", defaultDatasetId: "dataset_1" },
+    });
+    mocks.db.leadFulfillmentRun.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(run);
+    expect((await processNextFulfillment()).status).toBe("DISPATCHED");
+    expect(mocks.trigger).not.toHaveBeenCalled();
+    expect(mocks.db.leadFulfillmentRun.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { status: "POLLING", runId: reference },
+      }),
+    );
+  });
+  it("resumes polling the pinned Apify run after the default provider changes", async () => {
+    mocks.db.leadFulfillmentRun.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ ...run, status: "POLLING", runId: reference });
+    mocks.apifyStatus.mockResolvedValue({
+      id: "run_1",
+      status: "SUCCEEDED",
+      defaultDatasetId: "dataset_1",
+    });
+    expect((await processNextFulfillment()).status).toBe("INGESTING");
+    expect(mocks.apifyStatus).toHaveBeenCalledWith(reference);
+    expect(mocks.status).not.toHaveBeenCalled();
+  });
+  it("ingests Apify leads and checkpoints candidate/cursor without bypassing tier allocation", async () => {
+    mocks.db.leadFulfillmentRun.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ ...run, status: "INGESTING", runId: reference });
+    mocks.apifyStatus.mockResolvedValue({
+      id: "run_1",
+      status: "SUCCEEDED",
+      defaultDatasetId: "dataset_1",
+    });
+    mocks.apifyPage.mockResolvedValue({
+      page: 1,
+      total_pages: 1,
+      total_results: 1,
+      data: [{ title: "Compass lead" }],
+    });
+    mocks.apifyIngest.mockResolvedValue({
+      kind: "lead",
+      agentId: "apify_agent",
+      created: true,
+    });
+    expect((await processNextFulfillment()).status).toBe("INGESTING");
+    expect(mocks.ingest).not.toHaveBeenCalled();
+    expect(mocks.db.leadFulfillmentCandidate.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: { jobId: "job-1", agentId: "apify_agent" },
+      }),
+    );
+    expect(mocks.db.unlockedLead.createMany).not.toHaveBeenCalled();
+    expect(mocks.db.leadFulfillmentRun.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { resultOffset: 1, processedCount: 1 } }),
+    );
+  });
+  it("keeps ambiguous paid Apify dispatches in NEEDS_REVIEW, never redispatches", async () => {
+    vi.stubEnv("SCRAPER_PROVIDER", "apify");
+    vi.stubEnv("APIFY_FULFILLMENT_ENABLED", "true");
+    vi.stubEnv("APIFY_TOKEN", "test-token");
+    mocks.db.leadFulfillmentRun.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(run);
+    mocks.apifyDispatch.mockRejectedValue(
+      new ApifyError("Lost response", "NETWORK_ERROR", undefined, true),
+    );
+    expect((await processNextFulfillment()).status).toBe("NEEDS_REVIEW");
+    expect(mocks.db.leadFulfillmentRun.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: "UNKNOWN" } }),
+    );
+    expect(mocks.apifyDispatch).toHaveBeenCalledOnce();
   });
 });
